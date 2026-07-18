@@ -1,0 +1,463 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Eye, X, Trash2, Layers, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { masterDataService } from '../api/masterDataService';
+import type { Recipe, Product } from '../api/masterDataService';
+
+export const RecipeBOM: React.FC = () => {
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const [search, setSearch] = useState('');
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // Form State
+  const [formCode, setFormCode] = useState('');
+  const [formName, setFormName] = useState('');
+  const [formOutputProductId, setFormOutputProductId] = useState('');
+  const [formOutputQty, setFormOutputQty] = useState(1);
+
+  // BOM Items (Raw Materials)
+  const [bomItems, setBomItems] = useState<{ inputProductId: string, requiredQty: number, tolerancePct: number }[]>([
+    { inputProductId: '', requiredQty: 1, tolerancePct: 0 }
+  ]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [fetchedRecipes, fetchedProducts] = await Promise.all([
+        masterDataService.getRecipes(),
+        masterDataService.getProducts()
+      ]);
+      setRecipes(fetchedRecipes);
+      setProducts(fetchedProducts);
+    } catch (err: any) {
+      setError('Failed to load master data. ' + (err.response?.data?.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddBOMItem = () => {
+    setBomItems([...bomItems, { inputProductId: '', requiredQty: 1, tolerancePct: 0 }]);
+  };
+
+  const handleRemoveBOMItem = (index: number) => {
+    setBomItems(bomItems.filter((_, i) => i !== index));
+  };
+
+  const handleBOMItemChange = (index: number, field: string, value: string | number) => {
+    const updated = [...bomItems];
+    updated[index] = {
+      ...updated[index],
+      [field]: value
+    };
+    setBomItems(updated);
+  };
+
+  const resetForm = () => {
+    setFormCode('');
+    setFormName('');
+    setFormOutputProductId('');
+    setFormOutputQty(1);
+    setBomItems([{ inputProductId: '', requiredQty: 1, tolerancePct: 0 }]);
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitLoading(true);
+    setError('');
+
+    try {
+      // Validate
+      const validItems = bomItems.filter(item => item.inputProductId);
+      if (validItems.length === 0) {
+        throw new Error("At least one valid input product is required.");
+      }
+
+      await masterDataService.createRecipe({
+        code: formCode,
+        name: formName,
+        outputProductId: formOutputProductId,
+        outputQty: Number(formOutputQty),
+        items: validItems.map(item => ({
+          inputProductId: item.inputProductId,
+          requiredQty: Number(item.requiredQty),
+          tolerancePct: Number(item.tolerancePct),
+          isPackaging: false
+        }))
+      });
+
+      setIsCreateOpen(false);
+      resetForm();
+      await fetchData();
+    } catch (err: any) {
+      setError(err.message || err.response?.data?.message || 'Failed to create recipe');
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const filteredRecipes = recipes.filter(rcp =>
+    rcp.name.toLowerCase().includes(search.toLowerCase()) ||
+    rcp.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6 text-left">
+      {/* Top action block */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="relative flex-1 max-w-md w-full">
+          <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by recipe name or code..."
+            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => { resetForm(); setIsCreateOpen(true); }}
+            className="flex items-center justify-center w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Create BOM</span>
+          </button>
+        </div>
+      </div>
+
+      {error && !isCreateOpen && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700 text-sm">
+          <AlertCircle size={16} />
+          {error}
+        </div>
+      )}
+
+      {/* Main Table view */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+        {loading ? (
+          <div className="p-10 flex justify-center text-emerald-600">
+            <Loader2 size={32} className="animate-spin" />
+          </div>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-slate-500 font-bold text-xs uppercase border-b border-slate-200">
+                <th className="p-4">Recipe Code</th>
+                <th className="p-4">Recipe Name</th>
+                <th className="p-4 text-center">Output Product</th>
+                <th className="p-4 text-center">Output Yield</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+              {filteredRecipes.map((rcp) => (
+                <tr key={rcp.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="p-4 font-mono font-semibold text-slate-500">{rcp.code}</td>
+                  <td className="p-4">
+                    <div className="font-semibold text-slate-900">{rcp.name}</div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className="bg-slate-100 text-slate-800 text-xs px-2.5 py-0.5 rounded-full font-medium border border-slate-200">
+                      {/* We rely on outputProduct being joined by the backend ideally, or we look it up */}
+                      {products.find(p => p.id === rcp.outputProductId)?.name || rcp.outputProductId}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center font-medium">
+                    {rcp.outputQty}
+                  </td>
+                  <td className="p-4 text-right">
+                    <button
+                      onClick={() => setSelectedRecipe(rcp)}
+                      className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer text-xs"
+                    >
+                      <Eye size={14} />
+                      <span>View BOM</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filteredRecipes.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-slate-400">
+                    No recipes found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Recipe Detail Drawer */}
+      {selectedRecipe && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex justify-end z-50 transition-opacity">
+          <div className="bg-white w-full max-w-xl h-screen overflow-y-auto flex flex-col shadow-2xl animate-slide-in">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-950 text-white">
+              <div>
+                <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">{selectedRecipe.code}</span>
+                <h3 className="text-lg font-bold">{selectedRecipe.name}</h3>
+              </div>
+              <button
+                onClick={() => setSelectedRecipe(null)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 flex-1">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                <div>
+                  <span className="text-xs text-slate-400 block uppercase font-bold">Output Product</span>
+                  <span className="font-semibold text-slate-800 text-lg">
+                    {products.find(p => p.id === selectedRecipe.outputProductId)?.name || selectedRecipe.outputProductId}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-slate-400 block uppercase font-bold">Target Yield</span>
+                  <span className="font-semibold text-emerald-600 text-lg">{selectedRecipe.outputQty}</span>
+                </div>
+              </div>
+
+              {/* Bill of Materials (BOM) */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                  <Layers size={14} className="text-indigo-500" />
+                  <span>Raw Materials (Input Items)</span>
+                </h4>
+                <div className="bg-slate-50 border border-slate-100 rounded-lg overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100/80 text-slate-500 font-bold border-b border-slate-200">
+                        <th className="p-3">Input Material</th>
+                        <th className="p-3 text-center">Required Qty</th>
+                        <th className="p-3 text-center">Tolerance %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {selectedRecipe.items?.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-100/50">
+                          <td className="p-3 font-semibold text-slate-900">
+                            {products.find(p => p.id === item.inputProductId)?.name || item.inputProductId}
+                          </td>
+                          <td className="p-3 text-center font-medium">{item.requiredQty}</td>
+                          <td className="p-3 text-center text-slate-500">±{item.tolerancePct}%</td>
+                        </tr>
+                      ))}
+                      {!selectedRecipe.items?.length && (
+                        <tr><td colSpan={3} className="p-4 text-center text-slate-400">No items mapped.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setSelectedRecipe(null)}
+                className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Configuration Modal */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-full overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-900 text-white shrink-0">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <Sparkles className="text-amber-400" size={18} />
+                <span>Create Recipe (BOM)</span>
+              </h3>
+              <button
+                onClick={() => setIsCreateOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-6 flex-1">
+              <form id="createRecipeForm" onSubmit={handleCreateSubmit} className="space-y-6">
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700 text-sm">
+                    <AlertCircle size={16} />
+                    {error}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Recipe Code *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. RCP-001"
+                      className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none font-mono"
+                      value={formCode}
+                      onChange={(e) => setFormCode(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Recipe Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Premium Basmati Rice 1kg Bag"
+                      className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Output Product *</label>
+                    {products.length === 0 ? (
+                      <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        Please create a Product first.
+                      </div>
+                    ) : (
+                      <select
+                        required
+                        className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none bg-white"
+                        value={formOutputProductId}
+                        onChange={(e) => setFormOutputProductId(e.target.value)}
+                      >
+                        <option value="">Select Target Product</option>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+                      </select>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target Yield Qty *</label>
+                    <input
+                      type="number"
+                      required
+                      min={0.01}
+                      step={0.01}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
+                      value={formOutputQty}
+                      onChange={(e) => setFormOutputQty(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                {/* Bill of Materials (BOM) Input Items */}
+                <div className="border-t border-slate-100 pt-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Input Materials</h4>
+                    <button
+                      type="button"
+                      onClick={handleAddBOMItem}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-850 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Add Item</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {bomItems.map((item, index) => (
+                      <div key={index} className="flex flex-wrap md:flex-nowrap items-end gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <div className="flex-1 min-w-[200px]">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Input Material *</label>
+                          {products.length === 0 ? (
+                            <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                              Please create a Product first.
+                            </div>
+                          ) : (
+                            <select
+                              required
+                              className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none"
+                              value={item.inputProductId}
+                              onChange={(e) => handleBOMItemChange(index, 'inputProductId', e.target.value)}
+                            >
+                              <option value="">Select Material</option>
+                              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                          )}
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Req. Qty *</label>
+                          <input
+                            type="number"
+                            required
+                            step="0.01"
+                            min="0.01"
+                            className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none"
+                            value={item.requiredQty}
+                            onChange={(e) => handleBOMItemChange(index, 'requiredQty', Number(e.target.value))}
+                          />
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tolerance %</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none"
+                            value={item.tolerancePct}
+                            onChange={(e) => handleBOMItemChange(index, 'tolerancePct', Number(e.target.value))}
+                          />
+                        </div>
+                        {bomItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBOMItem(index)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 bg-white hover:bg-rose-50 border border-slate-200 rounded-lg cursor-pointer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Submit Buttons */}
+            <div className="border-t border-slate-200 bg-slate-50 shrink-0 p-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="createRecipeForm"
+                disabled={submitLoading || products.length === 0}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              >
+                {submitLoading && <Loader2 size={16} className="animate-spin" />}
+                Save Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
