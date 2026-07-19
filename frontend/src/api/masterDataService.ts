@@ -41,6 +41,7 @@ export interface RecipeItem {
   requiredQty: number;
   tolerancePct?: number;
   isPackaging?: boolean;
+  inputProduct?: Product;
 }
 
 export interface Recipe {
@@ -51,14 +52,15 @@ export interface Recipe {
   outputQty: number;
   isActive?: boolean;
   items?: RecipeItem[];
+  outputProduct?: Product;
 }
 
 // --- API Service ---
 export const masterDataService = {
   // Categories
   async getCategories(): Promise<Category[]> {
-    const res = await apiClient.get<{ success: boolean; data: Category[] }>('/master-data/categories');
-    return res.data.data;
+    const res = await apiClient.get<any>('/master-data/categories');
+    return res.data.data.data || res.data.data;
   },
   async createCategory(data: Partial<Category>): Promise<Category> {
     const res = await apiClient.post<{ success: boolean; data: Category }>('/master-data/categories', data);
@@ -67,8 +69,8 @@ export const masterDataService = {
 
   // Units of Measure
   async getUOMs(): Promise<UnitOfMeasure[]> {
-    const res = await apiClient.get<{ success: boolean; data: UnitOfMeasure[] }>('/master-data/uom');
-    return res.data.data;
+    const res = await apiClient.get<any>('/master-data/uom');
+    return res.data.data.data || res.data.data;
   },
   async createUOM(data: Partial<UnitOfMeasure>): Promise<UnitOfMeasure> {
     const res = await apiClient.post<{ success: boolean; data: UnitOfMeasure }>('/master-data/uom', data);
@@ -77,8 +79,8 @@ export const masterDataService = {
 
   // Products
   async getProducts(): Promise<Product[]> {
-    const res = await apiClient.get<{ success: boolean; data: Product[] }>('/master-data/products');
-    return res.data.data;
+    const res = await apiClient.get<any>('/master-data/products');
+    return res.data.data.data || res.data.data;
   },
   async createProduct(data: Partial<Product>): Promise<Product> {
     const res = await apiClient.post<{ success: boolean; data: Product }>('/master-data/products', data);
@@ -87,8 +89,8 @@ export const masterDataService = {
 
   // Warehouses
   async getWarehouses(): Promise<Warehouse[]> {
-    const res = await apiClient.get<{ success: boolean; data: Warehouse[] }>('/master-data/warehouses');
-    return res.data.data;
+    const res = await apiClient.get<any>('/master-data/warehouses');
+    return res.data.data.data || res.data.data;
   },
   async createWarehouse(data: Partial<Warehouse>): Promise<Warehouse> {
     const res = await apiClient.post<{ success: boolean; data: Warehouse }>('/master-data/warehouses', data);
@@ -97,8 +99,8 @@ export const masterDataService = {
 
   // Recipes / BOM
   async getRecipes(): Promise<Recipe[]> {
-    const res = await apiClient.get<{ success: boolean; data: Recipe[] }>('/master-data/recipes');
-    return res.data.data;
+    const res = await apiClient.get<any>('/master-data/recipes');
+    return res.data.data.data || res.data.data;
   },
   async createRecipe(data: Partial<Recipe>): Promise<Recipe> {
     const res = await apiClient.post<{ success: boolean; data: Recipe }>('/master-data/recipes', data);

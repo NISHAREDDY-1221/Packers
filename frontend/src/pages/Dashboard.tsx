@@ -9,11 +9,20 @@ import {
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
-  const { workOrders, qualityChecks, finishedGoods, repackings } = useApp();
+  const { qualityChecks, finishedGoods, repackings } = useApp();
+  const [apiWorkOrders, setApiWorkOrders] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    import('../api/workOrderService').then(({ workOrderService }) => {
+      workOrderService.getWorkOrders().then(res => setApiWorkOrders(res.data)).catch(console.error);
+    });
+  }, []);
+
+  const workOrders = apiWorkOrders;
 
   // DERIVE PACKING & REPACKING ERP DATA FROM GLOBAL STATE
-  const pendingWOs = workOrders.filter(w => w.status === 'Pending' || w.status === 'Approved' || w.status === 'Material Issued' || w.status === 'Packing Started' || w.status === 'QC Pending').length;
-  const completedWOs = workOrders.filter(w => w.status === 'Completed').length;
+  const pendingWOs = workOrders.filter(w => w.status === 'PENDING' || w.status === 'APPROVED' || w.status === 'MATERIAL_ISSUED' || w.status === 'PACKING_STARTED' || w.status === 'QC_PENDING').length;
+  const completedWOs = workOrders.filter(w => w.status === 'COMPLETED').length;
   const qcRejects = qualityChecks.filter(q => q.result === 'Reject' || q.result === 'Rework').length;
 
   // Calculate today's yield
@@ -21,7 +30,7 @@ export const Dashboard: React.FC = () => {
   const todayRepacking = repackings.reduce((sum, item) => sum + item.recoverableQuantity, 0);
 
   // Active work orders (excluding completed and cancelled for the compact queue widget)
-  const activeWOs = workOrders.filter(w => w.status !== 'Completed' && w.status !== 'Cancelled').slice(0, 4);
+  const activeWOs = workOrders.filter(w => w.status !== 'COMPLETED' && w.status !== 'CANCELLED').slice(0, 4);
 
   return (
     <div className="space-y-6 text-left pb-10">
@@ -301,35 +310,35 @@ export const Dashboard: React.FC = () => {
                   ) : (
                     activeWOs.map((wo) => (
                       <tr key={wo.id} className="hover:bg-slate-50/50 text-[11px]">
-                        <td className="p-2 font-mono font-bold text-slate-800">{wo.woNo}</td>
-                        <td className="p-2 font-semibold text-slate-700 max-w-[120px] truncate" title={wo.productName}>{wo.productName}</td>
-                        <td className="p-2 text-center font-bold text-slate-800">{wo.requiredQuantity}</td>
+                        <td className="p-2 font-mono font-bold text-slate-800">{wo.woNumber || wo.woNo}</td>
+                        <td className="p-2 font-semibold text-slate-700 max-w-[120px] truncate" title={wo.product?.name || wo.productName}>{wo.product?.name || wo.productName}</td>
+                        <td className="p-2 text-center font-bold text-slate-800">{wo.requiredQty || wo.requiredQuantity}</td>
                         <td className="p-2 text-center font-bold text-slate-800">{wo.actualProduced || 0}</td>
                         <td className="p-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${wo.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                              wo.status === 'Cancelled' ? 'bg-slate-50 text-slate-400 border-slate-200' :
-                                wo.status === 'Draft' ? 'bg-slate-50 text-slate-600 border-slate-200' :
-                                  wo.status === 'QC Passed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                    wo.status === 'QC Pending' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${wo.status === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-200' :
+                              wo.status === 'CANCELLED' ? 'bg-slate-50 text-slate-400 border-slate-200' :
+                                wo.status === 'DRAFT' ? 'bg-slate-50 text-slate-600 border-slate-200' :
+                                  wo.status === 'QC_PASSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                    wo.status === 'QC_PENDING' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                       'bg-amber-50 text-amber-700 border-amber-200'
                             }`}>
                             {wo.status}
                           </span>
                         </td>
                         <td className="p-2 text-center font-bold">
-                          {(wo.status === 'Pending' || wo.status === 'Approved') && (
+                          {(wo.status === 'PENDING' || wo.status === 'APPROVED') && (
                             <NavLink to="/material-issue" className="text-amber-600 hover:text-amber-700 hover:underline">Issue</NavLink>
                           )}
-                          {(wo.status === 'Material Issued' || wo.status === 'Packing Started') && (
+                          {(wo.status === 'MATERIAL_ISSUED' || wo.status === 'PACKING_STARTED') && (
                             <NavLink to="/packing-execution" className="text-blue-600 hover:text-blue-700 hover:underline">Pack</NavLink>
                           )}
-                          {wo.status === 'QC Pending' && (
+                          {wo.status === 'QC_PENDING' && (
                             <NavLink to="/quality-check" className="text-rose-600 hover:text-rose-700 hover:underline">Verify</NavLink>
                           )}
-                          {wo.status === 'QC Passed' && (
+                          {wo.status === 'QC_PASSED' && (
                             <NavLink to="/finished-goods" className="text-green-600 hover:text-green-700 hover:underline">Post FG</NavLink>
                           )}
-                          {wo.status === 'Draft' && (
+                          {wo.status === 'DRAFT' && (
                             <NavLink to="/work-orders" className="text-slate-600 hover:text-slate-800 hover:underline">Edit</NavLink>
                           )}
                         </td>

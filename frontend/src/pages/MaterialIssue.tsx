@@ -1,14 +1,59 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import type { MaterialIssue as IMaterialIssue } from '../context/AppContext';
+import { workOrderService } from '../api/workOrderService';
+import type { WorkOrder } from '../api/workOrderService';
+
+
+
 import {
   Package, CheckCircle, HelpCircle, Clock, AlertTriangle, X, Info,
   Scan, RefreshCw, CornerUpLeft, ArrowLeftRight
 } from 'lucide-react';
 
 export const MaterialIssue: React.FC = () => {
-  const { materialIssues, issueMaterials, workOrders } = useApp();
-  const [selectedIssue, setSelectedIssue] = useState<IMaterialIssue | null>(null);
+  const { materialIssues: _mi, issueMaterials: _im, workOrders: _wo } = useApp();
+
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const fetchWO = async () => {
+    try {
+      const res = await workOrderService.getWorkOrders();
+      setWorkOrders(res.data);
+    } catch (e) { }
+  };
+  useEffect(() => { fetchWO(); }, []);
+
+  // Compute pending issues from APPROVED work orders
+  const pendingIssues = useMemo(() => {
+    return workOrders.filter(w => w.status === 'APPROVED').map(w => ({
+      id: 'MI-PEND-' + w.woNumber,
+      woId: w.id,
+      woNumber: w.woNumber,
+      status: 'Pending',
+      materials: w.recipe?.items?.map(item => ({
+        item: item.inputProduct?.name || 'Unknown',
+        required: item.requiredQty * w.requiredQty,
+        available: 9999, // mock for now
+        issued: 0,
+        batchNo: '',
+        location: '',
+        type: item.isPackaging ? 'Packaging' : 'Raw'
+      })) || []
+    }));
+  }, [workOrders]);
+
+  // Compute completed issues from MATERIAL_ISSUED work orders
+  const completedIssues = useMemo(() => {
+    return workOrders.filter(w => w.status === 'MATERIAL_ISSUED' || w.status === 'PACKING_STARTED' || w.status === 'COMPLETED').map(w => ({
+      id: 'MI-COMP-' + w.woNumber,
+      woId: w.id,
+      woNumber: w.woNumber,
+      status: 'Issued',
+      issuedAt: w.updatedAt,
+      materials: []
+    }));
+  }, [workOrders]);
+
+  const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
 
   // Form states for each material row
   const [batches, setBatches] = useState<Record<string, string>>({});
@@ -33,16 +78,16 @@ export const MaterialIssue: React.FC = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Lists
-  const pendingIssues = useMemo(() => materialIssues.filter(mi => mi.status === 'Pending'), [materialIssues]);
-  const completedIssues = useMemo(() => materialIssues.filter(mi => mi.status === 'Issued'), [materialIssues]);
+
+
 
   // Find linked Work Order
   const linkedWO = useMemo(() => {
     if (!selectedIssue) return null;
-    return workOrders.find(w => w.id === selectedIssue.woId || w.woNo === selectedIssue.woNo) || null;
+    return workOrders.find(w => w.id === selectedIssue.woId || w.woNumber === selectedIssue.woNumber) || null;
   }, [selectedIssue, workOrders]);
 
-  const handleSelectIssue = (issue: IMaterialIssue) => {
+  const handleSelectIssue = (issue: any) => {
     setSelectedIssue(issue);
     setPartialIssueChecked(false);
     setSupervisorOverride(false);
@@ -150,9 +195,14 @@ export const MaterialIssue: React.FC = () => {
       location: locations[m.item]
     }));
 
-    issueMaterials(selectedIssue.id, updatedMaterials);
-    setShowConfirmModal(false);
-    setSelectedIssue(null);
+    workOrderService.issueMaterials(selectedIssue.woId, updatedMaterials).then(() => {
+      setShowConfirmModal(false);
+      setSelectedIssue(null);
+      fetchWO();
+      showToast('Materials issued successfully.');
+    }).catch((e: any) => {
+      alert(e.response?.data?.message || 'Error issuing materials');
+    });
   };
 
   const handleBarcodeScanSim = (barcode: string) => {
@@ -215,14 +265,14 @@ export const MaterialIssue: React.FC = () => {
 
             <div className="space-y-3">
               {pendingIssues.map(issue => {
-                const wo = workOrders.find(w => w.id === issue.woId || w.woNo === issue.woNo);
+                const wo = workOrders.find(w => w.id === issue.woId || w.woNumber === issue.woNumber);
                 return (
                   <div
                     key={issue.id}
                     onClick={() => handleSelectIssue(issue)}
                     className={`p-3.5 rounded-lg border text-xs transition-all cursor-pointer space-y-2 ${selectedIssue?.id === issue.id
-                        ? 'border-[#00891D] bg-green-50/20 shadow-xs ring-1 ring-[#00891D]'
-                        : 'border-slate-200 hover:bg-slate-50 bg-white'
+                      ? 'border-[#00891D] bg-green-50/20 shadow-xs ring-1 ring-[#00891D]'
+                      : 'border-slate-200 hover:bg-slate-50 bg-white'
                       }`}
                   >
                     <div className="flex justify-between font-mono font-bold text-slate-400">
@@ -233,9 +283,9 @@ export const MaterialIssue: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <div className="font-bold text-slate-800">Work Order No: {issue.woNo}</div>
+                    <div className="font-bold text-slate-800">Work Order No: {issue.woNumber}</div>
                     {wo && (
-                      <div className="text-slate-700 font-semibold truncate">{wo.productName}</div>
+                      <div className="text-slate-700 font-semibold truncate">{wo.product?.name}</div>
                     )}
                     <div className="flex justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100">
                       <span>Materials:</span>
@@ -243,7 +293,7 @@ export const MaterialIssue: React.FC = () => {
                     </div>
                     <div className="flex justify-between text-[10px] text-slate-400">
                       <span>Requested:</span>
-                      <span className="font-mono">{wo?.date || '2026-07-17'}</span>
+                      <span className="font-mono">{wo?.createdAt ? new Date(wo.createdAt).toLocaleDateString() : '2026-07-17'}</span>
                     </div>
                   </div>
                 );
@@ -267,7 +317,7 @@ export const MaterialIssue: React.FC = () => {
                     <span>Issue ID: {issue.id}</span>
                     <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 uppercase text-[9px]">Issued</span>
                   </div>
-                  <div className="font-semibold text-slate-850 mt-1.5">Linked WO: {issue.woNo}</div>
+                  <div className="font-semibold text-slate-850 mt-1.5">Linked WO: {issue.woNumber}</div>
                   <div className="text-[10px] text-slate-400 mt-1 font-mono">{issue.issuedAt}</div>
                 </div>
               ))}
@@ -291,32 +341,32 @@ export const MaterialIssue: React.FC = () => {
                       <span className="w-2.5 h-2.5 bg-blue-600 rounded-full"></span>
                       <span>Work Order Context</span>
                     </span>
-                    <span className="font-mono text-slate-500 font-bold">{linkedWO.woNo}</span>
+                    <span className="font-mono text-slate-500 font-bold">{linkedWO.woNumber}</span>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-slate-600 font-medium">
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Work Order No</span>
-                      <span className="text-slate-850 font-bold font-mono">{linkedWO.woNo}</span>
+                      <span className="text-slate-850 font-bold font-mono">{linkedWO.woNumber}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Product</span>
-                      <span className="text-slate-850 font-bold truncate block max-w-[130px]">{linkedWO.productName}</span>
+                      <span className="text-slate-850 font-bold truncate block max-w-[130px]">{(linkedWO.product?.name || '')}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Recipe/BOM</span>
-                      <span className="text-slate-850 font-bold">{linkedWO.recipeId}</span>
+                      <span className="text-slate-850 font-bold">{linkedWO.recipe ? `${linkedWO.recipe.code} - ${linkedWO.recipe.name}` : linkedWO.recipeId}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Required Quantity</span>
-                      <span className="text-slate-850 font-bold">{linkedWO.requiredQuantity} Units</span>
+                      <span className="text-slate-850 font-bold">{linkedWO.requiredQty} Units</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Assigned Team</span>
-                      <span className="text-slate-850 font-semibold block truncate max-w-[120px]">{linkedWO.assignedTeam}</span>
+                      <span className="text-slate-850 font-semibold block truncate max-w-[120px]">{('Team Alpha')}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Supervisor</span>
-                      <span className="text-slate-850 font-semibold">{linkedWO.supervisor}</span>
+                      <span className="text-slate-850 font-semibold">{linkedWO.supervisor?.name || 'Unassigned'}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Priority</span>
@@ -326,7 +376,7 @@ export const MaterialIssue: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">Expected Completion</span>
-                      <span className="text-slate-850 font-bold font-mono block mt-0.5">{linkedWO.expectedCompletion}</span>
+                      <span className="text-slate-850 font-bold font-mono block mt-0.5">{linkedWO.expectedDate}</span>
                     </div>
                   </div>
                 </div>
@@ -640,8 +690,8 @@ export const MaterialIssue: React.FC = () => {
                   onClick={handleIssueSubmit}
                   disabled={hasShortage && !partialIssueChecked}
                   className={`px-5 py-2 rounded-lg text-xs font-bold text-white transition-colors cursor-pointer ${hasShortage && !partialIssueChecked
-                      ? 'bg-slate-300 cursor-not-allowed'
-                      : 'bg-[#00891D] hover:bg-[#007518]'
+                    ? 'bg-slate-300 cursor-not-allowed'
+                    : 'bg-[#00891D] hover:bg-[#007518]'
                     }`}
                 >
                   Issue Materials
@@ -678,7 +728,7 @@ export const MaterialIssue: React.FC = () => {
               <div className="bg-slate-50 p-3.5 border border-slate-200 rounded-lg space-y-2 font-medium">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Linked Work Order:</span>
-                  <span className="font-bold text-slate-900">{selectedIssue.woNo}</span>
+                  <span className="font-bold text-slate-900">{selectedIssue.woNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Total Materials Checked:</span>

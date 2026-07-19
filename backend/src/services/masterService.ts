@@ -9,7 +9,7 @@ export class CategoryService {
 
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
-    const apiFeatures = new APIFeatures(prisma.category, queryObj)
+    const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
       .search(['name', 'description'])
       .sort()
@@ -31,7 +31,7 @@ export class UomService {
 
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
-    const apiFeatures = new APIFeatures(prisma.unitOfMeasure, queryObj)
+    const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
       .search(['name', 'abbreviation'])
       .sort()
@@ -53,7 +53,7 @@ export class ProductService {
 
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
-    const apiFeatures = new APIFeatures(prisma.product, queryObj)
+    const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
       .search(['name', 'sku'])
       .sort()
@@ -77,7 +77,7 @@ export class WarehouseService {
 
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
-    const apiFeatures = new APIFeatures(prisma.warehouse, queryObj)
+    const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
       .search(['name', 'location'])
       .sort()
@@ -121,7 +121,7 @@ export class RecipeService {
 
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
-    const apiFeatures = new APIFeatures(prisma.recipe, queryObj)
+    const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
       .search(['name', 'code'])
       .sort()

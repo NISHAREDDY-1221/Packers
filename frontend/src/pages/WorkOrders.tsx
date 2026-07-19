@@ -1,32 +1,74 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import type { WorkOrder } from '../context/AppContext';
+import { workOrderService } from '../api/workOrderService';
+import type { WoStatus, WoPriority, WorkOrder } from '../api/workOrderService';
 import {
   Plus, Search, Calendar, X,
   Check, Clipboard,
   RefreshCw, LayoutGrid, Table as TableIcon, Edit,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { masterDataService } from '../api/masterDataService';
+import type { Recipe } from '../api/masterDataService';
 
-const KANBAN_COLUMNS: WorkOrder['status'][] = [
-  'Draft',
-  'Pending',
-  'Approved',
-  'Material Issued',
-  'Packing Started',
-  'QC Pending',
-  'Completed',
-  'Cancelled'
+const KANBAN_COLUMNS: WoStatus[] = [
+  'DRAFT',
+  'PENDING',
+  'APPROVED',
+  'MATERIAL_ISSUED',
+  'PACKING_STARTED',
+  'QC_PENDING',
+  'COMPLETED',
+  'CANCELLED'
 ];
 
 interface TimelineStep {
-  status: WorkOrder['status'];
+  status: WoStatus;
   label: string;
   desc: string;
 }
 
 export const WorkOrders: React.FC = () => {
-  const { workOrders, recipes, addWorkOrder, updateWorkOrderStatus, deleteWorkOrder } = useApp();
+  const { } = useApp();
+
+  const [apiWorkOrders, setApiWorkOrders] = useState<WorkOrder[]>([]);
+  const workOrders = apiWorkOrders;
+
+  const fetchWorkOrders = async () => {
+    try {
+      const res = await workOrderService.getWorkOrders();
+      setApiWorkOrders(res.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchWorkOrders();
+  }, []);
+
+  
+  // API Recipes state
+  const [apiRecipes, setApiRecipes] = useState<Recipe[]>([]);
+  const [apiRecipesLoading, setApiRecipesLoading] = useState(false);
+  const [apiRecipesError, setApiRecipesError] = useState('');
+
+  React.useEffect(() => {
+    fetchRecipes();
+  }, []);
+
+  const fetchRecipes = async () => {
+    setApiRecipesLoading(true);
+    setApiRecipesError('');
+    try {
+      const data = await masterDataService.getRecipes();
+      setApiRecipes(data);
+    } catch (err: any) {
+      setApiRecipesError(err.response?.data?.message || 'Failed to load recipes from server.');
+    } finally {
+      setApiRecipesLoading(false);
+    }
+  };
 
   // View mode state
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
@@ -57,14 +99,14 @@ export const WorkOrders: React.FC = () => {
   // Create Form states
   const [formRecipeId, setFormRecipeId] = useState('');
   const [formQty, setFormQty] = useState(100);
-  const [formPriority, setFormPriority] = useState<WorkOrder['priority']>('Medium');
+  const [formPriority, setFormPriority] = useState<WoPriority>('MEDIUM');
   const [formAssignedTeam, setFormAssignedTeam] = useState('Packing Team Alpha');
   const [formSupervisor, setFormSupervisor] = useState('Suresh Kumar');
   const [formExpectedCompletion, setFormExpectedCompletion] = useState('2026-07-20');
 
   // Edit Form states
   const [editQty, setEditQty] = useState(100);
-  const [editPriority, setEditPriority] = useState<WorkOrder['priority']>('Medium');
+  const [editPriority, setEditPriority] = useState<WoPriority>('MEDIUM');
   const [editAssignedTeam, setEditAssignedTeam] = useState('');
   const [editSupervisor, setEditSupervisor] = useState('');
   const [editExpectedCompletion, setEditExpectedCompletion] = useState('');
@@ -77,24 +119,25 @@ export const WorkOrders: React.FC = () => {
   };
 
   const handleRefresh = () => {
+    fetchWorkOrders();
     showToast("Work orders list refreshed successfully!");
   };
 
   // Derived filter dropdown lists
-  const categories = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.category))), [workOrders]);
-  const supervisors = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.supervisor))), [workOrders]);
-  const teams = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.assignedTeam))), [workOrders]);
+  const categories = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.product?.category?.name || 'Unknown'))), [workOrders]);
+  const supervisors = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.supervisor?.name || wo.supervisorId))), [workOrders]);
+  const teams = useMemo(() => ['Packing Team Alpha', 'Packing Team Beta', 'Quality Assurance'], []);
 
   // Derived summaries for KPI Cards
   const summary = useMemo(() => {
     return {
       total: workOrders.length,
-      draft: workOrders.filter(w => w.status === 'Draft').length,
-      pending: workOrders.filter(w => w.status === 'Pending').length,
-      approved: workOrders.filter(w => w.status === 'Approved').length,
-      packingStarted: workOrders.filter(w => w.status === 'Packing Started').length,
-      qcPending: workOrders.filter(w => w.status === 'QC Pending').length,
-      completed: workOrders.filter(w => w.status === 'Completed').length
+      draft: workOrders.filter(w => w.status === 'DRAFT').length,
+      pending: workOrders.filter(w => w.status === 'PENDING').length,
+      approved: workOrders.filter(w => w.status === 'APPROVED').length,
+      packingStarted: workOrders.filter(w => w.status === 'PACKING_STARTED').length,
+      qcPending: workOrders.filter(w => w.status === 'QC_PENDING').length,
+      completed: workOrders.filter(w => w.status === 'COMPLETED').length
     };
   }, [workOrders]);
 
@@ -103,32 +146,33 @@ export const WorkOrders: React.FC = () => {
     return workOrders.filter(wo => {
       // 1. Search Query (WO No, Product, Recipe/BOM)
       const matchesSearch =
-        wo.productName.toLowerCase().includes(search.toLowerCase()) ||
-        wo.woNo.toLowerCase().includes(search.toLowerCase()) ||
-        wo.recipeId.toLowerCase().includes(search.toLowerCase());
+        (wo.product?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (wo.woNumber || wo.id).toLowerCase().includes(search.toLowerCase()) ||
+        (wo.recipe?.code || wo.recipeId).toLowerCase().includes(search.toLowerCase());
 
       // 2. Main Filters
       const matchesStatus = filterStatus === 'All' || wo.status === filterStatus;
       const matchesPriority = filterPriority === 'All' || wo.priority === filterPriority;
-      const matchesCategory = filterCategory === 'All' || wo.category === filterCategory;
-      const matchesSupervisor = filterSupervisor === 'All' || wo.supervisor === filterSupervisor;
-      const matchesTeam = filterTeam === 'All' || wo.assignedTeam === filterTeam;
-      const matchesDate = !filterDate || wo.expectedCompletion === filterDate;
+      const matchesCategory = filterCategory === 'All' || (wo.product?.category?.name || 'Misc') === filterCategory;
+      const matchesSupervisor = filterSupervisor === 'All' || (wo.supervisor?.name || '') === filterSupervisor;
+      const matchesTeam = filterTeam === 'All' || ('Team Alpha') === filterTeam;
+      const woDatePrefix = wo.expectedDate ? wo.expectedDate.substring(0, 10) : '';
+      const matchesDate = !filterDate || woDatePrefix === filterDate;
 
       // 3. KPI filter override
       let matchesKpi = true;
       if (kpiFilter === 'draft') {
-        matchesKpi = wo.status === 'Draft';
+        matchesKpi = wo.status === 'DRAFT';
       } else if (kpiFilter === 'pending') {
-        matchesKpi = wo.status === 'Pending';
+        matchesKpi = wo.status === 'PENDING';
       } else if (kpiFilter === 'approved') {
-        matchesKpi = wo.status === 'Approved';
+        matchesKpi = wo.status === 'APPROVED';
       } else if (kpiFilter === 'packing_started') {
-        matchesKpi = wo.status === 'Packing Started';
+        matchesKpi = wo.status === 'PACKING_STARTED';
       } else if (kpiFilter === 'qc_pending') {
-        matchesKpi = wo.status === 'QC Pending';
+        matchesKpi = wo.status === 'QC_PENDING';
       } else if (kpiFilter === 'completed') {
-        matchesKpi = wo.status === 'Completed';
+        matchesKpi = wo.status === 'COMPLETED';
       }
 
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory &&
@@ -144,111 +188,101 @@ export const WorkOrders: React.FC = () => {
 
   const totalPages = Math.ceil(filteredWOs.length / rowsPerPage);
 
-  const selectedRecipe = recipes.find(r => r.id === formRecipeId);
+  const selectedRecipe = apiRecipes.find(r => r.id === formRecipeId);
 
   // Status colors utility
   const getStatusColor = (status: WorkOrder['status']) => {
     switch (status) {
-      case 'Draft': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'Pending': return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 'Approved': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Material Issued': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'Packing Started': return 'bg-green-50 text-green-700 border-green-200';
-      case 'QC Pending': return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'QC Passed':
-      case 'Completed':
+      case 'DRAFT': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'PENDING': return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 'APPROVED': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'MATERIAL_ISSUED': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+      case 'PACKING_STARTED': return 'bg-green-50 text-green-700 border-green-200';
+      case 'QC_PENDING': return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'QC_PASSED':
+      case 'COMPLETED':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'Cancelled': return 'bg-red-50 text-red-700 border-red-200';
-      case 'Labels Printed': return 'bg-cyan-50 text-cyan-705 border-cyan-205';
+      case 'CANCELLED': return 'bg-red-50 text-red-700 border-red-200';
+      
     }
   };
 
   // Priority colors utility
   const getPriorityStyle = (p: WorkOrder['priority']) => {
     switch (p) {
-      case 'Urgent': return 'bg-red-50 text-red-700 border-red-200 font-bold';
-      case 'High': return 'bg-orange-50 text-orange-750 border-orange-200';
-      case 'Medium': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Low': return 'bg-slate-55 text-slate-700 border-slate-200';
+      case 'URGENT': return 'bg-red-50 text-red-700 border-red-200 font-bold';
+      case 'HIGH': return 'bg-orange-50 text-orange-750 border-orange-200';
+      case 'MEDIUM': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'LOW': return 'bg-slate-55 text-slate-700 border-slate-200';
     }
   };
 
   // Create Form Handler
-  const handleCreateWO = (e: React.FormEvent) => {
+  const handleCreateWO = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formRecipeId) return;
-
-    const recipe = recipes.find(r => r.id === formRecipeId)!;
-    const newWO: WorkOrder = {
-      id: `WO-${Date.now().toString().slice(-4)}`,
-      woNo: `WO-2026-${(workOrders.length + 1).toString().padStart(3, '0')}`,
-      date: new Date().toISOString().split('T')[0],
-      requestedBy: 'Store Manager',
-      priority: formPriority,
-      category: recipe.category,
-      productName: recipe.packingName,
-      recipeId: formRecipeId,
-      requiredQuantity: Number(formQty),
-      expectedCompletion: formExpectedCompletion,
-      assignedTeam: formAssignedTeam,
-      supervisor: formSupervisor,
-      status: 'Draft'
-    };
-
-    addWorkOrder(newWO);
-    setIsCreateOpen(false);
-    showToast(`Work order ${newWO.woNo} created as Draft.`);
-
-    // Reset Form
-    setFormRecipeId('');
-    setFormQty(100);
-    setFormPriority('Medium');
+    const recipe = apiRecipes.find(r => r.id === formRecipeId)!;
+    try {
+      await workOrderService.createWorkOrder({
+        productId: recipe.outputProductId,
+        recipeId: formRecipeId,
+        requiredQty: Number(formQty),
+        priority: formPriority as WoPriority,
+        expectedDate: formExpectedCompletion ? new Date(formExpectedCompletion).toISOString() : undefined,
+        supervisorId: '00000000-0000-0000-0000-000000000000'
+      });
+      setIsCreateOpen(false);
+      showToast('Work order created successfully.');
+      fetchWorkOrders();
+      setFormRecipeId('');
+      setFormQty(100);
+      setFormPriority('MEDIUM');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error creating Work Order');
+    }
   };
 
   // Edit WO Handler
   const handleOpenEdit = (wo: WorkOrder) => {
     setIsEditOpen(wo);
-    setEditQty(wo.requiredQuantity);
+    setEditQty(wo.requiredQty);
     setEditPriority(wo.priority);
-    setEditAssignedTeam(wo.assignedTeam);
-    setEditSupervisor(wo.supervisor);
-    setEditExpectedCompletion(wo.expectedCompletion);
+    setEditAssignedTeam(('Team Alpha'));
+    setEditSupervisor((wo.supervisor?.name || ''));
+    setEditExpectedCompletion((wo.expectedDate || ''));
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isEditOpen) return;
-
-    updateWorkOrderStatus(isEditOpen.id, isEditOpen.status, {
-      requiredQuantity: Number(editQty),
-      priority: editPriority,
-      assignedTeam: editAssignedTeam,
-      supervisor: editSupervisor,
-      expectedCompletion: editExpectedCompletion
-    });
-
-    setIsEditOpen(null);
-    showToast(`Work order ${isEditOpen.woNo} updated successfully.`);
+    try {
+      await workOrderService.updateWorkOrderStatus(isEditOpen.id, isEditOpen.status);
+      setIsEditOpen(null);
+      showToast('Work order updated successfully.');
+      fetchWorkOrders();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error updating Work Order');
+    }
   };
 
   // Workflow transition helper
   const canTransition = (from: WorkOrder['status'], to: WorkOrder['status']) => {
     if (from === to) return true;
-    if (from === 'Completed' || from === 'Cancelled') return false;
+    if (from === 'COMPLETED' || from === 'CANCELLED') return false;
 
     switch (from) {
-      case 'Draft':
-        return to === 'Pending' || to === 'Approved' || to === 'Cancelled';
-      case 'Pending':
-        return to === 'Approved' || to === 'Cancelled';
-      case 'Approved':
-        return to === 'Material Issued' || to === 'Cancelled';
-      case 'Material Issued':
-        return to === 'Packing Started' || to === 'Cancelled';
-      case 'Packing Started':
-        return to === 'QC Pending' || to === 'Cancelled';
-      case 'QC Pending':
-        return to === 'Completed' || to === 'Cancelled';
+      case 'DRAFT':
+        return to === 'PENDING' || to === 'APPROVED' || to === 'CANCELLED';
+      case 'PENDING':
+        return to === 'APPROVED' || to === 'CANCELLED';
+      case 'APPROVED':
+        return to === 'MATERIAL_ISSUED' || to === 'CANCELLED';
+      case 'MATERIAL_ISSUED':
+        return to === 'PACKING_STARTED' || to === 'CANCELLED';
+      case 'PACKING_STARTED':
+        return to === 'QC_PENDING' || to === 'CANCELLED';
+      case 'QC_PENDING':
+        return to === 'COMPLETED' || to === 'CANCELLED';
       default:
         return false;
     }
@@ -270,8 +304,8 @@ export const WorkOrders: React.FC = () => {
 
     if (wo) {
       if (canTransition(wo.status, targetStatus)) {
-        updateWorkOrderStatus(woId, targetStatus);
-        showToast(`Workflow status updated: ${wo.woNo} is now ${targetStatus}.`);
+        workOrderService.updateWorkOrderStatus(woId, targetStatus).then(fetchWorkOrders).catch(console.error);
+        showToast(`Workflow status updated: ${(wo.woNumber || wo.id)} is now ${targetStatus}.`);
       } else {
         showToast(`Transition not allowed from ${wo.status} to ${targetStatus}.`);
       }
@@ -282,13 +316,13 @@ export const WorkOrders: React.FC = () => {
   const timelineSteps: TimelineStep[] = useMemo(() => {
     if (!selectedWO) return [];
     return [
-      { status: 'Draft', label: 'Work Order Drafted', desc: `Created on ${selectedWO.date}.` },
-      { status: 'Pending', label: 'Submitted for Approval', desc: `Awaiting store manager authorization.` },
-      { status: 'Approved', label: 'Authorized & Approved', desc: `Scheduled for team ${selectedWO.assignedTeam}.` },
-      { status: 'Material Issued', label: 'Raw Materials Issued', desc: `BOM inventory dispatched to packing line.` },
-      { status: 'Packing Started', label: 'Packing Execution Started', desc: `Currently active on floor.` },
-      { status: 'QC Pending', label: 'QC Audit Verification', desc: `Quality checks pending evaluation.` },
-      { status: 'Completed', label: 'Completed', desc: `Finished goods safely posted.` }
+      { status: 'DRAFT', label: 'Work Order Drafted', desc: `Created on ${selectedWO.createdAt}.` },
+      { status: 'PENDING', label: 'Submitted for Approval', desc: `Awaiting store manager authorization.` },
+      { status: 'APPROVED', label: 'Authorized & Approved', desc: `Scheduled for team ${('Team Alpha')}.` },
+      { status: 'MATERIAL_ISSUED', label: 'Raw Materials Issued', desc: `BOM inventory dispatched to packing line.` },
+      { status: 'PACKING_STARTED', label: 'Packing Execution Started', desc: `Currently active on floor.` },
+      { status: 'QC_PENDING', label: 'QC Audit Verification', desc: `Quality checks pending evaluation.` },
+      { status: 'COMPLETED', label: 'COMPLETED', desc: `Finished goods safely posted.` }
     ];
   }, [selectedWO]);
 
@@ -333,12 +367,12 @@ export const WorkOrders: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
         {[
           { key: 'all', title: 'Total Work Orders', count: summary.total },
-          { key: 'draft', title: 'Draft', count: summary.draft },
-          { key: 'pending', title: 'Pending', count: summary.pending },
-          { key: 'approved', title: 'Approved', count: summary.approved },
-          { key: 'packing_started', title: 'Packing Started', count: summary.packingStarted },
-          { key: 'qc_pending', title: 'QC Pending', count: summary.qcPending },
-          { key: 'completed', title: 'Completed', count: summary.completed }
+          { key: 'draft', title: 'DRAFT', count: summary.draft },
+          { key: 'pending', title: 'PENDING', count: summary.pending },
+          { key: 'approved', title: 'APPROVED', count: summary.approved },
+          { key: 'packing_started', title: 'PACKING_STARTED', count: summary.packingStarted },
+          { key: 'qc_pending', title: 'QC_PENDING', count: summary.qcPending },
+          { key: 'completed', title: 'COMPLETED', count: summary.completed }
         ].map(card => (
           <div
             key={card.key}
@@ -415,10 +449,10 @@ export const WorkOrders: React.FC = () => {
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
             >
               <option value="All">All Priorities</option>
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Urgent">Urgent</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="URGENT">Urgent</option>
             </select>
           </div>
 
@@ -535,12 +569,12 @@ export const WorkOrders: React.FC = () => {
                     key={wo.id}
                     className="hover:bg-gray-50/50 transition-colors"
                   >
-                    <td className="p-3 font-mono font-bold text-gray-700">{wo.woNo}</td>
-                    <td className="p-3 font-semibold text-gray-900 truncate max-w-[200px]">{wo.productName}</td>
-                    <td className="p-3 text-gray-600 font-medium">{wo.recipeId}</td>
-                    <td className="p-3 text-right font-bold text-gray-900">{wo.requiredQuantity}</td>
-                    <td className="p-3 text-gray-600 font-medium">{wo.assignedTeam}</td>
-                    <td className="p-3 text-gray-600 font-medium">{wo.supervisor}</td>
+                    <td className="p-3 font-mono font-bold text-gray-700">{(wo.woNumber || wo.id)}</td>
+                    <td className="p-3 font-semibold text-gray-900 truncate max-w-[200px]">{(wo.product?.name || '')}</td>
+                    <td className="p-3 text-gray-600 font-medium">{(wo.recipe?.code || wo.recipeId)}</td>
+                    <td className="p-3 text-right font-bold text-gray-900">{wo.requiredQty}</td>
+                    <td className="p-3 text-gray-600 font-medium">{('Team Alpha')}</td>
+                    <td className="p-3 text-gray-600 font-medium">{(wo.supervisor?.name || '')}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${getPriorityStyle(wo.priority)}`}>
                         {wo.priority}
@@ -551,7 +585,7 @@ export const WorkOrders: React.FC = () => {
                         {wo.status}
                       </span>
                     </td>
-                    <td className="p-3 text-gray-600 font-mono">{wo.expectedCompletion}</td>
+                    <td className="p-3 text-gray-600 font-mono">{(wo.expectedDate || '')}</td>
                     <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setSelectedWO(wo)}
@@ -633,33 +667,33 @@ export const WorkOrders: React.FC = () => {
                         className="bg-white p-3 rounded-lg border border-gray-200 shadow-xs hover:border-[#00891D] hover:shadow-sm transition-all cursor-grab active:cursor-grabbing flex flex-col gap-2 relative text-left"
                       >
                         <div className="flex justify-between items-start">
-                          <span className="font-mono text-[9px] font-bold text-gray-400">{wo.woNo}</span>
+                          <span className="font-mono text-[9px] font-bold text-gray-400">{(wo.woNumber || wo.id)}</span>
                           <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${getPriorityStyle(wo.priority)}`}>
                             {wo.priority}
                           </span>
                         </div>
 
                         <div className="text-xs">
-                          <h4 className="font-bold text-gray-900 line-clamp-1">{wo.productName}</h4>
-                          <span className="text-[9px] text-gray-450 block font-medium mt-0.5">Recipe/BOM: {wo.recipeId}</span>
+                          <h4 className="font-bold text-gray-900 line-clamp-1">{(wo.product?.name || '')}</h4>
+                          <span className="text-[9px] text-gray-450 block font-medium mt-0.5">Recipe/BOM: {(wo.recipe?.code || wo.recipeId)}</span>
                         </div>
 
                         <div className="text-[10px] text-gray-500 space-y-0.5 pt-1 border-t border-gray-100">
                           <div className="flex justify-between">
                             <span>Req Qty:</span>
-                            <span className="font-bold text-gray-800">{wo.requiredQuantity}</span>
+                            <span className="font-bold text-gray-800">{wo.requiredQty}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Assigned:</span>
-                            <span className="font-semibold text-gray-700 truncate max-w-[100px]">{wo.assignedTeam}</span>
+                            <span className="font-semibold text-gray-700 truncate max-w-[100px]">{('Team Alpha')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Supervisor:</span>
-                            <span className="font-semibold text-gray-700 truncate max-w-[100px]">{wo.supervisor}</span>
+                            <span className="font-semibold text-gray-700 truncate max-w-[100px]">{(wo.supervisor?.name || '')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Due Date:</span>
-                            <span className="font-mono font-bold text-gray-650">{wo.expectedCompletion}</span>
+                            <span className="font-mono font-bold text-gray-650">{(wo.expectedDate || '')}</span>
                           </div>
                         </div>
                       </div>
@@ -685,7 +719,7 @@ export const WorkOrders: React.FC = () => {
             <div className="space-y-6 text-left">
               <div className="flex justify-between items-center border-b border-gray-200 pb-3">
                 <div>
-                  <span className="text-[9px] font-mono font-bold text-[#00891D] uppercase tracking-widest">{selectedWO.woNo}</span>
+                  <span className="text-[9px] font-mono font-bold text-[#00891D] uppercase tracking-widest">{selectedWO.woNumber}</span>
                   <h3 className="text-sm font-bold text-gray-900">Work Order Details</h3>
                 </div>
                 <button onClick={() => setSelectedWO(null)} className="p-1 rounded hover:bg-gray-100 text-gray-400 cursor-pointer">
@@ -697,11 +731,11 @@ export const WorkOrders: React.FC = () => {
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-150 overflow-hidden bg-white text-xs">
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-500 font-medium">Work Order No</span>
-                  <span className="font-bold text-gray-900">{selectedWO.woNo}</span>
+                  <span className="font-bold text-gray-900">{selectedWO.woNumber}</span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Product</span>
-                  <span className="font-bold text-gray-900 text-right max-w-[220px]">{selectedWO.productName}</span>
+                  <span className="font-bold text-gray-900 text-right max-w-[220px]">{(selectedWO.product?.name || '')}</span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Recipe / BOM</span>
@@ -709,15 +743,15 @@ export const WorkOrders: React.FC = () => {
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Required Quantity</span>
-                  <span className="font-bold text-gray-900">{selectedWO.requiredQuantity} Units</span>
+                  <span className="font-bold text-gray-900">{selectedWO.requiredQty} Units</span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Assigned Team</span>
-                  <span className="font-semibold text-gray-900">{selectedWO.assignedTeam}</span>
+                  <span className="font-semibold text-gray-900">{('Team Alpha')}</span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Supervisor</span>
-                  <span className="font-semibold text-gray-900">{selectedWO.supervisor}</span>
+                  <span className="font-semibold text-gray-900">{selectedWO.supervisor?.name || ''}</span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Priority</span>
@@ -733,7 +767,7 @@ export const WorkOrders: React.FC = () => {
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Expected Completion</span>
-                  <span className="font-bold text-gray-900">{selectedWO.expectedCompletion}</span>
+                  <span className="font-bold text-gray-900">{selectedWO.expectedDate}</span>
                 </div>
               </div>
 
@@ -765,7 +799,7 @@ export const WorkOrders: React.FC = () => {
 
             <div className="border-t border-gray-200 pt-4 flex justify-between items-center bg-gray-50 p-4 -mx-6 -mb-6 rounded-b-lg">
               <div className="flex gap-2">
-                {selectedWO.status === 'Draft' && (
+                {selectedWO.status === 'DRAFT' && (
                   <>
                     <button
                       onClick={() => {
@@ -778,10 +812,8 @@ export const WorkOrders: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Delete draft ${selectedWO.woNo}?`)) {
-                          deleteWorkOrder(selectedWO.id);
-                          showToast(`Deleted work order ${selectedWO.woNo}.`);
-                          setSelectedWO(null);
+                        if (confirm(`Delete draft ${selectedWO.woNumber}?`)) {
+                          workOrderService.updateWorkOrderStatus(selectedWO.id, 'CANCELLED').then(() => { showToast('Cancelled work order.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
                         }
                       }}
                       className="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-bold cursor-pointer"
@@ -790,9 +822,7 @@ export const WorkOrders: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        updateWorkOrderStatus(selectedWO.id, 'Pending');
-                        showToast(`Submitted ${selectedWO.woNo} for approval.`);
-                        setSelectedWO(null);
+                        workOrderService.updateWorkOrderStatus(selectedWO.id, 'PENDING').then(() => { showToast('Submitted for approval.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
                       }}
                       className="bg-[#00891D] hover:bg-[#007518] text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer"
                     >
@@ -801,13 +831,11 @@ export const WorkOrders: React.FC = () => {
                   </>
                 )}
 
-                {selectedWO.status === 'Pending' && (
+                {selectedWO.status === 'PENDING' && (
                   <>
                     <button
                       onClick={() => {
-                        updateWorkOrderStatus(selectedWO.id, 'Approved');
-                        showToast(`Approved work order ${selectedWO.woNo}.`);
-                        setSelectedWO(null);
+                        workOrderService.updateWorkOrderStatus(selectedWO.id, 'APPROVED').then(() => { showToast('Approved work order.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
                       }}
                       className="bg-[#00891D] hover:bg-[#007518] text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer"
                     >
@@ -815,9 +843,7 @@ export const WorkOrders: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        updateWorkOrderStatus(selectedWO.id, 'Cancelled');
-                        showToast(`Rejected/Cancelled work order ${selectedWO.woNo}.`);
-                        setSelectedWO(null);
+                        workOrderService.updateWorkOrderStatus(selectedWO.id, 'CANCELLED').then(() => { showToast('Rejected work order.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
                       }}
                       className="bg-red-50 hover:bg-red-100 text-red-750 text-red-700 px-3 py-1.5 rounded-lg font-bold cursor-pointer"
                     >
@@ -853,18 +879,29 @@ export const WorkOrders: React.FC = () => {
 
             <form onSubmit={handleCreateWO} className="p-5 space-y-4 flex-1 text-left text-xs">
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Select Recipe/BOM *</label>
-                <select
-                  required
-                  className="w-full p-2 border border-gray-200 rounded-lg bg-white focus:ring-1 focus:ring-[#00891D] focus:outline-none"
-                  value={formRecipeId}
-                  onChange={(e) => setFormRecipeId(e.target.value)}
-                >
-                  <option value="">-- Choose Recipe Configuration --</option>
-                  {recipes.map(r => (
-                    <option key={r.id} value={r.id}>{r.packingName} ({r.outputSku})</option>
-                  ))}
-                </select>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 flex justify-between items-center">
+                  <span>Select Recipe/BOM *</span>
+                  <button type="button" onClick={fetchRecipes} className="text-[#00891D] hover:underline" disabled={apiRecipesLoading}>
+                    {apiRecipesLoading ? 'Loading...' : 'Refresh recipes'}
+                  </button>
+                </label>
+                {apiRecipesError ? (
+                  <div className="text-red-600 text-xs py-2">{apiRecipesError}</div>
+                ) : apiRecipes.length === 0 && !apiRecipesLoading ? (
+                  <div className="text-gray-500 text-xs py-2">No eligible recipes available. Create one in Master Data first.</div>
+                ) : (
+                  <select
+                    required
+                    className="w-full p-2 border border-gray-200 rounded-lg bg-white focus:ring-1 focus:ring-[#00891D] focus:outline-none"
+                    value={formRecipeId}
+                    onChange={(e) => setFormRecipeId(e.target.value)}
+                  >
+                    <option value="">{apiRecipesLoading ? 'Loading recipes...' : '-- Choose Recipe Configuration --'}</option>
+                    {apiRecipes.filter(r => r.isActive !== false).map(r => (
+                      <option key={r.id} value={r.id}>{r.code} - {r.name} - {r.outputProduct?.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -886,10 +923,10 @@ export const WorkOrders: React.FC = () => {
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value as WorkOrder['priority'])}
                   >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">Urgent</option>
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="URGENT">Urgent</option>
                   </select>
                 </div>
               </div>
@@ -897,21 +934,12 @@ export const WorkOrders: React.FC = () => {
               {selectedRecipe && (
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-150 space-y-1 text-[11px]">
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">BOM Raw Materials & Packaging</span>
-                  {selectedRecipe.bomItems.map((item, idx) => {
-                    const reqQty = (item.requiredQuantity / selectedRecipe.outputQuantity) * formQty;
+                  {selectedRecipe.items?.map((item, idx) => {
+                    const reqQty = (item.requiredQty / selectedRecipe.outputQty) * formQty;
                     return (
                       <div key={idx} className="flex justify-between text-gray-650 font-medium">
-                        <span>{item.inputItem}</span>
-                        <span className="font-bold text-gray-800">{reqQty.toFixed(1)} kg</span>
-                      </div>
-                    );
-                  })}
-                  {selectedRecipe.packagingMaterials.map((pkg, idx) => {
-                    const reqQty = (pkg.quantity / selectedRecipe.outputQuantity) * formQty;
-                    return (
-                      <div key={idx} className="flex justify-between text-gray-650 font-medium">
-                        <span>{pkg.material}</span>
-                        <span className="font-bold text-gray-800">{reqQty} Units</span>
+                        <span>{item.inputProduct?.name}</span>
+                        <span className="font-bold text-gray-800">{reqQty.toFixed(1)} {item.isPackaging ? 'Units' : 'kg'}</span>
                       </div>
                     );
                   })}
@@ -977,7 +1005,7 @@ export const WorkOrders: React.FC = () => {
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-900 text-white rounded-t-xl">
               <h3 className="text-sm font-bold flex items-center gap-1.5">
                 <Edit size={16} />
-                <span>Edit Work Order {isEditOpen.woNo}</span>
+                <span>Edit Work Order {isEditOpen.woNumber}</span>
               </h3>
               <button onClick={() => setIsEditOpen(null)} className="p-1 rounded hover:bg-gray-850 text-gray-400 hover:text-white cursor-pointer">
                 <X size={18} />
@@ -991,7 +1019,7 @@ export const WorkOrders: React.FC = () => {
                   type="text"
                   disabled
                   className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-                  value={`${isEditOpen.productName} (${isEditOpen.recipeId})`}
+                  value={`${(isEditOpen.product?.name || '')} (${isEditOpen.recipeId})`}
                 />
               </div>
 
@@ -1014,10 +1042,10 @@ export const WorkOrders: React.FC = () => {
                     value={editPriority}
                     onChange={(e) => setEditPriority(e.target.value as WorkOrder['priority'])}
                   >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">Urgent</option>
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="URGENT">Urgent</option>
                   </select>
                 </div>
               </div>

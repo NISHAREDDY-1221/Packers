@@ -38,7 +38,7 @@ export class WorkOrderService {
 
   static async getWorkOrders(queryString: any = {}) {
     const queryObj = { ...queryString };
-    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)(prisma.workOrder, queryObj)
+    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
       .filter()
       .search(['woNumber', 'batchNumber'])
       .sort()
@@ -46,7 +46,19 @@ export class WorkOrderService {
       
     apiFeatures.query = { 
       ...apiFeatures.query, 
-      include: { product: true, recipe: true, supervisor: true } 
+      include: { 
+        product: true, 
+        recipe: {
+          include: {
+            items: {
+              include: {
+                inputProduct: true
+              }
+            }
+          }
+        }, 
+        supervisor: true 
+      } 
     };
 
     const [workOrders, total] = await Promise.all([
