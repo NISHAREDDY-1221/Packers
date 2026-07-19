@@ -15,6 +15,7 @@ import { QualityCheck } from './pages/QualityCheck';
 import { FinishedGoods } from './pages/FinishedGoods';
 import { Repacking } from './pages/Repacking';
 import { Reports } from './pages/Reports';
+import { Approvals } from './pages/Approvals';
 import { Notifications } from './pages/Notifications';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
@@ -71,6 +72,10 @@ const router = createBrowserRouter([
       {
         path: 'repacking',
         element: <Repacking />,
+      },
+      {
+        path: 'approvals',
+        element: <Approvals />,
       },
       {
         path: 'reports',

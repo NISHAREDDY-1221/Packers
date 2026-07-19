@@ -4,6 +4,7 @@ import masterRoutes from './masterRoutes';
 import workOrderRoutes from './workOrderRoutes';
 import workflowRoutes from './workflowRoutes';
 import reportRoutes from './reportRoutes';
+import approvalRoutes from './approvalRoutes';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/master-data', masterRoutes);
 router.use('/work-orders', workOrderRoutes);
 router.use('/workflows', workflowRoutes);
 router.use('/reports', reportRoutes);
+router.use('/approvals', approvalRoutes);
 
 export default router;

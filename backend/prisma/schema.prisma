@@ -25,6 +25,9 @@ model User {
   qualityChecks  QualityCheck[]
   materialIssues MaterialIssue[]
   auditLogs      AuditLog[]
+
+  requestedApprovals ApprovalRequest[] @relation("RequestedApprovals")
+  approvalActions    ApprovalHistory[] @relation("ApprovalActions")
 }
 
 model Role {
@@ -281,3 +284,64 @@ model AuditLog {
   ipAddress  String?
   createdAt  DateTime @default(now())
 }
+
+// ----------------------------------------
+// Approvals
+// ----------------------------------------
+
+enum ApprovalType {
+  WORK_ORDER
+  MATERIAL_ISSUE
+  PACKING_VARIANCE
+  QC_REWORK
+  REPACKING
+  BARCODE_REPRINT
+  FINISHED_GOODS
+  WASTAGE_SCRAP
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ApprovalRequest {
+  id                String            @id @default(uuid())
+  type              ApprovalType
+  relatedEntityId   String
+  relatedEntityName String
+  requestedById     String
+  requestedBy       User              @relation("RequestedApprovals", fields: [requestedById], references: [id])
+  requestedDate     DateTime          @default(now())
+  reason            String
+  priority          Priority
+  status            ApprovalStatus    @default(PENDING)
+  existingValues    Json?
+  proposedValues    Json?
+  remarks           String?
+  attachments       String[]
+  history           ApprovalHistory[]
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model ApprovalHistory {
+  id                String          @id @default(uuid())
+  approvalRequestId String
+  approvalRequest   ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  action            String
+  actionById        String
+  actionBy          User            @relation("ApprovalActions", fields: [actionById], references: [id])
+  actionDate        DateTime        @default(now())
+  comments          String?
+}
+

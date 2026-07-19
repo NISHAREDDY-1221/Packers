@@ -94,6 +94,20 @@ export class WorkOrderService {
       }
     });
 
+    if (status === 'PENDING' && workOrder.status !== 'PENDING') {
+      await prisma.approvalRequest.create({
+        data: {
+          type: 'WORK_ORDER',
+          relatedEntityId: updatedWO.id,
+          relatedEntityName: `Work Order #${updatedWO.woNumber}`,
+          requestedById: userId,
+          reason: 'Submit for approval',
+          priority: updatedWO.priority as any,
+          status: 'PENDING',
+        }
+      });
+    }
+
     return updatedWO;
   }
 

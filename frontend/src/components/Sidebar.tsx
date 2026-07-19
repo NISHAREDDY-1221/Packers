@@ -11,6 +11,7 @@ import {
   PackageCheck,
   RefreshCw,
   BarChart3,
+  ClipboardCheck,
   X
 } from 'lucide-react';
 
@@ -99,6 +100,16 @@ const sidebarConfig: MenuItem[] = [
     path: '/repacking',
     label: 'Repacking',
     icon: RefreshCw,
+  },
+  {
+    type: 'section',
+    sectionTitle: 'ADMINISTRATION',
+  },
+  {
+    type: 'link',
+    path: '/approvals',
+    label: 'Approvals',
+    icon: ClipboardCheck,
   },
   {
     type: 'section',
