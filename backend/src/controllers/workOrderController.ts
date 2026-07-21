@@ -44,3 +44,12 @@ export const startPacking = catchAsync(async (req: Request, res: Response) => {
   const updatedWO = await WorkOrderService.startPacking(id, userId);
   sendResponse(res, 200, 'Packing execution started', updatedWO);
 });
+
+export const completePacking = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { actualProduced, actualRejected } = req.body;
+  const userId = req.user!.id;
+
+  const updatedWO = await WorkOrderService.completePacking(id, actualProduced, actualRejected, userId);
+  sendResponse(res, 200, 'Packing completed successfully', updatedWO);
+});

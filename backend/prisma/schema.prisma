@@ -7,162 +7,249 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ----------------------------------------
-// Auth & RBAC
-// ----------------------------------------
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  roleId    String
-  role      Role     @relation(fields: [roleId], references: [id])
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  workOrders     WorkOrder[]
-  qualityChecks  QualityCheck[]
-  materialIssues MaterialIssue[]
-  auditLogs      AuditLog[]
-
-  requestedApprovals ApprovalRequest[] @relation("RequestedApprovals")
+  id                 String            @id @default(uuid())
+  email              String            @unique
+  password           String
+  name               String
+  roleId             String
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
   approvalActions    ApprovalHistory[] @relation("ApprovalActions")
+  requestedApprovals ApprovalRequest[] @relation("RequestedApprovals")
+  auditLogs          AuditLog[]
+  materialIssues     MaterialIssue[]
+  qualityChecks      QualityCheck[]
+  role               Role              @relation(fields: [roleId], references: [id])
+  workOrders         WorkOrder[]
 }
 
 model Role {
   id          String   @id @default(uuid())
-  name        String   @unique // ADMIN, MANAGER, OPERATOR, QC_INSPECTOR
+  name        String   @unique
   description String?
-  permissions String[] // JSON or String Array of permission keys
-  users       User[]
+  permissions String[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  users       User[]
 }
 
-// ----------------------------------------
-// Master Data
-// ----------------------------------------
 model Category {
   id          String    @id @default(uuid())
   name        String    @unique
   description String?
-  products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  products    Product[]
 }
 
 model UnitOfMeasure {
   id           String    @id @default(uuid())
-  name         String    @unique // e.g. kg, g, ml, L, pcs
+  name         String    @unique
   abbreviation String    @unique
-  products     Product[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  products     Product[]
 }
 
 model Product {
-  id            String         @id @default(uuid())
-  sku           String         @unique
-  name          String
-  categoryId    String
-  category      Category       @relation(fields: [categoryId], references: [id])
-  uomId         String
-  uom           UnitOfMeasure  @relation(fields: [uomId], references: [id])
-  type          ProductType // RAW_MATERIAL, PACKAGING, FINISHED_GOOD
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  
-  recipesAsOutput Recipe[]       @relation("RecipeOutput")
+  id              String          @id @default(uuid())
+  sku             String          @unique
+  name            String
+  categoryId      String
+  uomId           String
+  type            ProductType
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  finishedGoods   FinishedGoods[]
+  category        Category        @relation(fields: [categoryId], references: [id])
+  uom             UnitOfMeasure   @relation(fields: [uomId], references: [id])
+  recipesAsOutput Recipe[]        @relation("RecipeOutput")
   recipeItems     RecipeItem[]
   workOrders      WorkOrder[]
-  finishedGoods   FinishedGoods[]
-}
-
-enum ProductType {
-  RAW_MATERIAL
-  PACKAGING
-  FINISHED_GOOD
 }
 
 model Warehouse {
   id               String            @id @default(uuid())
   name             String            @unique
   location         String?
-  storageLocations StorageLocation[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  storageLocations StorageLocation[]
 }
 
 model StorageLocation {
   id          String    @id @default(uuid())
-  name        String // e.g. Rack A1, Bin 2
+  name        String
   warehouseId String
-  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
 }
 
-// ----------------------------------------
-// Recipe (BOM)
-// ----------------------------------------
 model Recipe {
   id              String       @id @default(uuid())
   code            String       @unique
   name            String
   outputProductId String
-  outputProduct   Product      @relation("RecipeOutput", fields: [outputProductId], references: [id])
   outputQty       Float
-  items           RecipeItem[]
-  workOrders      WorkOrder[]
   isActive        Boolean      @default(true)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  outputProduct   Product      @relation("RecipeOutput", fields: [outputProductId], references: [id])
+  items           RecipeItem[]
+  workOrders      WorkOrder[]
 }
 
 model RecipeItem {
-  id              String   @id @default(uuid())
-  recipeId        String
-  recipe          Recipe   @relation(fields: [recipeId], references: [id])
-  inputProductId  String
-  inputProduct    Product  @relation(fields: [inputProductId], references: [id])
-  requiredQty     Float
-  tolerancePct    Float    @default(0) // Acceptable deviation %
-  isPackaging     Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  recipeId       String
+  inputProductId String
+  requiredQty    Float
+  tolerancePct   Float    @default(0)
+  isPackaging    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  inputProduct   Product  @relation(fields: [inputProductId], references: [id])
+  recipe         Recipe   @relation(fields: [recipeId], references: [id])
 }
 
-// ----------------------------------------
-// Workflow: Packing & Execution
-// ----------------------------------------
 model WorkOrder {
-  id               String      @id @default(uuid())
-  woNumber         String      @unique
-  productId        String
-  product          Product     @relation(fields: [productId], references: [id])
-  recipeId         String
-  recipe           Recipe      @relation(fields: [recipeId], references: [id])
-  status           WoStatus    @default(DRAFT)
-  priority         WoPriority  @default(MEDIUM)
-  requiredQty      Float
-  actualProduced   Float?
-  actualRejected   Float?
-  batchNumber      String?     @unique
-  supervisorId     String
-  supervisor       User        @relation(fields: [supervisorId], references: [id])
-  
-  expectedDate     DateTime?
-  startedAt        DateTime?
-  completedAt      DateTime?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id             String          @id @default(uuid())
+  woNumber       String          @unique
+  productId      String
+  recipeId       String
+  status         WoStatus        @default(DRAFT)
+  priority       WoPriority      @default(MEDIUM)
+  requiredQty    Float
+  actualProduced Float?
+  actualRejected Float?
+  batchNumber    String?         @unique
+  supervisorId   String
+  expectedDate   DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  finishedGoods  FinishedGoods[]
+  materialIssues MaterialIssue[]
+  qualityChecks  QualityCheck[]
+  repackingLogs  RepackingLog[]
+  product        Product         @relation(fields: [productId], references: [id])
+  recipe         Recipe          @relation(fields: [recipeId], references: [id])
+  supervisor     User            @relation(fields: [supervisorId], references: [id])
+}
 
-  materialIssues   MaterialIssue[]
-  qualityChecks    QualityCheck[]
-  finishedGoods    FinishedGoods[]
-  repackingLogs    RepackingLog[]
+model MaterialIssue {
+  id         String      @id @default(uuid())
+  issueNo    String      @unique
+  woId       String
+  issuedById String
+  status     IssueStatus @default(PENDING)
+  payload    Json
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  issuedBy   User        @relation(fields: [issuedById], references: [id])
+  workOrder  WorkOrder   @relation(fields: [woId], references: [id])
+}
+
+model QualityCheck {
+  id            String      @id @default(uuid())
+  qcNumber      String      @unique
+  woId          String
+  inspectorId   String
+  checkedQty    Float
+  result        QcResult
+  severity      QcSeverity?
+  failureReason String?
+  remarks       String?
+  checksPayload Json
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  inspector     User        @relation(fields: [inspectorId], references: [id])
+  workOrder     WorkOrder   @relation(fields: [woId], references: [id])
+}
+
+model FinishedGoods {
+  id          String    @id @default(uuid())
+  fgNumber    String    @unique
+  woId        String
+  productId   String
+  batchNumber String
+  postedQty   Float
+  destination String
+  costPayload Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  product     Product   @relation(fields: [productId], references: [id])
+  workOrder   WorkOrder @relation(fields: [woId], references: [id])
+}
+
+model RepackingLog {
+  id              String    @id @default(uuid())
+  rpNumber        String    @unique
+  sourceWoId      String
+  repackType      String
+  recoverableQty  Float
+  wasteQty        Float
+  newBatchNumber  String?
+  targetRecipeId  String?
+  loggedById      String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  sourceWorkOrder WorkOrder @relation(fields: [sourceWoId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  oldData   Json?
+  newData   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model ApprovalRequest {
+  id                String            @id @default(uuid())
+  type              ApprovalType
+  relatedEntityId   String
+  relatedEntityName String
+  requestedById     String
+  requestedDate     DateTime          @default(now())
+  reason            String
+  priority          Priority
+  status            ApprovalStatus    @default(PENDING)
+  existingValues    Json?
+  proposedValues    Json?
+  remarks           String?
+  attachments       String[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  history           ApprovalHistory[]
+  requestedBy       User              @relation("RequestedApprovals", fields: [requestedById], references: [id])
+}
+
+model ApprovalHistory {
+  id                String          @id @default(uuid())
+  approvalRequestId String
+  action            String
+  actionById        String
+  actionDate        DateTime        @default(now())
+  comments          String?
+  actionBy          User            @relation("ApprovalActions", fields: [actionById], references: [id])
+  approvalRequest   ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+}
+
+enum ProductType {
+  RAW_MATERIAL
+  PACKAGING
+  FINISHED_GOOD
 }
 
 enum WoStatus {
@@ -184,42 +271,9 @@ enum WoPriority {
   URGENT
 }
 
-model MaterialIssue {
-  id         String   @id @default(uuid())
-  issueNo    String   @unique
-  woId       String
-  workOrder  WorkOrder @relation(fields: [woId], references: [id])
-  issuedById String
-  issuedBy   User      @relation(fields: [issuedById], references: [id])
-  status     IssueStatus @default(PENDING)
-  payload    Json     // Specific items and qtys issued (snapshot)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
 enum IssueStatus {
   PENDING
   ISSUED
-}
-
-// ----------------------------------------
-// Workflow: QC & Finished Goods
-// ----------------------------------------
-model QualityCheck {
-  id            String   @id @default(uuid())
-  qcNumber      String   @unique
-  woId          String
-  workOrder     WorkOrder @relation(fields: [woId], references: [id])
-  inspectorId   String
-  inspector     User      @relation(fields: [inspectorId], references: [id])
-  checkedQty    Float
-  result        QcResult
-  severity      QcSeverity?
-  failureReason String?
-  remarks       String?
-  checksPayload Json      // Specific checklist booleans
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
 }
 
 enum QcResult {
@@ -235,59 +289,6 @@ enum QcSeverity {
   MAJOR
   CRITICAL
 }
-
-model FinishedGoods {
-  id             String   @id @default(uuid())
-  fgNumber       String   @unique
-  woId           String
-  workOrder      WorkOrder @relation(fields: [woId], references: [id])
-  productId      String
-  product        Product   @relation(fields: [productId], references: [id])
-  batchNumber    String
-  postedQty      Float
-  destination    String    // Warehouse, Store, etc.
-  costPayload    Json?     // Stored costing breakdown
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-}
-
-// ----------------------------------------
-// Workflow: Repacking
-// ----------------------------------------
-model RepackingLog {
-  id                  String   @id @default(uuid())
-  rpNumber            String   @unique
-  sourceWoId          String
-  sourceWorkOrder     WorkOrder @relation(fields: [sourceWoId], references: [id])
-  repackType          String
-  recoverableQty      Float
-  wasteQty            Float
-  newBatchNumber      String?
-  targetRecipeId      String?  // If re-routed to a different BOM
-  loggedById          String
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-// ----------------------------------------
-// Audit Logs
-// ----------------------------------------
-model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  action     String   // e.g. UPDATE_WO_STATUS
-  entity     String   // e.g. WorkOrder
-  entityId   String
-  oldData    Json?
-  newData    Json?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
-}
-
-// ----------------------------------------
-// Approvals
-// ----------------------------------------
 
 enum ApprovalType {
   WORK_ORDER
@@ -312,36 +313,3 @@ enum Priority {
   HIGH
   CRITICAL
 }
-
-model ApprovalRequest {
-  id                String            @id @default(uuid())
-  type              ApprovalType
-  relatedEntityId   String
-  relatedEntityName String
-  requestedById     String
-  requestedBy       User              @relation("RequestedApprovals", fields: [requestedById], references: [id])
-  requestedDate     DateTime          @default(now())
-  reason            String
-  priority          Priority
-  status            ApprovalStatus    @default(PENDING)
-  existingValues    Json?
-  proposedValues    Json?
-  remarks           String?
-  attachments       String[]
-  history           ApprovalHistory[]
-  
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-}
-
-model ApprovalHistory {
-  id                String          @id @default(uuid())
-  approvalRequestId String
-  approvalRequest   ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
-  action            String
-  actionById        String
-  actionBy          User            @relation("ApprovalActions", fields: [actionById], references: [id])
-  actionDate        DateTime        @default(now())
-  comments          String?
-}
-

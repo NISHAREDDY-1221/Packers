@@ -3,11 +3,12 @@ import { useApp } from '../context/AppContext';
 import type { WorkOrder } from '../context/AppContext';
 import {
   AlertCircle, CheckCircle, Timer, Layers, Clipboard,
-  X, Eye, BarChart3, ArrowRight
+  X, Eye, BarChart3, ArrowRight, Play, Check
 } from 'lucide-react';
+import { workOrderService } from '../api/workOrderService';
 
 export const PackingExecution: React.FC = () => {
-  const { workOrders, recipes } = useApp();
+  const { workOrders, recipes, refreshGlobalData } = useApp();
   const [activeWO, setActiveWO] = useState<WorkOrder | null>(null);
 
   // Read-only timer states for active job monitoring
@@ -15,6 +16,12 @@ export const PackingExecution: React.FC = () => {
 
   // Secondary views drawer states
   const [selectedDrawerTab, setSelectedDrawerTab] = useState<'wo' | 'recipe' | 'material' | 'production' | null>(null);
+
+  // Packing action states
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [actualProduced, setActualProduced] = useState<number>(0);
+  const [actualRejected, setActualRejected] = useState<number>(0);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Filter queue jobs: Approved, Material Issued, Packing Started, QC Pending
   const activeQueueWOs = useMemo(() => {
@@ -52,17 +59,52 @@ export const PackingExecution: React.FC = () => {
     return () => clearInterval(interval);
   }, [selectedWO?.status, selectedWO]);
 
-  // Reset or set initial timer when job selection changes
   useEffect(() => {
     if (selectedWO) {
-      setTimerSeconds(selectedWO.packingTimeSeconds || 1240); // default mock starting seconds
+      if (selectedWO.status === 'Packing Started' && selectedWO.startedAt) {
+        const elapsed = Math.floor((new Date().getTime() - new Date(selectedWO.startedAt).getTime()) / 1000);
+        setTimerSeconds(elapsed > 0 ? elapsed : 0);
+      } else {
+        setTimerSeconds(0);
+      }
     } else {
       setTimerSeconds(0);
     }
-  }, [selectedWO?.id]);
+  }, [selectedWO?.id, selectedWO?.status, selectedWO?.startedAt]);
 
   const handleSelectWO = (wo: WorkOrder) => {
     setActiveWO(wo);
+    setActualProduced(wo.requiredQuantity || 0);
+    setActualRejected(0);
+  };
+
+  const handleStartPacking = async () => {
+    if (!selectedWO) return;
+    try {
+      setActionLoading(true);
+      await workOrderService.startPacking(selectedWO.id);
+      await refreshGlobalData();
+    } catch (error) {
+      console.error(error);
+      alert('Failed to start packing');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCompletePacking = async () => {
+    if (!selectedWO) return;
+    try {
+      setActionLoading(true);
+      await workOrderService.completePacking(selectedWO.id, actualProduced, actualRejected);
+      await refreshGlobalData();
+      setIsCompleting(false);
+    } catch (error) {
+      console.error(error);
+      alert('Failed to complete packing');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const formatTime = (secs: number) => {
@@ -97,7 +139,7 @@ export const PackingExecution: React.FC = () => {
   };
 
   // Progress metrics
-  const mockProgressMetrics = useMemo(() => {
+  const progressMetrics = useMemo(() => {
     if (!selectedWO) return null;
     const req = selectedWO.requiredQuantity;
     const completionPct = getWorkOrderProgress(selectedWO);
@@ -110,7 +152,7 @@ export const PackingExecution: React.FC = () => {
   }, [selectedWO]);
 
   // Materials Consumption List
-  const mockMaterialsList = useMemo(() => {
+  const materialsList = useMemo(() => {
     if (!selectedWO) return [];
     const recipe = recipes.find(r => r.id === selectedWO.recipeId);
     if (!recipe) return [];
@@ -170,12 +212,12 @@ export const PackingExecution: React.FC = () => {
     }
   };
 
-  // Mock Active Alerts
+  // Active Alerts (fetch from backend later)
   const activeAlerts = useMemo(() => {
     return [] as { type: 'danger' | 'warning' | 'info'; message: string }[];
   }, [selectedWO]);
 
-  // Production Activity Log
+  // Production Activity Log (fetch from audit logs later)
   const activityLog = useMemo(() => {
     return [] as { title: string; time: string; desc: string }[];
   }, [selectedWO]);
@@ -243,7 +285,7 @@ export const PackingExecution: React.FC = () => {
             <div className="space-y-6">
 
               {/* Status Success Banner */}
-              {mockProgressMetrics && mockProgressMetrics.completionPct === 100 && (
+              {progressMetrics && progressMetrics.completionPct === 100 && (
                 <div className="bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-900/30 text-green-800 dark:text-green-400 p-4 rounded-xl flex items-center gap-3">
                   <CheckCircle className="text-green-600 dark:text-green-400 shrink-0" size={20} />
                   <div>
@@ -265,7 +307,7 @@ export const PackingExecution: React.FC = () => {
                       <span className="font-mono text-sm font-bold tracking-widest">{formatTime(timerSeconds)}</span>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${getStatusColor(selectedWO.status)}`}>
-                      {mockProgressMetrics?.completionPct === 100 ? 'Packing Completed' : selectedWO.status}
+                      {progressMetrics?.completionPct === 100 ? 'Packing Completed' : selectedWO.status}
                     </span>
                   </div>
                 </div>
@@ -320,33 +362,33 @@ export const PackingExecution: React.FC = () => {
                   </div>
                   <div>
                     <span className="block font-semibold text-slate-400 dark:text-gray-500">Current Status</span>
-                    <span className="font-bold text-slate-750 dark:text-gray-300">{mockProgressMetrics?.completionPct === 100 ? 'Packing Completed' : selectedWO.status}</span>
+                    <span className="font-bold text-slate-750 dark:text-gray-300">{progressMetrics?.completionPct === 100 ? 'Packing Completed' : selectedWO.status}</span>
                   </div>
                 </div>
               </div>
 
               {/* Progress Summary KPIs */}
-              {mockProgressMetrics && (
+              {progressMetrics && (
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div className="bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 p-4 rounded-xl shadow-xs text-center">
                     <span className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider block font-semibold">Required Quantity</span>
-                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{mockProgressMetrics.req}</span>
+                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{progressMetrics.req}</span>
                   </div>
                   <div className="bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 p-4 rounded-xl shadow-xs text-center border-l-4 border-l-[#00891D]">
                     <span className="text-[10px] text-green-700 dark:text-green-400 font-bold uppercase tracking-wider block font-semibold">Packed Quantity</span>
-                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{mockProgressMetrics.packed}</span>
+                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{progressMetrics.packed}</span>
                   </div>
                   <div className="bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 p-4 rounded-xl shadow-xs text-center">
                     <span className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider block font-semibold">Remaining Quantity</span>
-                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{mockProgressMetrics.remaining}</span>
+                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{progressMetrics.remaining}</span>
                   </div>
                   <div className="bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 p-4 rounded-xl shadow-xs text-center border-l-4 border-l-rose-500">
                     <span className="text-[10px] text-rose-500 font-bold uppercase tracking-wider block font-semibold">Rejected Quantity</span>
-                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{mockProgressMetrics.rejected}</span>
+                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{progressMetrics.rejected}</span>
                   </div>
                   <div className="bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 p-4 rounded-xl shadow-xs text-center">
                     <span className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider block font-semibold">Completion %</span>
-                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{mockProgressMetrics.completionPct}%</span>
+                    <span className="text-xl font-bold text-slate-800 dark:text-gray-100 block mt-1">{progressMetrics.completionPct}%</span>
                   </div>
                 </div>
               )}
@@ -400,6 +442,27 @@ export const PackingExecution: React.FC = () => {
                   <BarChart3 size={14} />
                   <span>View Production Details</span>
                 </button>
+                
+                {/* ACTION BUTTONS */}
+                {selectedWO.status === 'Material Issued' && (
+                  <button
+                    onClick={handleStartPacking}
+                    disabled={actionLoading}
+                    className="flex-1 min-w-[140px] px-4 py-2.5 bg-[#00891D] hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Play size={14} />
+                    <span>{actionLoading ? 'Starting...' : 'Start Packing'}</span>
+                  </button>
+                )}
+                {selectedWO.status === 'Packing Started' && (
+                  <button
+                    onClick={() => setIsCompleting(true)}
+                    className="flex-1 min-w-[140px] px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check size={14} />
+                    <span>Complete Job</span>
+                  </button>
+                )}
               </div>
 
               {/* Content Grid */}
@@ -425,7 +488,7 @@ export const PackingExecution: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-gray-750">
-                        {mockMaterialsList.map((item, idx) => {
+                        {materialsList.map((item, idx) => {
                           const issued = item.issued;
                           const consumed = item.consumed;
                           const consPct = issued > 0 ? Math.round((consumed / issued) * 100) : 0;
@@ -476,28 +539,39 @@ export const PackingExecution: React.FC = () => {
                   )}
 
                   {/* Waste Summary */}
-                  {mockProgressMetrics && (
+                  {progressMetrics && (
                     <div className="bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 p-5 rounded-xl shadow-xs space-y-4">
                       <h4 className="font-bold text-slate-850 dark:text-gray-200 text-sm flex items-center gap-2">
                         <AlertCircle size={16} className="text-amber-500" />
                         <span>Waste Summary</span>
                       </h4>
+                      {/* Production Stats Summary */}
+                      <div className="bg-slate-50 dark:bg-gray-700 p-5 grid grid-cols-2 gap-4 text-center">
+                        <div>
+                          <span className="text-[10px] text-slate-400 dark:text-gray-400 font-bold uppercase tracking-widest block">Yield Rate</span>
+                          <span className="font-bold text-slate-800 dark:text-gray-100 mt-1 block">{progressMetrics.packed > 0 ? '99.5%' : '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-rose-500 font-bold uppercase tracking-widest block">Total Defects</span>
+                          <span className="font-bold text-rose-600 mt-1 block">{progressMetrics.rejected} units</span>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
                           <span className="text-slate-400 dark:text-gray-500 block text-[10px] font-semibold">Weight Loss</span>
-                          <span className="font-bold text-slate-800 dark:text-gray-150 mt-1 block">0.45 kg</span>
+                          <span className="font-bold text-slate-800 dark:text-gray-150 mt-1 block">0 kg</span>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
                           <span className="text-slate-400 dark:text-gray-500 block text-[10px] font-semibold">Packaging Waste</span>
-                          <span className="font-bold text-slate-800 dark:text-gray-150 mt-1 block">12 units</span>
+                          <span className="font-bold text-slate-800 dark:text-gray-150 mt-1 block">0 units</span>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
                           <span className="text-slate-400 dark:text-gray-500 block text-[10px] font-semibold font-medium">Rejected Units</span>
-                          <span className="font-bold text-rose-600 mt-1 block">{mockProgressMetrics.rejected} units</span>
+                          <span className="font-bold text-rose-600 mt-1 block">{progressMetrics.rejected} units</span>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
                           <span className="text-slate-400 dark:text-gray-500 block text-[10px] font-semibold font-medium">Recoverable Quantity</span>
-                          <span className="font-bold text-green-700 mt-1 block">2 units</span>
+                          <span className="font-bold text-green-700 mt-1 block">0 units</span>
                         </div>
                       </div>
                     </div>
@@ -722,6 +796,70 @@ export const PackingExecution: React.FC = () => {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Complete Packing Modal */}
+      {isCompleting && selectedWO && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200 dark:border-gray-700">
+            <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/50">
+              <h3 className="font-bold text-slate-800 dark:text-gray-100 text-sm">Complete Packing Job</h3>
+              <button
+                onClick={() => setIsCompleting(false)}
+                className="p-1 hover:bg-slate-200 dark:hover:bg-gray-700 rounded transition-colors text-slate-500"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4 text-sm">
+              <p className="text-slate-600 dark:text-gray-300">
+                You are about to complete packing for <span className="font-bold">{selectedWO.woNo}</span>.
+                Please enter the final quantities.
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">Actual Produced Quantity</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={actualProduced}
+                    onChange={(e) => setActualProduced(Number(e.target.value))}
+                    className="w-full border border-slate-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-slate-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#00891D] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">Actual Rejected Quantity</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={actualRejected}
+                    onChange={(e) => setActualRejected(Number(e.target.value))}
+                    className="w-full border border-slate-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-slate-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#00891D] focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/50 flex justify-end gap-3">
+              <button
+                onClick={() => setIsCompleting(false)}
+                className="px-4 py-2 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 font-semibold text-xs transition-colors"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCompletePacking}
+                disabled={actionLoading}
+                className="px-5 py-2 bg-[#00891D] hover:bg-green-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Saving...' : 'Confirm Completion'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -37,8 +37,8 @@ export const FinishedGoods: React.FC = () => {
 
   const totalCost = rawCost + packagingCost + employeeCost + electricity + machineCost + transportation + miscellaneous;
   const costPerUnit = formPostedQty > 0 ? Number((totalCost / formPostedQty).toFixed(2)) : 0;
-  const simulatedSellingPrice = 48; // mock selling price per unit
-  const profitMargin = costPerUnit > 0 ? Number((((simulatedSellingPrice - costPerUnit) / simulatedSellingPrice) * 100).toFixed(1)) : 0;
+  const sellingPrice = 0; 
+  const profitMargin = costPerUnit > 0 && sellingPrice > 0 ? Number((((sellingPrice - costPerUnit) / sellingPrice) * 100).toFixed(1)) : 0;
 
   const handleSelectWO = (woNo: string) => {
     setFormWoNo(woNo);

@@ -21,3 +21,10 @@ export const issueMaterialsSchema = z.object({
     payload: z.any(), // In a real scenario, this would be strictly typed array of {productId, issuedQty}
   }),
 });
+
+export const completePackingSchema = z.object({
+  body: z.object({
+    actualProduced: z.number().nonnegative(),
+    actualRejected: z.number().nonnegative(),
+  }),
+});

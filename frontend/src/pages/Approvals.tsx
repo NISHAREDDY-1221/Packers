@@ -45,7 +45,7 @@ export const Approvals: React.FC = () => {
 
   // KPIs
   const pendingCount = approvals.filter(a => a.status === 'PENDING').length;
-  const approvedTodayCount = approvals.filter(a => a.status === 'APPROVED').length; // Mocking today logic
+  const approvedTodayCount = approvals.filter(a => a.status === 'APPROVED').length;
   const rejectedTodayCount = approvals.filter(a => a.status === 'REJECTED').length;
   const highPriorityCount = approvals.filter(a => a.status === 'PENDING' && (a.priority === 'HIGH' || a.priority === 'CRITICAL')).length;
 

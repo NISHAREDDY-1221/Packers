@@ -1,16 +1,18 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import {
   BarChart3, AlertTriangle,
   Layers, Package, ShieldCheck, Flame, Clock,
   TrendingUp, RefreshCw, CheckCircle,
-  UserCheck
+  UserCheck, PlayCircle
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { qualityChecks, finishedGoods, repackings, workOrders } = useApp();
-
+  const { user } = useAuth();
+  const userRole = typeof user?.role === 'string' ? user.role : (user?.role as any)?.name || 'OPERATOR';
 
   // workOrders now comes directly from context; no local API fetch needed
 
@@ -81,34 +83,39 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* 4. Completed Work Orders */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
-            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
-              <CheckCircle size={16} />
+          {(userRole === 'ADMIN' || userRole === 'OPERATOR') && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
+              <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+                <CheckCircle size={16} />
+              </div>
+              <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Completed Work Orders</span>
+              <h4 className="text-2xl font-bold text-slate-800 mt-1">{completedWOs || 0} <span className="text-xs font-medium text-slate-400">jobs</span></h4>
+              <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
+                <TrendingUp size={10} />
+                <span>-</span>
+              </div>
             </div>
-            <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Completed Work Orders</span>
-            <h4 className="text-2xl font-bold text-slate-800 mt-1">{completedWOs || 0} <span className="text-xs font-medium text-slate-400">jobs</span></h4>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
-          </div>
+          )}
 
           {/* 5. Rejected QC */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
-            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
-              <ShieldCheck size={16} />
+          {(userRole === 'ADMIN' || userRole === 'QC_CHECKER') && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
+              <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
+                <ShieldCheck size={16} />
+              </div>
+              <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Rejected QC</span>
+              <h4 className="text-2xl font-bold text-slate-800 mt-1">{qcRejects || 0} <span className="text-xs font-medium text-slate-400">batches</span></h4>
+              <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
+                <span>-</span>
+              </div>
             </div>
-            <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Rejected QC</span>
-            <h4 className="text-2xl font-bold text-slate-800 mt-1">{qcRejects || 0} <span className="text-xs font-medium text-slate-400">batches</span></h4>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
-              <span>-</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Secondary Row - 8 Columns */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-          {/* 6. Packing Efficiency */}
+        {userRole === 'ADMIN' && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+            {/* 6. Packing Efficiency */}
           <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
             <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Packing Efficiency</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0%</h4>
@@ -180,10 +187,12 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* SECOND SECTION: QUICK SHORTCUTS & ACTIVE WORK ORDERS/LIVE QUEUE */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {(userRole === 'ADMIN' || userRole === 'OPERATOR' || userRole === 'QC_CHECKER') && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Manager Quick Shortcuts */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between lg:col-span-1">
@@ -194,37 +203,54 @@ export const Dashboard: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
-              <NavLink
-                to="/work-orders"
-                className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
-              >
-                <Layers className="text-green-600" size={20} />
-                <span className="text-xs font-semibold text-slate-700">Create WO</span>
-              </NavLink>
+              {userRole === 'ADMIN' && (
+                <>
+                  <NavLink
+                    to="/work-orders"
+                    className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
+                  >
+                    <Layers className="text-green-600" size={20} />
+                    <span className="text-xs font-semibold text-slate-700">Create WO</span>
+                  </NavLink>
 
-              <NavLink
-                to="/material-issue"
-                className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
-              >
-                <Package className="text-indigo-600" size={20} />
-                <span className="text-xs font-semibold text-slate-700">Issue Material</span>
-              </NavLink>
+                  <NavLink
+                    to="/material-issue"
+                    className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
+                  >
+                    <Package className="text-indigo-600" size={20} />
+                    <span className="text-xs font-semibold text-slate-700">Issue Material</span>
+                  </NavLink>
+                </>
+              )}
 
-              <NavLink
-                to="/quality-check"
-                className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
-              >
-                <ShieldCheck className="text-rose-500" size={20} />
-                <span className="text-xs font-semibold text-slate-700">Quality Check</span>
-              </NavLink>
+              {userRole === 'QC_CHECKER' && (
+                <NavLink
+                  to="/quality-check"
+                  className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
+                >
+                  <ShieldCheck className="text-rose-500" size={20} />
+                  <span className="text-xs font-semibold text-slate-700">Quality Check</span>
+                </NavLink>
+              )}
 
-              <NavLink
-                to="/repacking"
-                className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
-              >
-                <RefreshCw className="text-slate-600" size={20} />
-                <span className="text-xs font-semibold text-slate-700">Repack Order</span>
-              </NavLink>
+              {userRole === 'OPERATOR' && (
+                <>
+                  <NavLink
+                    to="/packing-execution"
+                    className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
+                  >
+                    <PlayCircle className="text-green-600" size={20} />
+                    <span className="text-xs font-semibold text-slate-700">Execution</span>
+                  </NavLink>
+                  <NavLink
+                    to="/repacking"
+                    className="p-3 border border-slate-100 rounded-xl hover:border-green-600 hover:bg-slate-50 transition-all text-center flex flex-col items-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw className="text-slate-600" size={20} />
+                    <span className="text-xs font-semibold text-slate-700">Repack Order</span>
+                  </NavLink>
+                </>
+              )}
             </div>
           </div>
 
@@ -241,9 +267,11 @@ export const Dashboard: React.FC = () => {
               <Clock size={16} className="text-indigo-650" />
               <span>Active Work Order & Live Packing Queue</span>
             </h3>
-            <NavLink to="/work-orders" className="text-xs font-semibold text-green-600 hover:text-green-700 hover:underline">
-              View Details
-            </NavLink>
+            {userRole === 'ADMIN' && (
+              <NavLink to="/work-orders" className="text-xs font-semibold text-green-600 hover:text-green-700 hover:underline">
+                View Details
+              </NavLink>
+            )}
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -284,19 +312,19 @@ export const Dashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="p-2 text-center font-bold">
-                          {(wo.status === 'Pending' || wo.status === 'Approved') && (
+                          {userRole === 'ADMIN' && (wo.status === 'Pending' || wo.status === 'Approved') && (
                             <NavLink to="/material-issue" className="text-amber-600 hover:text-amber-700 hover:underline">Issue</NavLink>
                           )}
-                          {(wo.status === 'Material Issued' || wo.status === 'Packing Started') && (
+                          {userRole === 'OPERATOR' && (wo.status === 'Material Issued' || wo.status === 'Packing Started') && (
                             <NavLink to="/packing-execution" className="text-blue-600 hover:text-blue-700 hover:underline">Pack</NavLink>
                           )}
-                          {wo.status === 'QC Pending' && (
+                          {userRole === 'QC_CHECKER' && wo.status === 'QC Pending' && (
                             <NavLink to="/quality-check" className="text-rose-600 hover:text-rose-700 hover:underline">Verify</NavLink>
                           )}
-                          {wo.status === 'QC Passed' && (
+                          {userRole === 'ADMIN' && wo.status === 'QC Passed' && (
                             <NavLink to="/finished-goods" className="text-green-600 hover:text-green-700 hover:underline">Post FG</NavLink>
                           )}
-                          {wo.status === 'Draft' && (
+                          {userRole === 'ADMIN' && wo.status === 'Draft' && (
                             <NavLink to="/work-orders" className="text-slate-600 hover:text-slate-800 hover:underline">Edit</NavLink>
                           )}
                         </td>
@@ -317,10 +345,13 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
-
       </div>
+      )}
 
-      {/* THIRD SECTION: MATERIAL SHORTAGE ALERTS */}
+      {/* THIRD TO LAST SECTIONS: VISIBLE TO ADMIN ONLY */}
+      {userRole === 'ADMIN' && (
+        <div className="space-y-6">
+          {/* THIRD SECTION: MATERIAL SHORTAGE ALERTS */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
         <div className="flex justify-between items-center border-b border-slate-150 pb-3">
           <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
@@ -486,6 +517,8 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      </div>
+      )}
     </div>
   );
 };

@@ -133,4 +133,34 @@ router.post('/:id/issue-materials', validate(validation.issueMaterialsSchema), c
  */
 router.post('/:id/start-packing', controller.startPacking);
 
+/**
+ * @openapi
+ * /work-orders/{id}/complete-packing:
+ *   post:
+ *     summary: Complete Packing execution
+ *     tags:
+ *       - Work Orders
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               actualProduced:
+ *                 type: number
+ *               actualRejected:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Packing completed successfully
+ */
+router.post('/:id/complete-packing', validate(validation.completePackingSchema), controller.completePacking);
+
 export default router;

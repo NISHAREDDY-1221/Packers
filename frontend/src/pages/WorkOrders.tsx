@@ -29,7 +29,7 @@ interface TimelineStep {
 }
 
 export const WorkOrders: React.FC = () => {
-  const { } = useApp();
+  const { refreshGlobalData } = useApp();
 
   const [apiWorkOrders, setApiWorkOrders] = useState<WorkOrder[]>([]);
   const workOrders = apiWorkOrders;
@@ -38,6 +38,7 @@ export const WorkOrders: React.FC = () => {
     try {
       const res = await workOrderService.getWorkOrders();
       setApiWorkOrders(res.data || []);
+      await refreshGlobalData();
     } catch (e) {
       console.error(e);
     }

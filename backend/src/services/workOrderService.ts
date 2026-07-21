@@ -183,4 +183,34 @@ export class WorkOrderService {
 
     return updatedWO;
   }
+
+  static async completePacking(id: string, actualProduced: number, actualRejected: number, userId: string) {
+    const workOrder = await prisma.workOrder.findUnique({ where: { id } });
+    if (!workOrder) throw new AppError(404, 'Work Order not found');
+
+    if (workOrder.status !== 'PACKING_STARTED') {
+      throw new AppError(400, 'Cannot complete packing for an unstarted or already completed job');
+    }
+
+    const updatedWO = await prisma.workOrder.update({
+      where: { id },
+      data: {
+        status: 'QC_PENDING',
+        actualProduced,
+        actualRejected,
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'COMPLETE_PACKING',
+        entity: 'WorkOrder',
+        entityId: updatedWO.id,
+        newData: { status: updatedWO.status, actualProduced, actualRejected },
+      }
+    });
+
+    return updatedWO;
+  }
 }

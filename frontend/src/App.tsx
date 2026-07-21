@@ -35,51 +35,99 @@ const router = createBrowserRouter([
     children: [
       {
         path: '',
-        element: <Dashboard />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'OPERATOR', 'QC_CHECKER']}>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'master-data',
-        element: <MasterData />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <MasterData />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'recipe-bom',
-        element: <RecipeBOM />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <RecipeBOM />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'work-orders',
-        element: <WorkOrders />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <WorkOrders />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'material-issue',
-        element: <MaterialIssue />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <MaterialIssue />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'packing-execution',
-        element: <PackingExecution />,
+        element: (
+          <ProtectedRoute allowedRoles={['OPERATOR']}>
+            <PackingExecution />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'barcodes-labels',
-        element: <BarcodesLabels />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN', 'QC_CHECKER', 'OPERATOR']}>
+            <BarcodesLabels />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'quality-check',
-        element: <QualityCheck />,
+        element: (
+          <ProtectedRoute allowedRoles={['QC_CHECKER']}>
+            <QualityCheck />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'finished-goods',
-        element: <FinishedGoods />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <FinishedGoods />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'repacking',
-        element: <Repacking />,
+        element: (
+          <ProtectedRoute allowedRoles={['OPERATOR']}>
+            <Repacking />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'approvals',
-        element: <Approvals />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <Approvals />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'reports',
-        element: <Reports />,
+        element: (
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <Reports />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'notifications',

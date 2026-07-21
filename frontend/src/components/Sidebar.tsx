@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -26,6 +27,7 @@ interface MenuItem {
   path?: string;
   label?: string;
   icon?: React.ComponentType<{ size?: number; className?: string }>;
+  roles?: string[];
 }
 
 const sidebarConfig: MenuItem[] = [
@@ -34,97 +36,116 @@ const sidebarConfig: MenuItem[] = [
     path: '/',
     label: 'Dashboard',
     icon: LayoutDashboard,
+    roles: ['ADMIN', 'OPERATOR', 'QC_CHECKER'],
   },
   {
     type: 'section',
     sectionTitle: 'RECIPE & CONFIG',
+    roles: ['ADMIN'],
   },
   {
     type: 'link',
     path: '/master-data',
     label: 'Master Data',
     icon: Layers,
+    roles: ['ADMIN'],
   },
   {
     type: 'link',
     path: '/recipe-bom',
     label: 'Recipe / BOM',
     icon: ClipboardList,
+    roles: ['ADMIN'],
   },
   {
     type: 'link',
     path: '/work-orders',
     label: 'Work Orders',
     icon: Layers,
+    roles: ['ADMIN'],
   },
   {
     type: 'section',
     sectionTitle: 'OPERATIONS',
+    roles: ['ADMIN', 'OPERATOR'],
   },
   {
     type: 'link',
     path: '/material-issue',
     label: 'Material Issue',
     icon: ArrowUpRight,
+    roles: ['ADMIN'],
   },
   {
     type: 'link',
     path: '/packing-execution',
     label: 'Packing Execution',
     icon: PlayCircle,
+    roles: ['OPERATOR'],
   },
   {
     type: 'section',
     sectionTitle: 'POST PACKING',
+    roles: ['ADMIN', 'QC_CHECKER', 'OPERATOR'],
   },
   {
     type: 'link',
     path: '/barcodes-labels',
     label: 'Barcodes & Labels',
     icon: QrCode,
+    roles: ['ADMIN', 'QC_CHECKER', 'OPERATOR'],
   },
   {
     type: 'link',
     path: '/quality-check',
     label: 'Quality Check',
     icon: ShieldCheck,
+    roles: ['QC_CHECKER'],
   },
   {
     type: 'link',
     path: '/finished-goods',
     label: 'Finished Goods',
     icon: PackageCheck,
+    roles: ['ADMIN'],
   },
   {
     type: 'link',
     path: '/repacking',
     label: 'Repacking',
     icon: RefreshCw,
+    roles: ['OPERATOR'],
   },
   {
     type: 'section',
     sectionTitle: 'ADMINISTRATION',
+    roles: ['ADMIN'],
   },
   {
     type: 'link',
     path: '/approvals',
     label: 'Approvals',
     icon: ClipboardCheck,
+    roles: ['ADMIN'],
   },
   {
     type: 'section',
     sectionTitle: 'REPORTS',
+    roles: ['ADMIN'],
   },
   {
     type: 'link',
     path: '/reports',
     label: 'Reports',
     icon: BarChart3,
+    roles: ['ADMIN'],
   },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
+  const { user } = useAuth();
+  const userRole = typeof user?.role === 'string' ? user.role : (user?.role as any)?.name || 'OPERATOR';
 
   const isItemActive = useCallback(
     (path: string): boolean => {
@@ -217,18 +238,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 
       {/* Navigation Section - All menu items are rendered here */}
       <nav className="flex-1 p-2 overflow-y-auto overflow-x-hidden sidebar-scrollbar min-h-0">
-        {sidebarConfig.map((section, index) => {
-          const key = section.sectionTitle || section.path || `sidebar-${index}`;
-          switch (section.type) {
-            case 'section':
-              return section.sectionTitle ? (
-                <div key={key}>{renderSectionHeader(section.sectionTitle)}</div>
-              ) : null;
-            case 'link':
-              return <div key={key}>{renderLinkItem(section)}</div>;
-            default:
-              return null;
-          }
+        {sidebarConfig
+          .filter(section => !section.roles || section.roles.includes(userRole))
+          .map((section, index) => {
+            const key = section.sectionTitle || section.path || `sidebar-${index}`;
+            switch (section.type) {
+              case 'section':
+                return section.sectionTitle ? (
+                  <div key={key}>{renderSectionHeader(section.sectionTitle)}</div>
+                ) : null;
+              case 'link':
+                return <div key={key}>{renderLinkItem(section)}</div>;
+              default:
+                return null;
+            }
         })}
       </nav>
     </aside>

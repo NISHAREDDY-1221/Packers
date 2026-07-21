@@ -164,6 +164,7 @@ interface AppContextType {
   addFinishedGoods: (fg: FinishedGoods) => void;
   addRepacking: (rp: RepackingRecord) => void;
   deleteWorkOrder: (woId: string) => void;
+  refreshGlobalData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -214,10 +215,9 @@ const INITIAL_WORK_ORDERS: WorkOrder[] = [
 const INITIAL_MATERIAL_ISSUES: MaterialIssue[] = [];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Fetch initial data from backend
-  useEffect(() => {
-    // Load work orders
-    workOrderService.getWorkOrders().then(res => {
+  const refreshGlobalData = async () => {
+    try {
+      const res = await workOrderService.getWorkOrders();
       if (res && Array.isArray(res.data)) {
         const statusMap: Record<string, WorkOrder['status']> = {
           'DRAFT': 'Draft', 'PENDING': 'Pending', 'APPROVED': 'Approved',
@@ -227,15 +227,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         const mappedData = res.data.map((wo: any) => ({
           ...wo,
-          status: statusMap[wo.status] || wo.status
+          woNo: wo.woNumber || wo.woNo,
+          requiredQuantity: wo.requiredQty || wo.requiredQuantity,
+          productName: wo.product?.name || wo.productName || 'Unknown Product',
+          assignedTeam: wo.supervisor?.name ? `Team ${wo.supervisor.name}` : 'Packing Team Alpha',
+          supervisor: wo.supervisor?.name || wo.supervisorId,
+          status: statusMap[wo.status] || wo.status,
+          date: wo.createdAt ? new Date(wo.createdAt).toISOString().split('T')[0] : (wo.date || ''),
+          expectedCompletion: wo.expectedDate ? new Date(wo.expectedDate).toISOString().split('T')[0] : (wo.expectedCompletion || ''),
         }));
         setWorkOrders(mappedData as WorkOrder[]);
       }
-    }).catch(err => console.error('Failed to fetch work orders', err));
+    } catch (err) {
+      console.error('Failed to fetch work orders in global context', err);
+    }
+  };
 
-    // Load repackings (currently empty endpoint placeholder)
-    // If backend provides a repackings endpoint, replace the URL accordingly
-    // For now we just keep the empty array
+  // Fetch initial data from backend
+  useEffect(() => {
+    refreshGlobalData();
   }, []);
 
   const [recipes, setRecipes] = useState<RecipeConfig[]>(INITIAL_RECIPES);
@@ -372,7 +382,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addFinishedGoods,
         addRepacking,
         deleteWorkOrder,
-        incrementBarcodeCount
+        incrementBarcodeCount,
+        refreshGlobalData,
       }}
     >
       {children}

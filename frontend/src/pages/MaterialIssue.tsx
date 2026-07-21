@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 export const MaterialIssue: React.FC = () => {
-  const { materialIssues: _mi, issueMaterials: _im, workOrders: _wo } = useApp();
+  const { materialIssues: _mi, issueMaterials: _im, workOrders: _wo, refreshGlobalData } = useApp();
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const fetchWO = async () => {
@@ -32,7 +32,7 @@ export const MaterialIssue: React.FC = () => {
       materials: w.recipe?.items?.map(item => ({
         item: item.inputProduct?.name || 'Unknown',
         required: item.requiredQty * w.requiredQty,
-        available: 9999, // mock for now
+        available: 0, 
         issued: 0,
         batchNo: '',
         location: '',
@@ -199,6 +199,7 @@ export const MaterialIssue: React.FC = () => {
       setShowConfirmModal(false);
       setSelectedIssue(null);
       fetchWO();
+      refreshGlobalData();
       showToast('Materials issued successfully.');
     }).catch((e: any) => {
       alert(e.response?.data?.message || 'Error issuing materials');

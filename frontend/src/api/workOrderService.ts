@@ -82,5 +82,10 @@ export const workOrderService = {
   async startPacking(id: string): Promise<WorkOrder> {
     const res = await apiClient.post<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/start-packing`);
     return res.data.data;
+  },
+
+  async completePacking(id: string, actualProduced: number, actualRejected: number): Promise<WorkOrder> {
+    const res = await apiClient.post<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/complete-packing`, { actualProduced, actualRejected });
+    return res.data.data;
   }
 };
