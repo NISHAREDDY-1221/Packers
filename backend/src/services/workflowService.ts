@@ -1,11 +1,12 @@
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middlewares/error';
+import { APIFeatures } from '../utils/apiFeatures';
 
 export class WorkflowService {
   // --- Quality Check ---
   static async getQualityChecks(queryString: any = {}) {
     const queryObj = { ...queryString };
-    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)(prisma.qualityCheck, queryObj)
+    const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
       .search(['qcNumber', 'result'])
       .sort()

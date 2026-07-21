@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middlewares/error';
+import { APIFeatures } from '../utils/apiFeatures';
 
 export class WorkOrderService {
   static async createWorkOrder(data: { productId: string; recipeId: string; requiredQty: number; priority: any; expectedDate?: Date; supervisorId: string }) {
@@ -38,7 +39,7 @@ export class WorkOrderService {
 
   static async getWorkOrders(queryString: any = {}) {
     const queryObj = { ...queryString };
-    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
+    const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
       .search(['woNumber', 'batchNumber'])
       .sort()
