@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { workOrderService } from '../api/workOrderService';
 
 export interface RecipeConfig {
   id: string;
@@ -169,11 +170,74 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const INITIAL_RECIPES: RecipeConfig[] = [];
 
-const INITIAL_WORK_ORDERS: WorkOrder[] = [];
+const INITIAL_WORK_ORDERS: WorkOrder[] = [
+  {
+    id: 'wo-seed-1',
+    woNo: 'WO-2026-001',
+    date: '2026-07-18',
+    requestedBy: 'Production Manager',
+    priority: 'High',
+    category: 'Spices',
+    productName: 'Turmeric Powder 500g',
+    recipeId: '',
+    requiredQuantity: 200,
+    expectedCompletion: '2026-07-20',
+    assignedTeam: 'Packing Team A',
+    supervisor: 'Ravi Kumar',
+    status: 'Completed',
+    progress: 100,
+    actualProduced: 198,
+    actualRejected: 2,
+    batchNumber: 'BAT-WO-2026-001',
+  },
+  {
+    id: 'wo-seed-2',
+    woNo: 'WO-2026-002',
+    date: '2026-07-19',
+    requestedBy: 'Warehouse Lead',
+    priority: 'Medium',
+    category: 'Pulses',
+    productName: 'Toor Dal 1kg',
+    recipeId: '',
+    requiredQuantity: 500,
+    expectedCompletion: '2026-07-21',
+    assignedTeam: 'Packing Team B',
+    supervisor: 'Anita Sharma',
+    status: 'Completed',
+    progress: 100,
+    actualProduced: 495,
+    actualRejected: 5,
+    batchNumber: 'BAT-WO-2026-002',
+  },
+];
 
 const INITIAL_MATERIAL_ISSUES: MaterialIssue[] = [];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Fetch initial data from backend
+  useEffect(() => {
+    // Load work orders
+    workOrderService.getWorkOrders().then(res => {
+      if (res && Array.isArray(res.data)) {
+        const statusMap: Record<string, WorkOrder['status']> = {
+          'DRAFT': 'Draft', 'PENDING': 'Pending', 'APPROVED': 'Approved',
+          'MATERIAL_ISSUED': 'Material Issued', 'PACKING_STARTED': 'Packing Started',
+          'QC_PENDING': 'QC Pending', 'QC_PASSED': 'QC Passed', 'COMPLETED': 'Completed',
+          'CANCELLED': 'Cancelled', 'LABELS_PRINTED': 'Labels Printed'
+        };
+        const mappedData = res.data.map((wo: any) => ({
+          ...wo,
+          status: statusMap[wo.status] || wo.status
+        }));
+        setWorkOrders(mappedData as WorkOrder[]);
+      }
+    }).catch(err => console.error('Failed to fetch work orders', err));
+
+    // Load repackings (currently empty endpoint placeholder)
+    // If backend provides a repackings endpoint, replace the URL accordingly
+    // For now we just keep the empty array
+  }, []);
+
   const [recipes, setRecipes] = useState<RecipeConfig[]>(INITIAL_RECIPES);
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(INITIAL_WORK_ORDERS);
@@ -183,8 +247,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [qualityChecks, setQualityChecks] = useState<QualityCheck[]>([]);
 
   const [finishedGoods, setFinishedGoods] = useState<FinishedGoods[]>([]);
-
   const [repackings, setRepackings] = useState<RepackingRecord[]>([]);
+
+
+  const [barcodeCount, setBarcodeCount] = useState<number>(0);
+
+  const incrementBarcodeCount = (by: number) => {
+    setBarcodeCount((prev) => prev + by);
+  };
 
 
 
@@ -301,7 +371,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addQualityCheck,
         addFinishedGoods,
         addRepacking,
-        deleteWorkOrder
+        deleteWorkOrder,
+        incrementBarcodeCount
       }}
     >
       {children}

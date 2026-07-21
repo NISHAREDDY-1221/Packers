@@ -9,20 +9,14 @@ import {
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
-  const { qualityChecks, finishedGoods, repackings } = useApp();
-  const [apiWorkOrders, setApiWorkOrders] = React.useState<any[]>([]);
+  const { qualityChecks, finishedGoods, repackings, workOrders } = useApp();
 
-  React.useEffect(() => {
-    import('../api/workOrderService').then(({ workOrderService }) => {
-      workOrderService.getWorkOrders().then(res => setApiWorkOrders(res.data)).catch(console.error);
-    });
-  }, []);
 
-  const workOrders = apiWorkOrders;
+  // workOrders now comes directly from context; no local API fetch needed
 
   // DERIVE PACKING & REPACKING ERP DATA FROM GLOBAL STATE
-  const pendingWOs = workOrders.filter(w => w.status === 'PENDING' || w.status === 'APPROVED' || w.status === 'MATERIAL_ISSUED' || w.status === 'PACKING_STARTED' || w.status === 'QC_PENDING').length;
-  const completedWOs = workOrders.filter(w => w.status === 'COMPLETED').length;
+  const pendingWOs = workOrders.filter(w => w.status === 'Pending' || w.status === 'Approved' || w.status === 'Material Issued' || w.status === 'Packing Started' || w.status === 'QC Pending').length;
+  const completedWOs = workOrders.filter(w => w.status === 'Completed').length;
   const qcRejects = qualityChecks.filter(q => q.result === 'Reject' || q.result === 'Rework').length;
 
   // Calculate today's yield
@@ -30,7 +24,7 @@ export const Dashboard: React.FC = () => {
   const todayRepacking = repackings.reduce((sum, item) => sum + item.recoverableQuantity, 0);
 
   // Active work orders (excluding completed and cancelled for the compact queue widget)
-  const activeWOs = workOrders.filter(w => w.status !== 'COMPLETED' && w.status !== 'CANCELLED').slice(0, 4);
+  const activeWOs = workOrders.filter(w => w.status !== 'Completed' && w.status !== 'Cancelled').slice(0, 4);
 
   return (
     <div className="space-y-6 text-left pb-10">
@@ -48,85 +42,65 @@ export const Dashboard: React.FC = () => {
         {/* Primary Row - 5 Columns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* 1. Today's Packing */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-semibold text-slate-500">Today's Packing</span>
-                <h4 className="text-xl font-bold text-slate-800 mt-1">{todayOutput || 0} <span className="text-xs font-medium text-slate-400">units</span></h4>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                <Package size={20} />
-              </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
+            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+              <Package size={16} />
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
+            <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Today's Packing</span>
+            <h4 className="text-2xl font-bold text-slate-800 mt-1">{todayOutput || 0} <span className="text-xs font-medium text-slate-400">units</span></h4>
+            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
               <TrendingUp size={10} />
               <span>-</span>
             </div>
           </div>
 
           {/* 2. Today's Repacking */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-semibold text-slate-500">Today's Repacking</span>
-                <h4 className="text-xl font-bold text-slate-800 mt-1">{todayRepacking || 0} <span className="text-xs font-medium text-slate-400">units</span></h4>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 shrink-0">
-                <RefreshCw size={20} />
-              </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
+            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
+              <RefreshCw size={16} />
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
+            <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Today's Repacking</span>
+            <h4 className="text-2xl font-bold text-slate-800 mt-1">{todayRepacking || 0} <span className="text-xs font-medium text-slate-400">units</span></h4>
+            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
               <TrendingUp size={10} />
               <span>-</span>
             </div>
           </div>
 
           {/* 3. Pending Work Orders */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-semibold text-slate-500">Pending Work Orders</span>
-                <h4 className="text-xl font-bold text-slate-800 mt-1">{pendingWOs || 0} <span className="text-xs font-medium text-slate-400">jobs</span></h4>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
-                <Layers size={20} />
-              </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
+            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
+              <Layers size={16} />
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
+            <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Pending Work Orders</span>
+            <h4 className="text-2xl font-bold text-slate-800 mt-1">{pendingWOs || 0} <span className="text-xs font-medium text-slate-400">orders</span></h4>
+            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
               <TrendingUp size={10} />
               <span>-</span>
             </div>
           </div>
 
           {/* 4. Completed Work Orders */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-semibold text-slate-500">Completed Work Orders</span>
-                <h4 className="text-xl font-bold text-slate-800 mt-1">{completedWOs || 0} <span className="text-xs font-medium text-slate-400">jobs</span></h4>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-600 shrink-0">
-                <CheckCircle size={20} />
-              </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
+            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+              <CheckCircle size={16} />
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
+            <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Completed Work Orders</span>
+            <h4 className="text-2xl font-bold text-slate-800 mt-1">{completedWOs || 0} <span className="text-xs font-medium text-slate-400">jobs</span></h4>
+            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
               <TrendingUp size={10} />
               <span>-</span>
             </div>
           </div>
 
           {/* 5. Rejected QC */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-semibold text-slate-500">Rejected QC</span>
-                <h4 className="text-xl font-bold text-slate-800 mt-1">{qcRejects || 0} <span className="text-xs font-medium text-slate-400">batches</span></h4>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500 shrink-0">
-                <ShieldCheck size={20} />
-              </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col items-center justify-center text-center relative min-h-[120px]">
+            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
+              <ShieldCheck size={16} />
             </div>
-            <div className="text-[10px] text-green-600 font-semibold mt-2">
+            <span className="text-xs font-semibold text-slate-500 block truncate w-full mt-2">Rejected QC</span>
+            <h4 className="text-2xl font-bold text-slate-800 mt-1">{qcRejects || 0} <span className="text-xs font-medium text-slate-400">batches</span></h4>
+            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
               <span>-</span>
             </div>
           </div>
@@ -135,88 +109,72 @@ export const Dashboard: React.FC = () => {
         {/* Secondary Row - 8 Columns */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
           {/* 6. Packing Efficiency */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Packing Efficiency</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Packing Efficiency</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0%</h4>
-            </div>
             <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2">
               <span>-</span>
             </div>
           </div>
 
           {/* 7. Packing Cost */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Packing Cost</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Packing Cost</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">₹0.00 <span className="text-[10px] text-slate-400 font-medium">/u</span></h4>
-            </div>
             <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2">
               <span>-</span>
             </div>
           </div>
 
           {/* 8. Wastage % */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Wastage %</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Wastage %</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0%</h4>
-            </div>
             <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
               <span>-</span>
             </div>
           </div>
 
           {/* 9. Today's Finished Goods */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Today's FG</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Today's FG</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">u</span></h4>
-            </div>
             <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
               <span>-</span>
             </div>
           </div>
 
           {/* 10. Barcode Generated */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Barcode Gen</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Barcode Gen</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">tags</span></h4>
-            </div>
-            <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
+            <div className="flex items-center justify-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate w-full">
               <span>-</span>
             </div>
           </div>
 
           {/* 11. Near Expiry (NEW) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Near Expiry</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Near Expiry</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">batches</span></h4>
-            </div>
-            <div className="flex items-center gap-1 text-[9px] text-slate-400 font-semibold mt-2 truncate">
+            <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400 font-semibold mt-2 truncate w-full">
               <span>-</span>
             </div>
           </div>
 
           {/* 12. Employee Productivity (NEW) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Emp Productivity</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Emp Productivity</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">u/hr</span></h4>
-            </div>
             <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate">
               <span>-</span>
             </div>
           </div>
 
           {/* 13. Machine Utilization (NEW) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
-            <div>
-              <span className="text-[10px] font-semibold text-slate-500 block truncate">Machine Util</span>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
+            <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">Machine Util</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0%</h4>
-            </div>
             <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate">
               <span>-</span>
             </div>
@@ -310,35 +268,35 @@ export const Dashboard: React.FC = () => {
                   ) : (
                     activeWOs.map((wo) => (
                       <tr key={wo.id} className="hover:bg-slate-50/50 text-[11px]">
-                        <td className="p-2 font-mono font-bold text-slate-800">{wo.woNumber || wo.woNo}</td>
-                        <td className="p-2 font-semibold text-slate-700 max-w-[120px] truncate" title={wo.product?.name || wo.productName}>{wo.product?.name || wo.productName}</td>
-                        <td className="p-2 text-center font-bold text-slate-800">{wo.requiredQty || wo.requiredQuantity}</td>
+                        <td className="p-2 font-mono font-bold text-slate-800">{wo.woNo}</td>
+                        <td className="p-2 font-semibold text-slate-700 max-w-[120px] truncate" title={wo.productName}>{wo.productName}</td>
+                        <td className="p-2 text-center font-bold text-slate-800">{wo.requiredQuantity}</td>
                         <td className="p-2 text-center font-bold text-slate-800">{wo.actualProduced || 0}</td>
                         <td className="p-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${wo.status === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-200' :
-                              wo.status === 'CANCELLED' ? 'bg-slate-50 text-slate-400 border-slate-200' :
-                                wo.status === 'DRAFT' ? 'bg-slate-50 text-slate-600 border-slate-200' :
-                                  wo.status === 'QC_PASSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                    wo.status === 'QC_PENDING' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${wo.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                              wo.status === 'Cancelled' ? 'bg-slate-50 text-slate-400 border-slate-200' :
+                                wo.status === 'Draft' ? 'bg-slate-50 text-slate-600 border-slate-200' :
+                                  wo.status === 'QC Passed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                    wo.status === 'QC Pending' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                       'bg-amber-50 text-amber-700 border-amber-200'
                             }`}>
                             {wo.status}
                           </span>
                         </td>
                         <td className="p-2 text-center font-bold">
-                          {(wo.status === 'PENDING' || wo.status === 'APPROVED') && (
+                          {(wo.status === 'Pending' || wo.status === 'Approved') && (
                             <NavLink to="/material-issue" className="text-amber-600 hover:text-amber-700 hover:underline">Issue</NavLink>
                           )}
-                          {(wo.status === 'MATERIAL_ISSUED' || wo.status === 'PACKING_STARTED') && (
+                          {(wo.status === 'Material Issued' || wo.status === 'Packing Started') && (
                             <NavLink to="/packing-execution" className="text-blue-600 hover:text-blue-700 hover:underline">Pack</NavLink>
                           )}
-                          {wo.status === 'QC_PENDING' && (
+                          {wo.status === 'QC Pending' && (
                             <NavLink to="/quality-check" className="text-rose-600 hover:text-rose-700 hover:underline">Verify</NavLink>
                           )}
-                          {wo.status === 'QC_PASSED' && (
+                          {wo.status === 'QC Passed' && (
                             <NavLink to="/finished-goods" className="text-green-600 hover:text-green-700 hover:underline">Post FG</NavLink>
                           )}
-                          {wo.status === 'DRAFT' && (
+                          {wo.status === 'Draft' && (
                             <NavLink to="/work-orders" className="text-slate-600 hover:text-slate-800 hover:underline">Edit</NavLink>
                           )}
                         </td>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import type { WorkOrder } from '../context/AppContext';
-import { Printer, RefreshCw, Barcode, QrCode, ClipboardList, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Printer, RefreshCw, Barcode, ClipboardList, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const PRINTERS = [
   'Zebra ZD420 (Thermal)',
@@ -24,8 +24,94 @@ interface PrintJob {
   reprintReason?: string;
 }
 
+// Code 128 Barcode drawing function on Canvas
+const drawBarcode128 = (canvas: HTMLCanvasElement | null, text: string) => {
+  if (!canvas || !text) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Code 128 pattern table
+  const PATTERNS = [
+    [2, 1, 2, 2, 2, 2], [2, 2, 2, 1, 2, 2], [2, 2, 2, 2, 2, 1], [1, 2, 1, 2, 2, 3], // 0-3
+    [1, 2, 1, 3, 2, 2], [1, 3, 1, 2, 2, 2], [1, 2, 2, 2, 1, 3], [1, 2, 2, 3, 1, 2], // 4-7
+    [1, 3, 2, 2, 1, 2], [2, 2, 1, 2, 1, 3], [2, 2, 1, 3, 1, 2], [2, 3, 1, 2, 1, 2], // 8-11
+    [1, 1, 2, 2, 3, 2], [1, 2, 2, 1, 3, 2], [1, 2, 2, 2, 3, 1], [1, 1, 3, 2, 2, 2], // 12-15
+    [1, 2, 3, 1, 2, 2], [1, 2, 3, 2, 2, 1], [2, 2, 3, 2, 1, 1], [2, 2, 1, 1, 3, 2], // 16-19
+    [2, 2, 1, 2, 3, 1], [2, 1, 3, 2, 1, 2], [2, 2, 3, 1, 1, 2], [3, 1, 2, 1, 3, 1], // 20-23
+    [3, 1, 1, 2, 2, 2], [3, 2, 1, 1, 2, 2], [3, 2, 1, 2, 2, 1], [3, 1, 2, 2, 1, 2], // 24-27
+    [3, 2, 2, 1, 1, 2], [3, 2, 2, 2, 1, 1], [2, 1, 2, 1, 2, 3], [2, 1, 2, 3, 2, 1], // 32-35
+    [2, 3, 2, 1, 2, 1], [1, 1, 1, 3, 2, 3], [1, 3, 1, 1, 2, 3], [1, 3, 1, 3, 2, 1], // 36-39
+    [1, 1, 2, 3, 1, 3], [1, 3, 2, 1, 1, 3], [1, 3, 2, 3, 1, 1], [2, 1, 1, 3, 1, 3], // 40-43
+    [2, 3, 1, 1, 1, 3], [2, 3, 1, 3, 1, 1], [1, 1, 2, 1, 3, 3], [1, 1, 2, 3, 3, 1], // 44-47
+    [1, 3, 2, 1, 3, 1], [1, 1, 3, 1, 2, 3], [1, 1, 3, 3, 2, 1], [1, 3, 3, 1, 2, 1], // 48-51
+    [3, 1, 3, 1, 2, 1], [2, 1, 1, 3, 3, 1], [2, 3, 1, 1, 3, 1], [2, 1, 3, 1, 1, 3], // 52-55
+    [2, 1, 3, 3, 1, 1], [2, 1, 3, 1, 3, 1], [3, 1, 1, 1, 2, 3], [3, 1, 1, 3, 2, 1], // 56-59
+    [3, 3, 1, 1, 2, 1], [3, 1, 2, 1, 1, 3], [3, 1, 2, 3, 1, 1], [3, 3, 2, 1, 1, 1], // 60-63
+    [3, 1, 4, 1, 1, 1], [2, 2, 1, 4, 1, 1], [4, 3, 1, 1, 1, 1], [1, 1, 1, 2, 2, 4], // 64-67
+    [1, 1, 1, 4, 2, 2], [1, 2, 1, 1, 2, 4], [1, 2, 1, 4, 2, 1], [1, 4, 1, 1, 2, 2], // 68-71
+    [1, 4, 1, 2, 2, 1], [1, 1, 2, 2, 1, 4], [1, 1, 2, 4, 1, 2], [1, 2, 2, 1, 1, 4], // 72-75
+    [1, 2, 2, 4, 1, 1], [1, 4, 2, 1, 1, 2], [1, 4, 2, 2, 1, 1], [2, 4, 1, 2, 1, 1], // 76-79
+    [2, 2, 1, 1, 1, 4], [4, 1, 3, 1, 1, 1], [2, 4, 1, 1, 1, 2], [1, 3, 4, 1, 1, 1], // 80-83
+    [1, 1, 1, 2, 4, 2], [1, 2, 1, 1, 4, 2], [1, 2, 1, 2, 4, 1], [1, 1, 4, 2, 1, 2], // 84-87
+    [1, 2, 4, 1, 1, 2], [1, 2, 4, 2, 1, 1], [4, 1, 1, 2, 1, 2], [4, 2, 1, 1, 1, 2], // 88-91
+    [4, 2, 1, 2, 1, 1], [2, 1, 2, 1, 4, 1], [2, 1, 4, 1, 2, 1], [4, 1, 2, 1, 2, 1], // 92-95
+    [1, 1, 1, 1, 4, 3], [1, 1, 1, 3, 4, 1], [1, 3, 1, 1, 4, 1], [1, 1, 4, 1, 1, 3], // 96-99
+    [1, 1, 4, 3, 1, 1], [4, 1, 1, 1, 1, 3], [4, 1, 1, 3, 1, 1], [1, 1, 3, 1, 4, 1], // 100-103
+    [1, 1, 4, 1, 3, 1], [3, 1, 1, 1, 4, 1], [4, 1, 1, 1, 3, 1], [2, 1, 1, 4, 1, 2], // 104-107
+    [2, 1, 1, 2, 1, 4], [2, 1, 1, 2, 3, 2], [2, 3, 3, 1, 1, 1, 2]
+  ];
+
+  const getCharValue = (char: string) => {
+    const code = char.charCodeAt(0);
+    if (code >= 32 && code <= 126) return code - 32;
+    return 0;
+  };
+
+  const startValue = 104;
+  let checksum = startValue;
+  const codes = [startValue];
+
+  for (let i = 0; i < text.length; i++) {
+    const val = getCharValue(text[i]);
+    codes.push(val);
+    checksum += val * (i + 1);
+  }
+
+  const stopValue = 106;
+  codes.push(checksum % 103);
+  codes.push(stopValue);
+
+  let bars: number[] = [];
+  codes.forEach((c) => {
+    bars = bars.concat(PATTERNS[c]);
+  });
+  bars = bars.concat(PATTERNS[106]);
+
+  const scale = 2.4;
+  const padding = 10;
+  const barcodeWidth = bars.reduce((acc, curr) => acc + curr, 0) * scale;
+
+  canvas.width = barcodeWidth + padding * 2;
+  canvas.height = 80;
+
+  let x = padding;
+  let isBar = true;
+
+  bars.forEach((width) => {
+    const w = width * scale;
+    if (isBar) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(x, 4, w, 72);
+    }
+    x += w;
+    isBar = !isBar;
+  });
+};
+
 export const BarcodesLabels: React.FC = () => {
   const { workOrders, recipes, updateWorkOrderStatus } = useApp();
+  const previewCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
   // Find work orders that have completed packing
   const readyWorkOrders = useMemo(() => {
@@ -61,6 +147,7 @@ export const BarcodesLabels: React.FC = () => {
   const [mrp, setMrp] = useState(0);
   const [mfgDate, setMfgDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [printQty, setPrintQty] = useState(1);
 
   // Sync inputs when selected work order changes
@@ -79,8 +166,15 @@ export const BarcodesLabels: React.FC = () => {
       const exp = new Date();
       exp.setDate(exp.getDate() + (recipe?.shelfLife || 180));
       setExpiryDate(exp.toISOString().split('T')[0]);
+      // Update QR code URL when batch changes
+      setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(selectedWO.batchNumber || `BAT-${selectedWO.woNo}` || '9031123456789')}`);
     }
   }, [selectedWO, recipes]);
+
+  // Update QR code URL when batch number changes (user edits or selection)
+  useEffect(() => {
+    setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(batchNo || '9031123456789')}`);
+  }, [batchNo]);
 
   // Real-time printer status validation error sync
   useEffect(() => {
@@ -106,6 +200,14 @@ export const BarcodesLabels: React.FC = () => {
     printer: string;
     jobId: string;
   } | null>(null);
+
+  // Dynamic Barcode Canvas Rendering for Preview
+  useEffect(() => {
+    if (previewCanvasRef.current && barcodeType !== 'QR Code') {
+      const codeValue = batchNo || '9031123456789';
+      drawBarcode128(previewCanvasRef.current, codeValue);
+    }
+  }, [barcodeType, batchNo, selectedWO]);
 
   const getStatusColor = (status: WorkOrder['status']) => {
     switch (status) {
@@ -135,6 +237,135 @@ export const BarcodesLabels: React.FC = () => {
     
     // Trigger visual preview refresh
     setLabelsRequired(printQty);
+    setSuccessBanner({
+      totalPrinted: printQty,
+      timestamp: new Date().toLocaleString(),
+      printer: 'Preview Generated',
+      jobId: 'PREVIEW'
+    });
+  };
+
+  // Printing Logic using HTML5 print window and canvases
+  const printLabels = (job: { sku: string; batchNo: string; printedQty: number; woNo: string }, template: string, type: string) => {
+    let barcodeDataUrl = '';
+    if (type !== 'QR Code') {
+      const offCanvas = document.createElement('canvas');
+      drawBarcode128(offCanvas, job.batchNo);
+      barcodeDataUrl = offCanvas.toDataURL('image/png');
+    }
+
+    // Set dimensions based on template
+    let width = '50mm';
+    let height = '25mm';
+    if (template === 'Bulk Label') {
+      width = '100mm';
+      height = '50mm';
+    } else if (template === 'Export Label') {
+      width = '100mm';
+      height = '150mm';
+    }
+
+    const labelCards: string[] = [];
+    const productName = selectedWO?.productName || 'Product Name';
+
+    const cardBody = `
+      <div class="label-card" style="width: ${width}; height: ${height}; display: flex; flex-direction: column; justify-content: space-between; padding: 6px 10px; font-family: sans-serif; overflow: hidden; page-break-inside: avoid; break-inside: avoid; page-break-after: always; break-after: page;">
+        <div class="card-header" style="font-size: 10px; font-weight: 805; text-transform: uppercase; color: #00891D; text-align: center; border-b: 1px solid #e5e7eb; padding-bottom: 2px;">
+          VillagKart Retail
+        </div>
+        <div class="product-name" style="font-size: 9px; font-weight: 700; color: #111827; margin-top: 4px; text-align: center;">
+          ${productName}
+        </div>
+        <div class="meta-info" style="font-size: 7.5px; color: #4b5563; margin-top: 4px; line-height: 1.2;">
+          <div style="display: flex; justify-content: space-between;">
+            <span>SKU: <b>${job.sku}</b></span>
+            <span>Batch: <b>${job.batchNo}</b></span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+            <span>Lot: <b>${lotNo || 'N/A'}</b></span>
+            <span>MRP: <b>₹${mrp || 0}.00</b></span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 2px; font-size: 7px;">
+            <span>MFG: ${mfgDate}</span>
+            <span>EXP: ${expiryDate}</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 6px; border-t: 1px dashed #e5e7eb; padding-top: 4px;">
+          ${type !== 'QR Code' ? `
+            <img src="${barcodeDataUrl}" style="width: 85%; height: 24px;" alt="barcode" />
+            <div style="font-size: 7px; font-family: monospace; margin-top: 1px; color: #111827;">${type}: ${job.batchNo}</div>
+          ` : `
+            <img src="${qrCodeUrl}" style="width: 36px; height: 36px;" alt="QR Code" />
+            <div style="font-size: 7px; font-family: monospace; margin-top: 1px; color: #111827;">QR Code</div>
+          `}
+        </div>
+      </div>
+    `;
+
+    for (let i = 0; i < job.printedQty; i++) {
+      labelCards.push(cardBody);
+    }
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const printWindow = iframe.contentWindow;
+    if (!printWindow) {
+      alert('Could not initialize print mechanism.');
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            @page {
+              size: ${width} ${height};
+              margin: 0;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+              background: #fff;
+              padding: 0;
+              margin: 0;
+            }
+            .label-grid {
+              display: block;
+            }
+            @media print {
+              body { background: #fff; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label-grid">
+            ${labelCards.join('')}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+                setTimeout(function() { 
+                  window.parent.document.body.removeChild(window.frameElement);
+                }, 500);
+              }, 100);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   // Handle Generate and Print
@@ -185,6 +416,9 @@ export const BarcodesLabels: React.FC = () => {
       status: 'Printed'
     };
 
+    // Trigger physical print
+    printLabels(newJob, labelTemplate, barcodeType);
+
     setHistory([newJob, ...history]);
     setLabelsPrinted(prev => prev + printQty);
     setLabelsRequired(printQty);
@@ -218,6 +452,9 @@ export const BarcodesLabels: React.FC = () => {
       status: 'Reprinted',
       reprintReason: reason
     };
+
+    // Trigger physical print for reprint
+    printLabels(newJob, labelTemplate, barcodeType);
 
     setHistory([newJob, ...history]);
     setSuccessBanner({
@@ -494,7 +731,7 @@ export const BarcodesLabels: React.FC = () => {
             </h3>
 
             {/* Enhanced Thermal Retail Label Preview */}
-            <div className="border-2 border-dashed border-slate-300 dark:border-gray-600 rounded-lg p-5 font-mono text-xs text-slate-800 dark:text-gray-150 bg-white dark:bg-gray-900 space-y-4 max-w-sm mx-auto shadow-xs">
+            <div className="border-2 border-dashed border-slate-300 dark:border-gray-600 rounded-lg p-5 font-mono text-xs text-slate-800 dark:text-gray-150 bg-white dark:bg-gray-900 space-y-4 max-w-sm mx-auto shadow-xs overflow-hidden">
               <div className="text-center border-b border-slate-200 dark:border-gray-750 pb-2 flex flex-col items-center">
                 <span className="font-bold text-sm tracking-wider uppercase text-[#00891D]">VillagKart Retail</span>
                 <span className="text-[8px] block text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">Rural Hub Packaging Unit</span>
@@ -535,44 +772,46 @@ export const BarcodesLabels: React.FC = () => {
               <div className="flex flex-col items-center justify-center pt-2 border-t border-slate-200 dark:border-gray-750">
                 {barcodeType !== 'QR Code' ? (
                   <>
-                    <div className="w-full h-10 bg-slate-900 dark:bg-gray-800 flex gap-0.5 px-3 py-1 items-stretch rounded-xs">
-                      {Array.from({ length: 48 }).map((_, i) => (
-                        <div key={i} className={`flex-1 bg-white ${i % 3 === 0 || i % 7 === 0 ? 'opacity-0' : 'opacity-100'}`}></div>
-                      ))}
-                    </div>
+                    <canvas ref={previewCanvasRef} className="w-full h-12 bg-white p-1 border rounded-xs" />
                     <span className="text-[9px] text-slate-400 mt-1 font-mono tracking-widest uppercase">{barcodeType}: {batchNo || '9031123456789'}</span>
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-1">
-                    <QrCode size={48} className="text-slate-900 dark:text-gray-200 border border-slate-200 dark:border-gray-750 p-1 bg-white rounded" />
-                    <span className="text-[9px] text-slate-400 font-mono">QR Label Format</span>
+                    <img 
+                      src={qrCodeUrl}
+                      className="w-16 h-16 border p-1 bg-white rounded" 
+                      alt="QR Code" 
+                    />
+                  </div>
+                )}
+                {barcodeType !== 'QR Code' && (
+                  <div className="flex justify-center pt-1">
+                    <img 
+                      src={qrCodeUrl}
+                      className="w-10 h-10 border p-0.5 bg-white rounded" 
+                      alt="QR Code" 
+                    />
                   </div>
                 )}
               </div>
-
-              {barcodeType !== 'QR Code' && (
-                <div className="flex justify-center pt-1">
-                  <QrCode size={30} className="text-slate-900 dark:text-gray-200 border border-slate-200 dark:border-gray-750 p-0.5 bg-white rounded" />
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Print Summary Card */}
-          <div className="bg-slate-50 dark:bg-gray-750 border border-slate-200 dark:border-gray-700 p-4 rounded-xl text-xs space-y-2">
-            <span className="font-bold text-slate-505 dark:text-gray-400 block uppercase text-[10px] tracking-wider">Print Summary</span>
-            <div className="grid grid-cols-3 gap-2 text-center pt-1">
-              <div>
-                <span className="text-[10px] text-slate-400 block font-semibold">Required</span>
-                <span className="text-sm font-bold text-slate-800 dark:text-gray-200">{labelsRequired}</span>
-              </div>
-              <div className="border-x border-slate-200 dark:border-gray-700">
-                <span className="text-[10px] text-slate-400 block font-semibold">Printed</span>
-                <span className="text-sm font-bold text-green-700 dark:text-green-400">{labelsPrinted}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 block font-semibold">Remaining</span>
-                <span className="text-sm font-bold text-slate-800 dark:text-gray-200">{Math.max(0, labelsRequired - labelsPrinted)}</span>
+            {/* Print Summary Card */}
+            <div className="bg-slate-50 dark:bg-gray-750 border border-slate-200 dark:border-gray-700 p-4 rounded-xl text-xs space-y-2 mt-4">
+              <span className="font-bold text-slate-505 dark:text-gray-400 block uppercase text-[10px] tracking-wider">Print Summary</span>
+              <div className="grid grid-cols-3 gap-4 text-center pt-1">
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold">Required</span>
+                  <span className="text-sm font-bold text-slate-800 dark:text-gray-200">{labelsRequired}</span>
+                </div>
+                <div className="border-x border-slate-200 dark:border-gray-700">
+                  <span className="text-[10px] text-slate-400 block font-semibold">Printed</span>
+                  <span className="text-sm font-bold text-green-700 dark:text-green-400">{labelsPrinted}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold">Remaining</span>
+                  <span className="text-sm font-bold text-slate-800 dark:text-gray-200">{Math.max(0, labelsRequired - labelsPrinted)}</span>
+                </div>
               </div>
             </div>
           </div>
