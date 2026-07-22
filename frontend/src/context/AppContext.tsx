@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { workOrderService } from '../api/workOrderService';
+import { workflowService } from '../api/workflowService';
 
 export interface RecipeConfig {
   id: string;
@@ -160,9 +161,9 @@ interface AppContextType {
   updateWorkOrderStatus: (woId: string, status: WorkOrder['status'], extra?: Partial<WorkOrder>) => void;
   addMaterialIssue: (issue: MaterialIssue) => void;
   issueMaterials: (issueId: string, updatedMaterials: MaterialIssue['materials']) => void;
-  addQualityCheck: (qc: QualityCheck) => void;
-  addFinishedGoods: (fg: FinishedGoods) => void;
-  addRepacking: (rp: RepackingRecord) => void;
+  addQualityCheck: (qc: QualityCheck) => Promise<void>;
+  addFinishedGoods: (fg: FinishedGoods) => Promise<void>;
+  addRepacking: (rp: RepackingRecord) => Promise<void>;
   deleteWorkOrder: (woId: string) => void;
   refreshGlobalData: () => Promise<void>;
 }
@@ -171,46 +172,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const INITIAL_RECIPES: RecipeConfig[] = [];
 
-const INITIAL_WORK_ORDERS: WorkOrder[] = [
-  {
-    id: 'wo-seed-1',
-    woNo: 'WO-2026-001',
-    date: '2026-07-18',
-    requestedBy: 'Production Manager',
-    priority: 'High',
-    category: 'Spices',
-    productName: 'Turmeric Powder 500g',
-    recipeId: '',
-    requiredQuantity: 200,
-    expectedCompletion: '2026-07-20',
-    assignedTeam: 'Packing Team A',
-    supervisor: 'Ravi Kumar',
-    status: 'Completed',
-    progress: 100,
-    actualProduced: 198,
-    actualRejected: 2,
-    batchNumber: 'BAT-WO-2026-001',
-  },
-  {
-    id: 'wo-seed-2',
-    woNo: 'WO-2026-002',
-    date: '2026-07-19',
-    requestedBy: 'Warehouse Lead',
-    priority: 'Medium',
-    category: 'Pulses',
-    productName: 'Toor Dal 1kg',
-    recipeId: '',
-    requiredQuantity: 500,
-    expectedCompletion: '2026-07-21',
-    assignedTeam: 'Packing Team B',
-    supervisor: 'Anita Sharma',
-    status: 'Completed',
-    progress: 100,
-    actualProduced: 495,
-    actualRejected: 5,
-    batchNumber: 'BAT-WO-2026-002',
-  },
-];
+const INITIAL_WORK_ORDERS: WorkOrder[] = [];
 
 const INITIAL_MATERIAL_ISSUES: MaterialIssue[] = [];
 
@@ -236,16 +198,94 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           date: wo.createdAt ? new Date(wo.createdAt).toISOString().split('T')[0] : (wo.date || ''),
           expectedCompletion: wo.expectedDate ? new Date(wo.expectedDate).toISOString().split('T')[0] : (wo.expectedCompletion || ''),
         }));
-        setWorkOrders(mappedData as WorkOrder[]);
+        setWorkOrders((prev) => {
+          return (mappedData as WorkOrder[]).map(newWo => {
+            const existing = prev.find(p => p.id === newWo.id);
+            // If the UI has advanced the status to 'Labels Printed', preserve it locally!
+            if (existing && existing.status === 'Labels Printed' && newWo.status === 'Completed') {
+              return { ...newWo, status: 'Labels Printed' };
+            }
+            return newWo;
+          });
+        });
       }
+
+      const qcRes = await workflowService.getQualityChecks();
+      if (qcRes && Array.isArray(qcRes.data)) {
+        const resultFormatter = (resStr: string) => {
+           if (!resStr) return '';
+           if (resStr === 'PARTIAL_PASS') return 'Partial Pass';
+           return resStr.charAt(0).toUpperCase() + resStr.slice(1).toLowerCase();
+        };
+        const severityFormatter = (sevStr: string) => {
+           if (!sevStr) return undefined;
+           return sevStr.charAt(0).toUpperCase() + sevStr.slice(1).toLowerCase();
+        };
+
+        const mappedQCs = qcRes.data.map((qc: any) => ({
+          id: qc.id,
+          woId: qc.woId,
+          woNo: qc.workOrder?.woNumber || qc.woNo || '',
+          productName: qc.workOrder?.product?.name || 'Unknown Product',
+          batchNo: qc.workOrder?.batchNumber || '',
+          inspectionType: 'Sampling Inspection',
+          checkedQty: qc.checkedQty,
+          checks: qc.checksPayload || {},
+          result: resultFormatter(qc.result),
+          severity: severityFormatter(qc.severity),
+          failureReason: qc.failureReason,
+          inspector: qc.inspector?.name || 'Inspector',
+          remarks: qc.remarks || '',
+          photoAttached: false,
+          date: qc.createdAt ? new Date(qc.createdAt).toISOString().split('T')[0] : ''
+        }));
+        setQualityChecks(mappedQCs as QualityCheck[]);
+      }
+
+      const fgRes = await workflowService.getFinishedGoods();
+      if (fgRes && Array.isArray(fgRes.data)) {
+        const mappedFGs = fgRes.data.map((fg: any) => ({
+          id: fg.id,
+          woNo: fg.workOrder?.woNumber || '',
+          productName: fg.workOrder?.product?.name || '',
+          batchNo: fg.batchNumber,
+          postedQty: fg.postedQty,
+          destination: fg.destination,
+          date: fg.createdAt ? new Date(fg.createdAt).toISOString().split('T')[0] : ''
+        }));
+        setFinishedGoods(mappedFGs as FinishedGoods[]);
+      }
+
+      const rpRes = await workflowService.getRepacking();
+      if (rpRes && Array.isArray(rpRes.data)) {
+        const mappedRPs = rpRes.data.map((rp: any) => ({
+          id: rp.id,
+          sourceBatchNo: rp.sourceWo?.batchNumber || '',
+          sourceProduct: rp.sourceWo?.product?.name || 'Unknown',
+          repackType: rp.repackType || 'Salvage',
+          recoverableQuantity: rp.recoverableQty,
+          wasteQuantity: rp.wasteQty,
+          repackRecipeId: rp.targetRecipeId || '',
+          date: rp.createdAt ? new Date(rp.createdAt).toISOString().split('T')[0] : ''
+        }));
+        setRepackings(mappedRPs as RepackingRecord[]);
+      }
+
     } catch (err) {
-      console.error('Failed to fetch work orders in global context', err);
+      console.error('Failed to fetch data in global context', err);
     }
   };
 
-  // Fetch initial data from backend
+  // Fetch initial data from backend and set up polling for real-time sync across portals
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return; // Don't fetch data if not logged in
+
     refreshGlobalData();
+    const interval = setInterval(() => {
+      refreshGlobalData();
+    }, 5000); // 5 seconds polling
+    return () => clearInterval(interval);
   }, []);
 
   const [recipes, setRecipes] = useState<RecipeConfig[]>(INITIAL_RECIPES);
@@ -337,26 +377,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const addQualityCheck = (qc: QualityCheck) => {
-    setQualityChecks((prev) => [qc, ...prev]);
-    if (qc.result === 'Pass' || qc.result === 'Partial Pass') {
-      updateWorkOrderStatus(qc.woId, 'QC Passed');
-    } else {
-      updateWorkOrderStatus(qc.woId, 'QC Pending', { status: 'QC Pending' }); // flag for repacking or rework
+  const addQualityCheck = async (qc: QualityCheck) => {
+    try {
+      await workflowService.submitQualityCheck({
+        woId: qc.woId,
+        checkedQty: qc.checkedQty,
+        result: qc.result.toUpperCase().replace(' ', '_'),
+        severity: qc.severity ? qc.severity.toUpperCase() : undefined,
+        failureReason: qc.failureReason,
+        remarks: qc.remarks,
+        checksPayload: qc.checks
+      });
+      // Optimistic update
+      setQualityChecks((prev) => [qc, ...prev]);
+      if (qc.result === 'Pass' || qc.result === 'Partial Pass') {
+        updateWorkOrderStatus(qc.woId, 'QC Passed');
+      } else {
+        updateWorkOrderStatus(qc.woId, 'QC Pending', { status: 'QC Pending' }); // flag for repacking or rework
+      }
+    } catch (err: any) {
+      console.error('Failed to submit QC', err.response?.data || err);
+      alert('Failed to submit QC: ' + JSON.stringify(err.response?.data?.message || err.message));
     }
   };
 
-  const addFinishedGoods = (fg: FinishedGoods) => {
-    setFinishedGoods((prev) => [fg, ...prev]);
-    // Find work order matching batch or woNo to mark complete
-    const wo = workOrders.find(w => w.woNo === fg.woNo);
-    if (wo) {
-      updateWorkOrderStatus(wo.id, 'Completed');
+  const addFinishedGoods = async (fg: FinishedGoods) => {
+    try {
+      await workflowService.postFinishedGoods({
+        woId: workOrders.find(w => w.woNo === fg.woNo)?.id || '',
+        batchNumber: fg.batchNo,
+        postedQty: fg.postedQty,
+        destination: fg.destination
+      });
+      setFinishedGoods((prev) => [fg, ...prev]);
+      const wo = workOrders.find(w => w.woNo === fg.woNo);
+      if (wo) {
+        updateWorkOrderStatus(wo.id, 'Completed');
+      }
+    } catch (err) {
+      console.error('Failed to post finished goods', err);
     }
   };
 
-  const addRepacking = (rp: RepackingRecord) => {
-    setRepackings((prev) => [rp, ...prev]);
+  const addRepacking = async (rp: RepackingRecord) => {
+    try {
+      await workflowService.logRepacking({
+        sourceWoId: workOrders.find(w => w.batchNumber === rp.sourceBatchNo)?.id || '',
+        targetRecipeId: rp.repackRecipeId,
+        repackType: rp.repackType,
+        recoverableQty: rp.recoverableQuantity,
+        wasteQty: rp.wasteQuantity
+      });
+      setRepackings((prev) => [rp, ...prev]);
+    } catch (err) {
+      console.error('Failed to log repacking', err);
+    }
   };
 
   const deleteWorkOrder = (woId: string) => {

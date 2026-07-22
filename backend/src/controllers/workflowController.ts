@@ -21,6 +21,11 @@ export const submitQualityCheck = catchAsync(async (req: Request, res: Response)
 });
 
 // --- Finished Goods ---
+export const getFinishedGoods = catchAsync(async (req: Request, res: Response) => {
+  const result = await WorkflowService.getFinishedGoods(req.query);
+  sendResponse(res, 200, 'Finished Goods retrieved', result);
+});
+
 export const postFinishedGoods = catchAsync(async (req: Request, res: Response) => {
   const { woId, batchNumber, postedQty, destination } = req.body;
   const userId = req.user!.id;
@@ -33,6 +38,11 @@ export const postFinishedGoods = catchAsync(async (req: Request, res: Response) 
 });
 
 // --- Repacking ---
+export const getRepacking = catchAsync(async (req: Request, res: Response) => {
+  const result = await WorkflowService.getRepacking(req.query);
+  sendResponse(res, 200, 'Repacking retrieved', result);
+});
+
 export const logRepacking = catchAsync(async (req: Request, res: Response) => {
   const { sourceWoId, repackType, recoverableQty, wasteQty, targetRecipeId } = req.body;
   const userId = req.user!.id;

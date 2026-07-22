@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const submitQCSchema = z.object({
   body: z.object({
-    woId: z.string().uuid(),
+    woId: z.string(),
     checkedQty: z.number().positive(),
     result: z.enum(['PASS', 'PARTIAL_PASS', 'REJECT', 'REWORK', 'DISCARD']),
     severity: z.enum(['MINOR', 'MAJOR', 'CRITICAL']).optional(),

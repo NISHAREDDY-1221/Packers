@@ -27,9 +27,10 @@ export class WorkflowService {
 
   static async submitQualityCheck(data: { woId: string; checkedQty: number; result: any; severity?: any; failureReason?: string; remarks?: string; checksPayload: any; inspectorId: string }) {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId } });
-    if (!workOrder) throw new AppError(404, 'Work Order not found');
+    if (!workOrder) throw new AppError(404, `Work Order not found: ${data.woId}`);
 
-    if (workOrder.status !== 'PACKING_STARTED' && workOrder.status !== 'QC_PENDING') {
+    const allowedStatuses = ['PACKING_STARTED', 'QC_PENDING', 'QC_PASSED', 'COMPLETED'];
+    if (!allowedStatuses.includes(workOrder.status)) {
       throw new AppError(400, 'Quality Check can only be performed on Work Orders that have started packing');
     }
 
@@ -72,6 +73,18 @@ export class WorkflowService {
   }
 
   // --- Finished Goods ---
+  static async getFinishedGoods(queryString: any = {}) {
+    const queryObj = { ...queryString };
+    const apiFeatures = new APIFeatures({}, queryObj).filter().search(['fgNumber', 'batchNumber']).sort().paginate();
+    apiFeatures.query = { ...apiFeatures.query, include: { workOrder: { include: { product: true } } } };
+
+    const [fgs, total] = await Promise.all([
+      prisma.finishedGoods.findMany(apiFeatures.query),
+      prisma.finishedGoods.count({ where: apiFeatures.query.where })
+    ]);
+    return { data: fgs, total, page: apiFeatures.queryString.page || 1 };
+  }
+
   static async postFinishedGoods(data: { woId: string; batchNumber: string; postedQty: number; destination: string; userId: string }) {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId }, include: { product: true } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
@@ -119,6 +132,18 @@ export class WorkflowService {
   }
 
   // --- Repacking ---
+  static async getRepacking(queryString: any = {}) {
+    const queryObj = { ...queryString };
+    const apiFeatures = new APIFeatures({}, queryObj).filter().search(['rpNumber', 'sourceBatch']).sort().paginate();
+    apiFeatures.query = { ...apiFeatures.query, include: { sourceWo: true, newWo: true } };
+
+    const [rps, total] = await Promise.all([
+      prisma.repacking.findMany(apiFeatures.query),
+      prisma.repacking.count({ where: apiFeatures.query.where })
+    ]);
+    return { data: rps, total, page: apiFeatures.queryString.page || 1 };
+  }
+
   static async logRepacking(data: { sourceWoId: string; repackType: string; recoverableQty: number; wasteQty: number; targetRecipeId?: string; userId: string }) {
     const sourceWO = await prisma.workOrder.findUnique({ 
       where: { id: data.sourceWoId },

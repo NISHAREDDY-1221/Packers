@@ -18,15 +18,21 @@ export const Dashboard: React.FC = () => {
 
   // DERIVE PACKING & REPACKING ERP DATA FROM GLOBAL STATE
   const pendingWOs = workOrders.filter(w => w.status === 'Pending' || w.status === 'Approved' || w.status === 'Material Issued' || w.status === 'Packing Started' || w.status === 'QC Pending').length;
-  const completedWOs = workOrders.filter(w => w.status === 'Completed').length;
+  const completedWOs = workOrders.filter(w => w.status === 'Completed' || w.status === 'Labels Printed').length;
   const qcRejects = qualityChecks.filter(q => q.result === 'Reject' || q.result === 'Rework').length;
+  
+  // Recent Activities (mock data)
+  const recentActivities = [
+    { id: 1, action: 'Work Order Created', target: 'WO-2024-001', time: '10 mins ago', user: 'Admin' },
+    { id: 2, action: 'Quality Check Passed', target: 'QC-001', time: '1 hour ago', user: 'Inspector' },
+    { id: 3, action: 'Materials Issued', target: 'MI-001', time: '2 hours ago', user: 'Store Keeper' }
+  ];
+
+  const activeWOs = workOrders.filter(w => w.status !== 'Completed' && w.status !== 'Labels Printed' && w.status !== 'Cancelled').slice(0, 4);
 
   // Calculate today's yield
   const todayOutput = finishedGoods.reduce((sum, item) => sum + item.postedQty, 0);
   const todayRepacking = repackings.reduce((sum, item) => sum + item.recoverableQuantity, 0);
-
-  // Active work orders (excluding completed and cancelled for the compact queue widget)
-  const activeWOs = workOrders.filter(w => w.status !== 'Completed' && w.status !== 'Cancelled').slice(0, 4);
 
   return (
     <div className="space-y-6 text-left pb-10">
@@ -301,7 +307,7 @@ export const Dashboard: React.FC = () => {
                         <td className="p-2 text-center font-bold text-slate-800">{wo.requiredQuantity}</td>
                         <td className="p-2 text-center font-bold text-slate-800">{wo.actualProduced || 0}</td>
                         <td className="p-2">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${wo.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${wo.status === 'Completed' || wo.status === 'Labels Printed' ? 'bg-green-50 text-green-700 border-green-200' :
                               wo.status === 'Cancelled' ? 'bg-slate-50 text-slate-400 border-slate-200' :
                                 wo.status === 'Draft' ? 'bg-slate-50 text-slate-600 border-slate-200' :
                                   wo.status === 'QC Passed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :

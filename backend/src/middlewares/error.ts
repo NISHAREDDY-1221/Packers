@@ -26,8 +26,19 @@ export const errorHandler = (
     let statusCode = error.statusCode || 500;
     let message = error.message || 'Internal Server Error';
 
+    // Prisma connection errors
+    if ((error as any).code === 'P1001' || (error as any).message?.includes("Can't reach database server")) {
+      statusCode = 503;
+      message = 'Database server is currently unavailable. Please try again later.';
+    } else if ((error as any).code === 'P1002') {
+      statusCode = 503;
+      message = 'Database server connection timed out. Please try again later.';
+    } else if ((error as any).code === 'P1003') {
+      statusCode = 500;
+      message = 'Database does not exist on the server.';
+    }
     // Prisma specific errors
-    if ((error as any).code === 'P2002') {
+    else if ((error as any).code === 'P2002') {
       statusCode = 409;
       message = 'Resource already exists (duplicate unique field).';
     }
