@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 import type { QualityCheck as IQC } from "../context/AppContext";
-import { ShieldCheck, X, Search, Image as ImageIcon } from "lucide-react";
+import { ShieldCheck, X, Search, Image as ImageIcon, ClipboardCheck } from "lucide-react";
 
 const formatDateString = (dateStr: string) => {
   if (!dateStr) return "—";
@@ -41,6 +42,7 @@ const formatTimeWithDate = (d: Date | null) => {
 
 export const QualityCheck: React.FC = () => {
   const { workOrders, qualityChecks, addQualityCheck } = useApp();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [selectedQC, setSelectedQC] = useState<IQC | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -60,7 +62,7 @@ export const QualityCheck: React.FC = () => {
     { id: string; file: File; url: string; status: "uploading" | "done" }[]
   >([]);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
-  const [formInspector] = useState("Nisha Reddy Teegala");
+  const [formInspector, setFormInspector] = useState(user?.name || "QC Inspector");
   const [formRemarks, setFormRemarks] = useState("");
   const [startTime, setStartTime] = useState<Date | null>(null);
 
@@ -71,6 +73,12 @@ export const QualityCheck: React.FC = () => {
       setStartTime(null);
     }
   }, [isFormOpen]);
+
+  useEffect(() => {
+    if (user?.name) {
+      setFormInspector(user.name);
+    }
+  }, [user]);
 
   // Checklist states — grouped: Packaging / Product / Label
   const [checks, setChecks] = useState({
@@ -94,11 +102,7 @@ export const QualityCheck: React.FC = () => {
   const [formSignature, setFormSignature] = useState("");
 
   const pendingQC_WOs = workOrders.filter(
-    (w) =>
-      w.status === "QC Pending" ||
-      w.status === "Labels Printed" ||
-      w.status === "Completed" ||
-      w.status === "QC Passed",
+    (w) => w.status === "QC Pending",
   );
 
   const todayDate = new Date().toISOString().split("T")[0];
@@ -1188,9 +1192,9 @@ export const QualityCheck: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        readOnly
-                        className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600"
+                        className="w-full p-2 border border-slate-200 focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 outline-none rounded-lg text-sm bg-white text-slate-800"
                         value={formInspector}
+                        onChange={(e) => setFormInspector(e.target.value)}
                       />
                     </div>
                     <div>

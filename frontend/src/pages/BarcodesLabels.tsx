@@ -200,9 +200,11 @@ export const BarcodesLabels: React.FC = () => {
   const { workOrders, recipes, updateWorkOrderStatus } = useApp();
   const previewCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
-  // Find work orders that have completed packing
+  // Find work orders that have completed packing execution (post-packing statuses)
   const readyWorkOrders = useMemo(() => {
-    return workOrders.filter((w) => w.status === "Completed");
+    return workOrders.filter((w) => 
+      ["QC Pending", "QC Passed", "Labels Printed", "Completed"].includes(w.status)
+    );
   }, [workOrders]);
 
   const selectableWOs = readyWorkOrders;
@@ -287,7 +289,18 @@ export const BarcodesLabels: React.FC = () => {
   const [labelsPrinted, setLabelsPrinted] = useState(0);
 
   // History state
-  const [history, setHistory] = useState<PrintJob[]>([]);
+  const [history, setHistory] = useState<PrintJob[]>(() => {
+    try {
+      const saved = localStorage.getItem("labelPrintHistory");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("labelPrintHistory", JSON.stringify(history));
+  }, [history]);
 
   // Validation / Warning alerts
   const [validationError, setValidationError] = useState("");

@@ -107,7 +107,7 @@ export const Reports: React.FC = () => {
                   {finishedGoods.map((fg) => (
                     <tr key={fg.id} className="hover:bg-slate-50/50">
                       <td className="p-3 text-slate-500">
-                        {fg.postedAt.split(" ")[0] || "2026-07-16"}
+                        {(fg.postedAt || "2026-07-16").split(" ")[0]}
                       </td>
                       <td className="p-3 font-mono font-semibold">{fg.woNo}</td>
                       <td className="p-3 font-semibold text-slate-700">
@@ -171,7 +171,7 @@ export const Reports: React.FC = () => {
                   {repackings.map((rp) => (
                     <tr key={rp.id} className="hover:bg-slate-50/50">
                       <td className="p-3 text-slate-500">
-                        {rp.createdAt.split(" ")[0]}
+                        {(rp.createdAt || "-").split(" ")[0]}
                       </td>
                       <td className="p-3 font-mono font-bold text-rose-700">
                         {rp.sourceBatchNo}
