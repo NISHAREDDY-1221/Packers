@@ -294,7 +294,7 @@ export const FinishedGoods: React.FC = () => {
                         {fg.destination}
                       </td>
                       <td className="p-3 text-center font-bold">
-                        ₹{fg.costs?.costPerUnit ?? 0}
+                        ₹{fg.costs.costPerUnit}
                       </td>
                       <td className="p-3 text-right">
                         <button
@@ -356,7 +356,7 @@ export const FinishedGoods: React.FC = () => {
                 <div className="flex justify-between p-2.5">
                   <span className="text-slate-500">Raw Material Cost</span>
                   <span className="font-semibold text-slate-850">
-                    ₹{selectedFG.costs?.rawMaterial ?? 0}
+                    ₹{selectedFG.costs.rawMaterial}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">
@@ -364,13 +364,13 @@ export const FinishedGoods: React.FC = () => {
                     Packaging Materials Cost
                   </span>
                   <span className="font-semibold text-slate-850">
-                    ₹{selectedFG.costs?.packaging ?? 0}
+                    ₹{selectedFG.costs.packaging}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-slate-500">Labor / Employee Cost</span>
                   <span className="font-semibold text-slate-850">
-                    ₹{selectedFG.costs?.employee ?? 0}
+                    ₹{selectedFG.costs.employee}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">
@@ -378,7 +378,7 @@ export const FinishedGoods: React.FC = () => {
                     Electricity Utility Allocation
                   </span>
                   <span className="font-semibold text-slate-850">
-                    ₹{selectedFG.costs?.electricity ?? 0}
+                    ₹{selectedFG.costs.electricity}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">
@@ -386,7 +386,7 @@ export const FinishedGoods: React.FC = () => {
                     Machine Utilization Cost
                   </span>
                   <span className="font-semibold text-slate-850">
-                    ₹{selectedFG.costs?.machine ?? 0}
+                    ₹{selectedFG.costs.machine}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">
@@ -394,18 +394,18 @@ export const FinishedGoods: React.FC = () => {
                     Transportation / Routing Cost
                   </span>
                   <span className="font-semibold text-slate-850">
-                    ₹{selectedFG.costs?.transportation ?? 0}
+                    ₹{selectedFG.costs.transportation}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-slate-500">Miscellaneous Costs</span>
                   <span className="font-semibold text-slate-850">
-                    ₹{selectedFG.costs?.miscellaneous ?? 0}
+                    ₹{selectedFG.costs.miscellaneous}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5 bg-slate-50 font-bold text-slate-900">
                   <span>Total Production Cost</span>
-                  <span>₹{selectedFG.costs?.total ?? 0}</span>
+                  <span>₹{selectedFG.costs.total}</span>
                 </div>
               </div>
             </div>
@@ -416,7 +416,7 @@ export const FinishedGoods: React.FC = () => {
                   Cost Per Unit
                 </span>
                 <span className="text-base font-bold text-slate-800">
-                  ₹{selectedFG.costs?.costPerUnit ?? 0}
+                  ₹{selectedFG.costs.costPerUnit}
                 </span>
               </div>
               <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
@@ -424,7 +424,7 @@ export const FinishedGoods: React.FC = () => {
                   Profit Margin
                 </span>
                 <span className="text-base font-bold text-emerald-800">
-                  {selectedFG.costs?.profitMargin ?? 0}%
+                  {selectedFG.costs.profitMargin}%
                 </span>
               </div>
             </div>
