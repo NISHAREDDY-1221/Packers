@@ -1,6 +1,6 @@
-import { Router } from 'express';
-import { authenticate } from '../middlewares/auth';
-import * as controller from '../controllers/reportController';
+import { Router } from "express";
+import { authenticate } from "../middlewares/auth";
+import * as controller from "../controllers/reportController";
 
 const router = Router();
 
@@ -35,7 +35,7 @@ router.use(authenticate);
  *       400:
  *         description: Missing query parameters
  */
-router.get('/yield', controller.getProductionYield);
+router.get("/yield", controller.getProductionYield);
 
 /**
  * @openapi
@@ -66,6 +66,6 @@ router.get('/yield', controller.getProductionYield);
  *       400:
  *         description: Missing query parameters
  */
-router.get('/qc-summary', controller.getQcSummary);
+router.get("/qc-summary", controller.getQcSummary);
 
 export default router;

@@ -1,25 +1,26 @@
-import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerJsdoc from "swagger-jsdoc";
 
 const options: swaggerJsdoc.Options = {
   definition: {
-    openapi: '3.0.0',
+    openapi: "3.0.0",
     info: {
-      title: 'VillagKart Packing & Repacking ERP API',
-      version: '1.0.0',
-      description: 'API documentation for the VillagKart backend workflow, including Auth, Master Data, Work Orders, QC, Repacking, and Finished Goods.',
+      title: "VillagKart Packing & Repacking ERP API",
+      version: "1.0.0",
+      description:
+        "API documentation for the VillagKart backend workflow, including Auth, Master Data, Work Orders, QC, Repacking, and Finished Goods.",
     },
     servers: [
       {
-        url: 'http://localhost:5000/api/v1',
-        description: 'Local Development Server',
+        url: "http://localhost:5000/api/v1",
+        description: "Local Development Server",
       },
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
         },
       },
     },
@@ -29,7 +30,7 @@ const options: swaggerJsdoc.Options = {
       },
     ],
   },
-  apis: ['./src/routes/*.ts'], // This will scan the routes folder for JSDoc comments
+  apis: ["./src/routes/*.ts"], // This will scan the routes folder for JSDoc comments
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

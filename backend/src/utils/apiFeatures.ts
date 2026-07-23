@@ -9,12 +9,15 @@ export class APIFeatures {
 
   filter() {
     const queryObj = { ...this.queryString };
-    const excludedFields = ['page', 'sort', 'limit', 'fields', 'search'];
+    const excludedFields = ["page", "sort", "limit", "fields", "search"];
     excludedFields.forEach((el) => delete queryObj[el]);
 
     // Handle standard exact match filters
     if (Object.keys(queryObj).length > 0) {
-        this.query = { ...this.query, where: { ...this.query.where, ...queryObj } };
+      this.query = {
+        ...this.query,
+        where: { ...this.query.where, ...queryObj },
+      };
     }
 
     return this;
@@ -23,28 +26,28 @@ export class APIFeatures {
   search(searchFields: string[]) {
     if (this.queryString.search && searchFields.length > 0) {
       const search = this.queryString.search;
-      const OR = searchFields.map(field => ({
-        [field]: { contains: search, mode: 'insensitive' }
+      const OR = searchFields.map((field) => ({
+        [field]: { contains: search, mode: "insensitive" },
       }));
 
-      this.query = { 
-        ...this.query, 
-        where: { 
-          ...this.query.where, 
-          OR 
-        } 
+      this.query = {
+        ...this.query,
+        where: {
+          ...this.query.where,
+          OR,
+        },
       };
     }
     return this;
   }
 
-  sort(defaultSort: any = { createdAt: 'desc' }) {
+  sort(defaultSort: any = { createdAt: "desc" }) {
     if (this.queryString.sort) {
-      const sortBy = this.queryString.sort.split(',').join(' ');
+      const sortBy = this.queryString.sort.split(",").join(" ");
       // Prisma expects an object for sorting: { field: 'asc'|'desc' }
       // This is a simplified sort for single fields right now, can be expanded
-      const sortField = sortBy.startsWith('-') ? sortBy.substring(1) : sortBy;
-      const sortOrder = sortBy.startsWith('-') ? 'desc' : 'asc';
+      const sortField = sortBy.startsWith("-") ? sortBy.substring(1) : sortBy;
+      const sortOrder = sortBy.startsWith("-") ? "desc" : "asc";
       this.query = { ...this.query, orderBy: { [sortField]: sortOrder } };
     } else {
       this.query = { ...this.query, orderBy: defaultSort };

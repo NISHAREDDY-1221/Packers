@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { z, ZodError } from 'zod';
-import { sendResponse } from '../utils/response';
+import { Request, Response, NextFunction } from "express";
+import { z, ZodError } from "zod";
+import { sendResponse } from "../utils/response";
 
 export const validate = (schema: z.ZodTypeAny) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -13,7 +13,12 @@ export const validate = (schema: z.ZodTypeAny) => {
       return next();
     } catch (error) {
       if (error instanceof ZodError) {
-        return sendResponse(res, 400, 'Validation Failed', (error as any).errors || (error as any).issues);
+        return sendResponse(
+          res,
+          400,
+          "Validation Failed",
+          (error as any).errors || (error as any).issues,
+        );
       }
       return next(error);
     }

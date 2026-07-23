@@ -1,16 +1,16 @@
-export type ApprovalType = 
-  | 'WORK_ORDER'
-  | 'MATERIAL_ISSUE'
-  | 'PACKING_VARIANCE'
-  | 'QC_REWORK'
-  | 'REPACKING'
-  | 'BARCODE_REPRINT'
-  | 'FINISHED_GOODS'
-  | 'WASTAGE_SCRAP';
+export type ApprovalType =
+  | "WORK_ORDER"
+  | "MATERIAL_ISSUE"
+  | "PACKING_VARIANCE"
+  | "QC_REWORK"
+  | "REPACKING"
+  | "BARCODE_REPRINT"
+  | "FINISHED_GOODS"
+  | "WASTAGE_SCRAP";
 
-export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
-export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export interface ApprovalRequest {
   id: string;
@@ -22,13 +22,13 @@ export interface ApprovalRequest {
   reason: string;
   priority: Priority;
   status: ApprovalStatus;
-  
+
   // Context details
   existingValues?: Record<string, any>;
   proposedValues?: Record<string, any>;
   remarks?: string;
   attachments?: string[];
-  
+
   // History
   history: ApprovalHistory[];
 }
@@ -39,4 +39,3 @@ export interface ApprovalHistory {
   actionDate: string;
   comments?: string;
 }
-

@@ -1,8 +1,8 @@
-import { Router } from 'express';
-import { authenticate } from '../middlewares/auth';
-import { validate } from '../middlewares/validate';
-import * as validation from '../validations/workflow';
-import * as controller from '../controllers/workflowController';
+import { Router } from "express";
+import { authenticate } from "../middlewares/auth";
+import { validate } from "../middlewares/validate";
+import * as validation from "../validations/workflow";
+import * as controller from "../controllers/workflowController";
 
 const router = Router();
 
@@ -56,7 +56,8 @@ router.use(authenticate);
  *       201:
  *         description: Quality Check submitted successfully
  */
-router.route('/quality-checks')
+router
+  .route("/quality-checks")
   .get(controller.getQualityChecks)
   .post(validate(validation.submitQCSchema), controller.submitQualityCheck);
 
@@ -86,9 +87,13 @@ router.route('/quality-checks')
  *       201:
  *         description: Batch posted to Finished Goods
  */
-router.route('/finished-goods')
+router
+  .route("/finished-goods")
   .get(controller.getFinishedGoods)
-  .post(validate(validation.postFinishedGoodsSchema), controller.postFinishedGoods);
+  .post(
+    validate(validation.postFinishedGoodsSchema),
+    controller.postFinishedGoods,
+  );
 
 /**
  * @openapi
@@ -118,7 +123,8 @@ router.route('/finished-goods')
  *       201:
  *         description: Repacking logged and new Work Order generated
  */
-router.route('/repacking')
+router
+  .route("/repacking")
   .get(controller.getRepacking)
   .post(validate(validation.logRepackingSchema), controller.logRepacking);
 

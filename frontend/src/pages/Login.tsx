@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Package, Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { Navigate } from "react-router-dom";
+import { Package, Mail, Lock, LogIn, AlertCircle } from "lucide-react";
 
 export const Login: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // If already authenticated, redirect to dashboard
@@ -18,14 +18,17 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       await login({ email, password });
       // Redirect happens automatically through the ProtectedRoute/AuthContext state
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      setError(
+        err.response?.data?.message ||
+          "Login failed. Please check your credentials.",
+      );
     } finally {
       setLoading(false);
     }
@@ -52,11 +55,14 @@ export const Login: React.FC = () => {
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="text-red-500 mt-0.5 flex-shrink-0" size={18} />
+                <AlertCircle
+                  className="text-red-500 mt-0.5 flex-shrink-0"
+                  size={18}
+                />
                 <p className="text-sm text-red-700">{error}</p>
               </div>
             )}
-            
+
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Email Address
@@ -112,10 +118,11 @@ export const Login: React.FC = () => {
               </button>
             </div>
           </form>
-          
+
           <div className="mt-8 pt-6 border-t border-slate-100">
             <p className="text-center text-xs text-slate-500">
-              Authorized personnel only. Contact system administrator for access.
+              Authorized personnel only. Contact system administrator for
+              access.
             </p>
           </div>
         </div>

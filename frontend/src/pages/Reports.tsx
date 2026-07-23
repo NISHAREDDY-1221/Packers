@@ -1,77 +1,94 @@
-import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { useSearchParams } from 'react-router-dom';
-import { 
-  Filter, Download, GitCommit,
-  CheckCircle, RefreshCw, UserCheck, DollarSign, AlertTriangle, 
-  Trash2, Package, Activity, RefreshCcw, TrendingUp, Info
-} from 'lucide-react';
+import React, { useState } from "react";
+import { useApp } from "../context/AppContext";
+import { useSearchParams } from "react-router-dom";
+import {
+  Filter,
+  Download,
+  GitCommit,
+  CheckCircle,
+  RefreshCw,
+  UserCheck,
+  DollarSign,
+  AlertTriangle,
+  Trash2,
+  Package,
+  Activity,
+  RefreshCcw,
+  TrendingUp,
+  Info,
+} from "lucide-react";
 
 export const Reports: React.FC = () => {
   const { finishedGoods, repackings } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Active Tab derived from query param, defaults to 'packing'
-  const activeTab = searchParams.get('tab') || 'packing';
-  
+  const activeTab = searchParams.get("tab") || "packing";
+
   const handleTabChange = (tabId: string) => {
     setSearchParams({ tab: tabId });
   };
 
   // 10 Filters State
-  const [filterDate, setFilterDate] = useState('2026-07-16');
-  const [filterCategory, setFilterCategory] = useState('All');
-  const [filterEmployee, setFilterEmployee] = useState('All');
-  const [filterProduct, setFilterProduct] = useState('All');
-  const [filterBatch, setFilterBatch] = useState('BATCH-2026-RICE-01');
-  const [filterWorkOrder, setFilterWorkOrder] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [filterSupervisor, setFilterSupervisor] = useState('All');
-  const [filterMachine, setFilterMachine] = useState('All');
-  const [filterLocation, setFilterLocation] = useState('All');
+  const [filterDate, setFilterDate] = useState("2026-07-16");
+  const [filterCategory, setFilterCategory] = useState("All");
+  const [filterEmployee, setFilterEmployee] = useState("All");
+  const [filterProduct, setFilterProduct] = useState("All");
+  const [filterBatch, setFilterBatch] = useState("BATCH-2026-RICE-01");
+  const [filterWorkOrder, setFilterWorkOrder] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterSupervisor, setFilterSupervisor] = useState("All");
+  const [filterMachine, setFilterMachine] = useState("All");
+  const [filterLocation, setFilterLocation] = useState("All");
 
   const resetFilters = () => {
-    setFilterDate('2026-07-16');
-    setFilterCategory('All');
-    setFilterEmployee('All');
-    setFilterProduct('All');
-    setFilterBatch('BATCH-2026-RICE-01');
-    setFilterWorkOrder('All');
-    setFilterStatus('All');
-    setFilterSupervisor('All');
-    setFilterMachine('All');
-    setFilterLocation('All');
+    setFilterDate("2026-07-16");
+    setFilterCategory("All");
+    setFilterEmployee("All");
+    setFilterProduct("All");
+    setFilterBatch("BATCH-2026-RICE-01");
+    setFilterWorkOrder("All");
+    setFilterStatus("All");
+    setFilterSupervisor("All");
+    setFilterMachine("All");
+    setFilterLocation("All");
   };
 
   // 11 Reports configuration
   const reportsList = [
-    { id: 'packing', label: 'Packing Report', icon: CheckCircle },
-    { id: 'repacking', label: 'Repacking Report', icon: RefreshCw },
-    { id: 'employee', label: 'Employee Productivity', icon: UserCheck },
-    { id: 'traceability', label: 'Batch Traceability', icon: GitCommit },
-    { id: 'cost', label: 'Cost Report', icon: DollarSign },
-    { id: 'rejected', label: 'Rejected Report', icon: AlertTriangle },
-    { id: 'waste', label: 'Waste Report', icon: Trash2 },
-    { id: 'consumption', label: 'Material Consumption', icon: Package },
-    { id: 'machine', label: 'Machine Utilization', icon: Activity },
-    { id: 'conversion', label: 'Inventory Conversion', icon: RefreshCcw },
-    { id: 'profitability', label: 'Profitability', icon: TrendingUp },
+    { id: "packing", label: "Packing Report", icon: CheckCircle },
+    { id: "repacking", label: "Repacking Report", icon: RefreshCw },
+    { id: "employee", label: "Employee Productivity", icon: UserCheck },
+    { id: "traceability", label: "Batch Traceability", icon: GitCommit },
+    { id: "cost", label: "Cost Report", icon: DollarSign },
+    { id: "rejected", label: "Rejected Report", icon: AlertTriangle },
+    { id: "waste", label: "Waste Report", icon: Trash2 },
+    { id: "consumption", label: "Material Consumption", icon: Package },
+    { id: "machine", label: "Machine Utilization", icon: Activity },
+    { id: "conversion", label: "Inventory Conversion", icon: RefreshCcw },
+    { id: "profitability", label: "Profitability", icon: TrendingUp },
   ];
 
   // Helper for Export toast / warning (since it's UI only)
-  const handleExport = (type: 'Excel' | 'PDF') => {
-    alert(`Exporting current report (${activeTab.toUpperCase()}) as ${type}...`);
+  const handleExport = (type: "Excel" | "PDF") => {
+    alert(
+      `Exporting current report (${activeTab.toUpperCase()}) as ${type}...`,
+    );
   };
 
   // RENDER REPORT CONTENT BASED ON SELECT TAB
   const renderReportContent = () => {
     switch (activeTab) {
-      case 'packing':
+      case "packing":
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-sm">Packing Production Log</h3>
-              <span className="text-xs text-slate-500 font-medium">{finishedGoods.length + 3} records found</span>
+              <h3 className="font-bold text-slate-800 text-sm">
+                Packing Production Log
+              </h3>
+              <span className="text-xs text-slate-500 font-medium">
+                {finishedGoods.length + 3} records found
+              </span>
             </div>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
@@ -87,20 +104,35 @@ export const Reports: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {finishedGoods.map(fg => (
+                  {finishedGoods.map((fg) => (
                     <tr key={fg.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 text-slate-500">{fg.postedAt.split(' ')[0] || '2026-07-16'}</td>
+                      <td className="p-3 text-slate-500">
+                        {fg.postedAt.split(" ")[0] || "2026-07-16"}
+                      </td>
                       <td className="p-3 font-mono font-semibold">{fg.woNo}</td>
-                      <td className="p-3 font-semibold text-slate-700">{fg.productName}</td>
-                      <td className="p-3 font-mono text-slate-600">{fg.batchNo}</td>
-                      <td className="p-3 text-center font-bold text-slate-850">{fg.postedQty}</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">{fg.destination}</span></td>
+                      <td className="p-3 font-semibold text-slate-700">
+                        {fg.productName}
+                      </td>
+                      <td className="p-3 font-mono text-slate-600">
+                        {fg.batchNo}
+                      </td>
+                      <td className="p-3 text-center font-bold text-slate-850">
+                        {fg.postedQty}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
+                          {fg.destination}
+                        </span>
+                      </td>
                       <td className="p-3 text-slate-600">Suresh Kumar</td>
                     </tr>
                   ))}
                   {finishedGoods.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-4 text-center text-slate-400">
+                      <td
+                        colSpan={7}
+                        className="p-4 text-center text-slate-400"
+                      >
                         No packing records found.
                       </td>
                     </tr>
@@ -111,12 +143,16 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'repacking':
+      case "repacking":
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-sm">Repacking Recovery Summary</h3>
-              <span className="text-xs text-slate-500 font-medium">{repackings.length + 2} records found</span>
+              <h3 className="font-bold text-slate-800 text-sm">
+                Repacking Recovery Summary
+              </h3>
+              <span className="text-xs text-slate-500 font-medium">
+                {repackings.length + 2} records found
+              </span>
             </div>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
@@ -132,24 +168,41 @@ export const Reports: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {repackings.map(rp => (
+                  {repackings.map((rp) => (
                     <tr key={rp.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 text-slate-500">{rp.createdAt.split(' ')[0]}</td>
-                      <td className="p-3 font-mono font-bold text-rose-700">{rp.sourceBatchNo}</td>
-                      <td className="p-3 font-semibold text-slate-700">{rp.productName}</td>
-                      <td className="p-3 text-center font-bold text-green-700">+{rp.recoverableQuantity}</td>
-                      <td className="p-3 text-center font-bold text-rose-600">-{rp.wasteQuantity}</td>
-                      <td className="p-3 font-mono font-semibold text-slate-800">{rp.newBatchNo}</td>
+                      <td className="p-3 text-slate-500">
+                        {rp.createdAt.split(" ")[0]}
+                      </td>
+                      <td className="p-3 font-mono font-bold text-rose-700">
+                        {rp.sourceBatchNo}
+                      </td>
+                      <td className="p-3 font-semibold text-slate-700">
+                        {rp.productName}
+                      </td>
+                      <td className="p-3 text-center font-bold text-green-700">
+                        +{rp.recoverableQuantity}
+                      </td>
+                      <td className="p-3 text-center font-bold text-rose-600">
+                        -{rp.wasteQuantity}
+                      </td>
+                      <td className="p-3 font-mono font-semibold text-slate-800">
+                        {rp.newBatchNo}
+                      </td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${rp.newLabelPrinted ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                          {rp.newLabelPrinted ? 'Yes' : 'No'}
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${rp.newLabelPrinted ? "bg-green-50 text-green-700 border border-green-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}
+                        >
+                          {rp.newLabelPrinted ? "Yes" : "No"}
                         </span>
                       </td>
                     </tr>
                   ))}
                   {repackings.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-4 text-center text-slate-400">
+                      <td
+                        colSpan={7}
+                        className="p-4 text-center text-slate-400"
+                      >
                         No repacking records found.
                       </td>
                     </tr>
@@ -160,10 +213,12 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'employee':
+      case "employee":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Employee Productivity Report</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              Employee Productivity Report
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <tbody className="divide-y divide-slate-100">
@@ -178,13 +233,17 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'traceability':
+      case "traceability":
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center border-b border-slate-150 pb-2">
-              <h3 className="font-bold text-slate-800 text-sm">Batch Genealogy & Traceability Drill-down</h3>
+              <h3 className="font-bold text-slate-800 text-sm">
+                Batch Genealogy & Traceability Drill-down
+              </h3>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 font-medium">Trace Target:</span>
+                <span className="text-xs text-slate-500 font-medium">
+                  Trace Target:
+                </span>
                 <input
                   type="text"
                   placeholder="Enter Batch No..."
@@ -194,25 +253,31 @@ export const Reports: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             {/* Traceability Tree Render */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 font-mono text-xs space-y-4">
               <div className="flex items-center gap-2 text-green-700 font-bold">
                 <GitCommit size={16} />
-                <span>Genealogy Path for: {filterBatch || 'BATCH-2026-RICE-01'}</span>
+                <span>
+                  Genealogy Path for: {filterBatch || "BATCH-2026-RICE-01"}
+                </span>
               </div>
 
               <div className="space-y-4 relative pl-4 border-l-2 border-green-200 ml-2">
-                <div className="text-slate-400 py-4">No traceability data available.</div>
+                <div className="text-slate-400 py-4">
+                  No traceability data available.
+                </div>
               </div>
             </div>
           </div>
         );
 
-      case 'cost':
+      case "cost":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Packing Cost Analysis Report</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              Packing Cost Analysis Report
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <thead>
@@ -238,10 +303,12 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'rejected':
+      case "rejected":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">QC Rejections Log</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              QC Rejections Log
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <thead>
@@ -268,10 +335,12 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'waste':
+      case "waste":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Spillage & Scrap Waste Analysis</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              Spillage & Scrap Waste Analysis
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <thead>
@@ -296,10 +365,12 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'consumption':
+      case "consumption":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Raw Material & Packaging Consumption Ledger</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              Raw Material & Packaging Consumption Ledger
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <thead>
@@ -325,10 +396,12 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'machine':
+      case "machine":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Machine Utilization & OEE Metrics</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              Machine Utilization & OEE Metrics
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <thead>
@@ -354,10 +427,12 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'conversion':
+      case "conversion":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Inventory Conversion (Bulk to Retail Yield)</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              Inventory Conversion (Bulk to Retail Yield)
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <thead>
@@ -383,10 +458,12 @@ export const Reports: React.FC = () => {
           </div>
         );
 
-      case 'profitability':
+      case "profitability":
         return (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm">Product Line & Packing Profitability</h3>
+            <h3 className="font-bold text-slate-800 text-sm">
+              Product Line & Packing Profitability
+            </h3>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
               <table className="w-full text-left border-collapse vk-table text-xs">
                 <thead>
@@ -395,8 +472,12 @@ export const Reports: React.FC = () => {
                     <th className="p-3 text-right">MRP (₹)</th>
                     <th className="p-3 text-right">Selling Price (₹)</th>
                     <th className="p-3 text-right">Packing Cost / Unit (₹)</th>
-                    <th className="p-3 text-right">Net Material Cost / Unit (₹)</th>
-                    <th className="p-3 text-right">Profit Margin Per Unit (₹)</th>
+                    <th className="p-3 text-right">
+                      Net Material Cost / Unit (₹)
+                    </th>
+                    <th className="p-3 text-right">
+                      Profit Margin Per Unit (₹)
+                    </th>
                     <th className="p-3 text-center">Gross Profit %</th>
                   </tr>
                 </thead>
@@ -416,7 +497,9 @@ export const Reports: React.FC = () => {
         return (
           <div className="p-6 text-center text-slate-450 bg-white border border-slate-200 rounded-xl">
             <Info size={24} className="mx-auto text-slate-300 mb-2" />
-            <p className="text-xs font-semibold">Selected report is currently empty or mock-up data is offline.</p>
+            <p className="text-xs font-semibold">
+              Selected report is currently empty or mock-up data is offline.
+            </p>
           </div>
         );
     }
@@ -424,7 +507,6 @@ export const Reports: React.FC = () => {
 
   return (
     <div className="space-y-6 text-left pb-10">
-      
       {/* 10 Filters Grid Toolbar */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
         <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wider pb-2 border-b border-slate-100">
@@ -433,10 +515,11 @@ export const Reports: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          
           {/* 1. Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Date</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Date
+            </label>
             <input
               type="date"
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
@@ -447,7 +530,9 @@ export const Reports: React.FC = () => {
 
           {/* 2. Category */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Category</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Category
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterCategory}
@@ -463,7 +548,9 @@ export const Reports: React.FC = () => {
 
           {/* 3. Employee */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Employee</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Employee
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterEmployee}
@@ -479,22 +566,30 @@ export const Reports: React.FC = () => {
 
           {/* 4. Product */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Product</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Product
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterProduct}
               onChange={(e) => setFilterProduct(e.target.value)}
             >
               <option value="All">All Products</option>
-              <option value="Sona Masoori Rice 500g">Sona Masoori Rice 500g</option>
+              <option value="Sona Masoori Rice 500g">
+                Sona Masoori Rice 500g
+              </option>
               <option value="Premium Almonds 200g">Premium Almonds 200g</option>
-              <option value="Dry Fruits Festival Gift Hamper">Dry Fruits Festival Gift Hamper</option>
+              <option value="Dry Fruits Festival Gift Hamper">
+                Dry Fruits Festival Gift Hamper
+              </option>
             </select>
           </div>
 
           {/* 5. Batch */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Batch</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Batch
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterBatch}
@@ -508,7 +603,9 @@ export const Reports: React.FC = () => {
 
           {/* 6. Work Order */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Work Order</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Work Order
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterWorkOrder}
@@ -523,7 +620,9 @@ export const Reports: React.FC = () => {
 
           {/* 7. Status */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Status
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterStatus}
@@ -540,7 +639,9 @@ export const Reports: React.FC = () => {
 
           {/* 8. Supervisor */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Supervisor</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Supervisor
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterSupervisor}
@@ -556,7 +657,9 @@ export const Reports: React.FC = () => {
 
           {/* 9. Machine */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Machine</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Machine
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterMachine}
@@ -572,7 +675,9 @@ export const Reports: React.FC = () => {
 
           {/* 10. Location */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Location</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Location
+            </label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterLocation}
@@ -584,12 +689,11 @@ export const Reports: React.FC = () => {
               <option value="Silo A-1">Silo A-1</option>
             </select>
           </div>
-
         </div>
 
         {/* Filter buttons & Export Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <button 
+          <button
             onClick={resetFilters}
             className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-350 bg-white rounded-lg cursor-pointer transition-all"
           >
@@ -597,15 +701,15 @@ export const Reports: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handleExport('Excel')}
+            <button
+              onClick={() => handleExport("Excel")}
               className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Download size={14} />
               <span>Export Excel</span>
             </button>
-            <button 
-              onClick={() => handleExport('PDF')}
+            <button
+              onClick={() => handleExport("PDF")}
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Download size={14} />
@@ -617,11 +721,12 @@ export const Reports: React.FC = () => {
 
       {/* Main Reports Layout with Sidebar Switcher */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
         {/* Left hand Report Selection sidebar */}
         <div className="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-2 h-fit">
-          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider px-3 pb-3 border-b border-slate-100 mb-2">Available Reports</h3>
-          
+          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider px-3 pb-3 border-b border-slate-100 mb-2">
+            Available Reports
+          </h3>
+
           <div className="space-y-1.5 sidebar-scrollbar max-h-[480px] overflow-y-auto pr-1">
             {reportsList.map((item) => {
               const Icon = item.icon;
@@ -631,12 +736,15 @@ export const Reports: React.FC = () => {
                   key={item.id}
                   onClick={() => handleTabChange(item.id)}
                   className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
-                    isSelected 
-                      ? 'bg-green-50 text-green-750 border border-green-200/50' 
-                      : 'text-slate-650 hover:bg-slate-50 hover:text-slate-800'
+                    isSelected
+                      ? "bg-green-50 text-green-750 border border-green-200/50"
+                      : "text-slate-650 hover:bg-slate-50 hover:text-slate-800"
                   }`}
                 >
-                  <Icon size={16} className={isSelected ? 'text-green-650' : 'text-slate-400'} />
+                  <Icon
+                    size={16}
+                    className={isSelected ? "text-green-650" : "text-slate-400"}
+                  />
                   <span>{item.label}</span>
                 </button>
               );
@@ -648,7 +756,6 @@ export const Reports: React.FC = () => {
         <div className="lg:col-span-3 bg-white border border-slate-200 rounded-xl p-6 shadow-xs min-h-[400px]">
           {renderReportContent()}
         </div>
-
       </div>
     </div>
   );

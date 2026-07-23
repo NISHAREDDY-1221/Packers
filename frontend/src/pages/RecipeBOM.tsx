@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Eye, X, Trash2, Layers, Sparkles, Loader2, AlertCircle } from 'lucide-react';
-import { masterDataService } from '../api/masterDataService';
-import type { Recipe, Product } from '../api/masterDataService';
+import React, { useState, useEffect } from "react";
+import {
+  Plus,
+  Search,
+  Eye,
+  X,
+  Trash2,
+  Layers,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
+import { masterDataService } from "../api/masterDataService";
+import type { Recipe, Product } from "../api/masterDataService";
 
 export const RecipeBOM: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -9,22 +19,22 @@ export const RecipeBOM: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Form State
-  const [formCode, setFormCode] = useState('');
-  const [formName, setFormName] = useState('');
-  const [formOutputProductId, setFormOutputProductId] = useState('');
+  const [formCode, setFormCode] = useState("");
+  const [formName, setFormName] = useState("");
+  const [formOutputProductId, setFormOutputProductId] = useState("");
   const [formOutputQty, setFormOutputQty] = useState(1);
 
   // BOM Items (Raw Materials)
-  const [bomItems, setBomItems] = useState<{ inputProductId: string, requiredQty: number, tolerancePct: number }[]>([
-    { inputProductId: '', requiredQty: 1, tolerancePct: 0 }
-  ]);
+  const [bomItems, setBomItems] = useState<
+    { inputProductId: string; requiredQty: number; tolerancePct: number }[]
+  >([{ inputProductId: "", requiredQty: 1, tolerancePct: 0 }]);
 
   useEffect(() => {
     fetchData();
@@ -32,54 +42,63 @@ export const RecipeBOM: React.FC = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
       const [fetchedRecipes, fetchedProducts] = await Promise.all([
         masterDataService.getRecipes(),
-        masterDataService.getProducts()
+        masterDataService.getProducts(),
       ]);
       setRecipes(fetchedRecipes);
       setProducts(fetchedProducts);
     } catch (err: any) {
-      setError('Failed to load master data. ' + (err.response?.data?.message || ''));
+      setError(
+        "Failed to load master data. " + (err.response?.data?.message || ""),
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleAddBOMItem = () => {
-    setBomItems([...bomItems, { inputProductId: '', requiredQty: 1, tolerancePct: 0 }]);
+    setBomItems([
+      ...bomItems,
+      { inputProductId: "", requiredQty: 1, tolerancePct: 0 },
+    ]);
   };
 
   const handleRemoveBOMItem = (index: number) => {
     setBomItems(bomItems.filter((_, i) => i !== index));
   };
 
-  const handleBOMItemChange = (index: number, field: string, value: string | number) => {
+  const handleBOMItemChange = (
+    index: number,
+    field: string,
+    value: string | number,
+  ) => {
     const updated = [...bomItems];
     updated[index] = {
       ...updated[index],
-      [field]: value
+      [field]: value,
     };
     setBomItems(updated);
   };
 
   const resetForm = () => {
-    setFormCode('');
-    setFormName('');
-    setFormOutputProductId('');
+    setFormCode("");
+    setFormName("");
+    setFormOutputProductId("");
     setFormOutputQty(1);
-    setBomItems([{ inputProductId: '', requiredQty: 1, tolerancePct: 0 }]);
+    setBomItems([{ inputProductId: "", requiredQty: 1, tolerancePct: 0 }]);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitLoading(true);
-    setError('');
+    setError("");
 
     try {
       // Validate
-      const validItems = bomItems.filter(item => item.inputProductId);
+      const validItems = bomItems.filter((item) => item.inputProductId);
       if (validItems.length === 0) {
         throw new Error("At least one valid input product is required.");
       }
@@ -89,27 +108,30 @@ export const RecipeBOM: React.FC = () => {
         name: formName,
         outputProductId: formOutputProductId,
         outputQty: Number(formOutputQty),
-        items: validItems.map(item => ({
+        items: validItems.map((item) => ({
           inputProductId: item.inputProductId,
           requiredQty: Number(item.requiredQty),
           tolerancePct: Number(item.tolerancePct),
-          isPackaging: false
-        }))
+          isPackaging: false,
+        })),
       });
 
       setIsCreateOpen(false);
       resetForm();
       await fetchData();
     } catch (err: any) {
-      setError(err.message || err.response?.data?.message || 'Failed to create recipe');
+      setError(
+        err.message || err.response?.data?.message || "Failed to create recipe",
+      );
     } finally {
       setSubmitLoading(false);
     }
   };
 
-  const filteredRecipes = recipes.filter(rcp =>
-    rcp.name.toLowerCase().includes(search.toLowerCase()) ||
-    rcp.code.toLowerCase().includes(search.toLowerCase())
+  const filteredRecipes = recipes.filter(
+    (rcp) =>
+      rcp.name.toLowerCase().includes(search.toLowerCase()) ||
+      rcp.code.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -128,7 +150,10 @@ export const RecipeBOM: React.FC = () => {
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
-            onClick={() => { resetForm(); setIsCreateOpen(true); }}
+            onClick={() => {
+              resetForm();
+              setIsCreateOpen(true);
+            }}
             className="flex items-center justify-center w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all cursor-pointer"
           >
             <Plus size={16} />
@@ -163,15 +188,23 @@ export const RecipeBOM: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
               {filteredRecipes.map((rcp) => (
-                <tr key={rcp.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-4 font-mono font-semibold text-slate-500">{rcp.code}</td>
+                <tr
+                  key={rcp.id}
+                  className="hover:bg-slate-50/50 transition-colors"
+                >
+                  <td className="p-4 font-mono font-semibold text-slate-500">
+                    {rcp.code}
+                  </td>
                   <td className="p-4">
-                    <div className="font-semibold text-slate-900">{rcp.name}</div>
+                    <div className="font-semibold text-slate-900">
+                      {rcp.name}
+                    </div>
                   </td>
                   <td className="p-4 text-center">
                     <span className="bg-slate-100 text-slate-800 text-xs px-2.5 py-0.5 rounded-full font-medium border border-slate-200">
                       {/* We rely on outputProduct being joined by the backend ideally, or we look it up */}
-                      {products.find(p => p.id === rcp.outputProductId)?.name || rcp.outputProductId}
+                      {products.find((p) => p.id === rcp.outputProductId)
+                        ?.name || rcp.outputProductId}
                     </span>
                   </td>
                   <td className="p-4 text-center font-medium">
@@ -206,7 +239,9 @@ export const RecipeBOM: React.FC = () => {
           <div className="bg-white w-full max-w-xl h-screen overflow-y-auto flex flex-col shadow-2xl animate-slide-in">
             <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-950 text-white">
               <div>
-                <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">{selectedRecipe.code}</span>
+                <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                  {selectedRecipe.code}
+                </span>
                 <h3 className="text-lg font-bold">{selectedRecipe.name}</h3>
               </div>
               <button
@@ -220,14 +255,22 @@ export const RecipeBOM: React.FC = () => {
             <div className="p-6 space-y-6 flex-1">
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
                 <div>
-                  <span className="text-xs text-slate-400 block uppercase font-bold">Output Product</span>
+                  <span className="text-xs text-slate-400 block uppercase font-bold">
+                    Output Product
+                  </span>
                   <span className="font-semibold text-slate-800 text-lg">
-                    {products.find(p => p.id === selectedRecipe.outputProductId)?.name || selectedRecipe.outputProductId}
+                    {products.find(
+                      (p) => p.id === selectedRecipe.outputProductId,
+                    )?.name || selectedRecipe.outputProductId}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-slate-400 block uppercase font-bold">Target Yield</span>
-                  <span className="font-semibold text-emerald-600 text-lg">{selectedRecipe.outputQty}</span>
+                  <span className="text-xs text-slate-400 block uppercase font-bold">
+                    Target Yield
+                  </span>
+                  <span className="font-semibold text-emerald-600 text-lg">
+                    {selectedRecipe.outputQty}
+                  </span>
                 </div>
               </div>
 
@@ -250,14 +293,26 @@ export const RecipeBOM: React.FC = () => {
                       {selectedRecipe.items?.map((item, idx) => (
                         <tr key={idx} className="hover:bg-slate-100/50">
                           <td className="p-3 font-semibold text-slate-900">
-                            {products.find(p => p.id === item.inputProductId)?.name || item.inputProductId}
+                            {products.find((p) => p.id === item.inputProductId)
+                              ?.name || item.inputProductId}
                           </td>
-                          <td className="p-3 text-center font-medium">{item.requiredQty}</td>
-                          <td className="p-3 text-center text-slate-500">±{item.tolerancePct}%</td>
+                          <td className="p-3 text-center font-medium">
+                            {item.requiredQty}
+                          </td>
+                          <td className="p-3 text-center text-slate-500">
+                            ±{item.tolerancePct}%
+                          </td>
                         </tr>
                       ))}
                       {!selectedRecipe.items?.length && (
-                        <tr><td colSpan={3} className="p-4 text-center text-slate-400">No items mapped.</td></tr>
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="p-4 text-center text-slate-400"
+                          >
+                            No items mapped.
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -295,8 +350,11 @@ export const RecipeBOM: React.FC = () => {
             </div>
 
             <div className="overflow-y-auto p-6 flex-1">
-              <form id="createRecipeForm" onSubmit={handleCreateSubmit} className="space-y-6">
-
+              <form
+                id="createRecipeForm"
+                onSubmit={handleCreateSubmit}
+                className="space-y-6"
+              >
                 {error && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700 text-sm">
                     <AlertCircle size={16} />
@@ -306,7 +364,9 @@ export const RecipeBOM: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Recipe Code *</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Recipe Code *
+                    </label>
                     <input
                       type="text"
                       required
@@ -317,7 +377,9 @@ export const RecipeBOM: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Recipe Name *</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Recipe Name *
+                    </label>
                     <input
                       type="text"
                       required
@@ -331,7 +393,9 @@ export const RecipeBOM: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Output Product *</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Output Product *
+                    </label>
                     {products.length === 0 ? (
                       <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                         Please create a Product first.
@@ -344,12 +408,18 @@ export const RecipeBOM: React.FC = () => {
                         onChange={(e) => setFormOutputProductId(e.target.value)}
                       >
                         <option value="">Select Target Product</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.sku})
+                          </option>
+                        ))}
                       </select>
                     )}
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target Yield Qty *</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Target Yield Qty *
+                    </label>
                     <input
                       type="number"
                       required
@@ -365,7 +435,9 @@ export const RecipeBOM: React.FC = () => {
                 {/* Bill of Materials (BOM) Input Items */}
                 <div className="border-t border-slate-100 pt-4">
                   <div className="flex justify-between items-center mb-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Input Materials</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Input Materials
+                    </h4>
                     <button
                       type="button"
                       onClick={handleAddBOMItem}
@@ -378,9 +450,14 @@ export const RecipeBOM: React.FC = () => {
 
                   <div className="space-y-3">
                     {bomItems.map((item, index) => (
-                      <div key={index} className="flex flex-wrap md:flex-nowrap items-end gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                      <div
+                        key={index}
+                        className="flex flex-wrap md:flex-nowrap items-end gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200"
+                      >
                         <div className="flex-1 min-w-[200px]">
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Input Material *</label>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            Input Material *
+                          </label>
                           {products.length === 0 ? (
                             <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
                               Please create a Product first.
@@ -390,15 +467,27 @@ export const RecipeBOM: React.FC = () => {
                               required
                               className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none"
                               value={item.inputProductId}
-                              onChange={(e) => handleBOMItemChange(index, 'inputProductId', e.target.value)}
+                              onChange={(e) =>
+                                handleBOMItemChange(
+                                  index,
+                                  "inputProductId",
+                                  e.target.value,
+                                )
+                              }
                             >
                               <option value="">Select Material</option>
-                              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
                             </select>
                           )}
                         </div>
                         <div className="w-24">
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Req. Qty *</label>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            Req. Qty *
+                          </label>
                           <input
                             type="number"
                             required
@@ -406,18 +495,32 @@ export const RecipeBOM: React.FC = () => {
                             min="0.01"
                             className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none"
                             value={item.requiredQty}
-                            onChange={(e) => handleBOMItemChange(index, 'requiredQty', Number(e.target.value))}
+                            onChange={(e) =>
+                              handleBOMItemChange(
+                                index,
+                                "requiredQty",
+                                Number(e.target.value),
+                              )
+                            }
                           />
                         </div>
                         <div className="w-24">
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tolerance %</label>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            Tolerance %
+                          </label>
                           <input
                             type="number"
                             step="0.1"
                             min="0"
                             className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none"
                             value={item.tolerancePct}
-                            onChange={(e) => handleBOMItemChange(index, 'tolerancePct', Number(e.target.value))}
+                            onChange={(e) =>
+                              handleBOMItemChange(
+                                index,
+                                "tolerancePct",
+                                Number(e.target.value),
+                              )
+                            }
                           />
                         </div>
                         {bomItems.length > 1 && (
@@ -451,7 +554,9 @@ export const RecipeBOM: React.FC = () => {
                 disabled={submitLoading || products.length === 0}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50"
               >
-                {submitLoading && <Loader2 size={16} className="animate-spin" />}
+                {submitLoading && (
+                  <Loader2 size={16} className="animate-spin" />
+                )}
                 Save Configuration
               </button>
             </div>

@@ -3,13 +3,13 @@
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #00891D;
-  --color-secondary: #EF5A06;
-  --color-background: #F3F4F6;
+  --color-primary: #00891d;
+  --color-secondary: #ef5a06;
+  --color-background: #f3f4f6;
   --color-text-tertiary: #676767;
-  --color-text-accent: #9EA3AE;
-  --color-stroke: #E6E7EA;
-  
+  --color-text-accent: #9ea3ae;
+  --color-stroke: #e6e7ea;
+
   --shadow-default: 0px 0px 12px rgba(0, 0, 0, 0.05);
 
   /* Brand Green Theme Palette */
@@ -19,7 +19,7 @@
   --color-green-300: #81c784;
   --color-green-400: #4caf50;
   --color-green-500: #00a322;
-  --color-green-600: #00891D;
+  --color-green-600: #00891d;
   --color-green-700: #006b17;
   --color-green-800: #005212;
   --color-green-900: #003d0e;
@@ -58,8 +58,19 @@ body,
   padding: 0;
   width: 100%;
   height: 100%;
-  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  background-color: #F3F4F6;
+  font-family:
+    "Segoe UI",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Roboto",
+    "Oxygen",
+    "Ubuntu",
+    "Cantarell",
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
+  background-color: #f3f4f6;
   color: #0f172a;
 }
 
@@ -91,19 +102,18 @@ body,
   border-radius: 999px;
 }
 
-
 /* Custom design system utility classes */
 .vk-card {
-  background-color: #FFFFFF;
-  border: 1px solid #E6E7EA;
+  background-color: #ffffff;
+  border: 1px solid #e6e7ea;
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.05);
 }
 
 .vk-table-container {
-  background-color: #FFFFFF;
-  border: 1px solid #E6E7EA;
+  background-color: #ffffff;
+  border: 1px solid #e6e7ea;
   border-radius: 16px;
   box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.05);
   overflow: hidden;
@@ -112,8 +122,8 @@ body,
 .vk-table th {
   height: 64px;
   padding: 16px 24px;
-  background-color: #F9FAFB;
-  border-bottom: 1px solid #E6E7EA;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e6e7ea;
   font-weight: 600;
   color: #676767;
 }
@@ -121,17 +131,17 @@ body,
 .vk-table td {
   height: 72px;
   padding: 16px 24px;
-  border-bottom: 1px solid #E6E7EA;
+  border-bottom: 1px solid #e6e7ea;
 }
 
 .vk-table tr:hover td {
-  background-color: #F9FAFB;
+  background-color: #f9fafb;
 }
 
 .vk-btn-primary {
   height: 48px;
-  background-color: #00891D;
-  color: #FFFFFF;
+  background-color: #00891d;
+  color: #ffffff;
   font-weight: 600;
   border-radius: 12px;
   padding: 0 24px;
@@ -149,12 +159,12 @@ body,
 
 .vk-btn-secondary {
   height: 48px;
-  background-color: #FFFFFF;
-  color: #00891D;
+  background-color: #ffffff;
+  color: #00891d;
   font-weight: 600;
   border-radius: 12px;
   padding: 0 24px;
-  border: 1px solid #00891D;
+  border: 1px solid #00891d;
   transition: all 0.2s ease-in-out;
   display: inline-flex;
   align-items: center;
@@ -169,23 +179,23 @@ body,
 .vk-input {
   height: 48px;
   border-radius: 12px;
-  border: 1px solid #E6E7EA;
+  border: 1px solid #e6e7ea;
   padding: 0 16px;
   font-size: 14px;
   line-height: 21px;
   outline: none;
   transition: all 0.2s ease-in-out;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
 }
 
 .vk-input:focus {
-  border-color: #00891D;
+  border-color: #00891d;
   box-shadow: 0 0 0 3px rgba(0, 137, 29, 0.1);
 }
 
 .vk-input:disabled {
   background-color: #f1f5f9;
-  color: #9EA3AE;
+  color: #9ea3ae;
 }
 
 /* Status Chips */
@@ -201,7 +211,7 @@ body,
 
 .vk-chip-active {
   background-color: #f0fdf4;
-  color: #00891D;
+  color: #00891d;
   border: 1px solid rgba(0, 137, 29, 0.2);
 }
 

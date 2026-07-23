@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   LogOut,
@@ -20,9 +20,9 @@ import {
   BarChart3,
   ArrowUpRight,
   QrCode,
-} from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+} from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -30,7 +30,16 @@ interface HeaderProps {
 
 interface SearchResult {
   id: string;
-  type: 'recipe' | 'workOrder' | 'materialIssue' | 'execution' | 'label' | 'qc' | 'fg' | 'repack' | 'report';
+  type:
+    | "recipe"
+    | "workOrder"
+    | "materialIssue"
+    | "execution"
+    | "label"
+    | "qc"
+    | "fg"
+    | "repack"
+    | "report";
   title: string;
   subtitle?: string;
   route: string;
@@ -43,24 +52,30 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { theme, toggleTheme } = useTheme();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { user: authUser, logout } = useAuth();
 
-  const user = authUser ? {
-    displayName: authUser.name,
-    role: typeof authUser.role === 'string' ? authUser.role : (authUser.role as any)?.name || 'USER',
-    email: authUser.email,
-    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.name)}&background=00891d&color=fff&size=128&bold=true`,
-  } : {
-    displayName: 'Loading...',
-    role: '...',
-    email: '...',
-    avatar: 'https://ui-avatars.com/api/?name=Loading&background=00891d&color=fff&size=128&bold=true',
-  };
+  const user = authUser
+    ? {
+        displayName: authUser.name,
+        role:
+          typeof authUser.role === "string"
+            ? authUser.role
+            : (authUser.role as any)?.name || "USER",
+        email: authUser.email,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.name)}&background=00891d&color=fff&size=128&bold=true`,
+      }
+    : {
+        displayName: "Loading...",
+        role: "...",
+        email: "...",
+        avatar:
+          "https://ui-avatars.com/api/?name=Loading&background=00891d&color=fff&size=128&bold=true",
+      };
 
   const notifications: any[] = [];
 
@@ -75,18 +90,21 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     return mockSearchData.filter(
       (item) =>
         item.title.toLowerCase().includes(query) ||
-        (item.subtitle && item.subtitle.toLowerCase().includes(query))
+        (item.subtitle && item.subtitle.toLowerCase().includes(query)),
     );
   }, [searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
         setShowSearchResults(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   const handleSearchResultClick = (result: SearchResult) => {
     navigate(result.route);
-    setSearchQuery('');
+    setSearchQuery("");
     setShowSearchResults(false);
     if (inputRef.current) {
       inputRef.current.blur();
@@ -104,56 +122,56 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   };
 
   const handleSearchClear = () => {
-    setSearchQuery('');
+    setSearchQuery("");
     setShowSearchResults(false);
     if (inputRef.current) {
       inputRef.current.focus();
     }
   };
 
-  const getResultIcon = (type: SearchResult['type']) => {
+  const getResultIcon = (type: SearchResult["type"]) => {
     switch (type) {
-      case 'recipe':
+      case "recipe":
         return <ClipboardList size={16} className="text-blue-500" />;
-      case 'workOrder':
+      case "workOrder":
         return <Layers size={16} className="text-orange-500" />;
-      case 'materialIssue':
+      case "materialIssue":
         return <ArrowUpRight size={16} className="text-purple-500" />;
-      case 'execution':
+      case "execution":
         return <PlayCircle size={16} className="text-green-500" />;
-      case 'label':
+      case "label":
         return <QrCode size={16} className="text-yellow-500" />;
-      case 'qc':
+      case "qc":
         return <ShieldCheck size={16} className="text-red-500" />;
-      case 'fg':
+      case "fg":
         return <PackageCheck size={16} className="text-indigo-500" />;
-      case 'repack':
+      case "repack":
         return <RefreshCw size={16} className="text-pink-500" />;
-      case 'report':
+      case "report":
         return <BarChart3 size={16} className="text-teal-500" />;
     }
   };
 
-  const getResultTypeLabel = (type: SearchResult['type']) => {
+  const getResultTypeLabel = (type: SearchResult["type"]) => {
     switch (type) {
-      case 'recipe':
-        return 'Recipe';
-      case 'workOrder':
-        return 'Work Order';
-      case 'materialIssue':
-        return 'Material Issue';
-      case 'execution':
-        return 'Execution';
-      case 'label':
-        return 'Label';
-      case 'qc':
-        return 'Quality Check';
-      case 'fg':
-        return 'Finished Goods';
-      case 'repack':
-        return 'Repacking';
-      case 'report':
-        return 'Report';
+      case "recipe":
+        return "Recipe";
+      case "workOrder":
+        return "Work Order";
+      case "materialIssue":
+        return "Material Issue";
+      case "execution":
+        return "Execution";
+      case "label":
+        return "Label";
+      case "qc":
+        return "Quality Check";
+      case "fg":
+        return "Finished Goods";
+      case "repack":
+        return "Repacking";
+      case "report":
+        return "Report";
     }
   };
 
@@ -181,7 +199,9 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             placeholder="Search orders, customers, products..."
             value={searchQuery}
             onChange={handleSearchChange}
-            onFocus={() => searchQuery.trim().length > 0 && setShowSearchResults(true)}
+            onFocus={() =>
+              searchQuery.trim().length > 0 && setShowSearchResults(true)
+            }
             className="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           />
           {searchQuery && (
@@ -226,16 +246,21 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           )}
 
           {/* No Results */}
-          {showSearchResults && searchQuery.trim().length > 0 && searchResults.length === 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
-              <div className="p-4 text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400">No results found</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Try searching for recipes, work orders, material issues, quality checks, finished goods, repacking, or reports.
-                </p>
+          {showSearchResults &&
+            searchQuery.trim().length > 0 &&
+            searchResults.length === 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                <div className="p-4 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No results found
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Try searching for recipes, work orders, material issues,
+                    quality checks, finished goods, repacking, or reports.
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
 
@@ -243,10 +268,12 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         {/* Theme Toggle */}
         <button
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          title={
+            theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+          }
           onClick={toggleTheme}
         >
-          {theme === 'light' ? (
+          {theme === "light" ? (
             <Moon size={20} className="text-gray-600 dark:text-gray-300" />
           ) : (
             <Sun size={20} className="text-gray-600 dark:text-gray-300" />
@@ -265,10 +292,15 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           {showNotifications && (
             <>
               {/* Backdrop to close on outside click */}
-              <div className="fixed inset-0 z-10" onClick={() => setShowNotifications(false)} />
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowNotifications(false)}
+              />
               <div className="absolute right-0 mt-3 w-[320px] sm:w-[380px] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-20">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Notifications
+                  </h3>
                 </div>
 
                 <div className="max-h-80 overflow-y-auto">
@@ -281,7 +313,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         {item.text}
                       </p>
                       <div className="mt-1 flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
-                        <Clock size={12} className="text-gray-400 dark:text-gray-500" />
+                        <Clock
+                          size={12}
+                          className="text-gray-400 dark:text-gray-500"
+                        />
                         <span>{item.timeAgo}</span>
                       </div>
                     </div>
@@ -292,7 +327,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   type="button"
                   onClick={() => {
                     setShowNotifications(false);
-                    navigate('/notifications');
+                    navigate("/notifications");
                   }}
                   className="w-full text-center text-xs sm:text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium py-2.5 border-t border-gray-100 dark:border-gray-700"
                 >
@@ -307,7 +342,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         <button
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           title="Settings"
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate("/settings")}
         >
           <Settings size={20} className="text-gray-600 dark:text-gray-300" />
         </button>
@@ -340,7 +375,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             {/* Chevron inside circle */}
             <div
               className={`flex items-center justify-center w-6 h-6 border border-gray-300 dark:border-gray-600 rounded-full transition-transform duration-200 ${
-                showDropdown ? 'rotate-180' : ''
+                showDropdown ? "rotate-180" : ""
               }`}
             >
               <ChevronDown size={14} className="text-gray-500" />
@@ -348,7 +383,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           </button>
           {showDropdown && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)}></div>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowDropdown(false)}
+              ></div>
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1.5 z-20">
                 <div className="px-3 py-1.5 border-b border-gray-100 dark:border-gray-700">
                   <p className="text-xs font-medium text-gray-800 dark:text-gray-200">

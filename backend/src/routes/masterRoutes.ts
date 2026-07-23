@@ -1,8 +1,8 @@
-import { Router } from 'express';
-import { authenticate, requirePermission } from '../middlewares/auth';
-import { validate } from '../middlewares/validate';
-import * as validation from '../validations/master';
-import * as controller from '../controllers/masterController';
+import { Router } from "express";
+import { authenticate, requirePermission } from "../middlewares/auth";
+import { validate } from "../middlewares/validate";
+import * as validation from "../validations/master";
+import * as controller from "../controllers/masterController";
 
 const router = Router();
 
@@ -40,7 +40,8 @@ router.use(authenticate);
  *       201:
  *         description: Category created
  */
-router.route('/categories')
+router
+  .route("/categories")
   .get(controller.getCategories)
   .post(validate(validation.createCategorySchema), controller.createCategory);
 
@@ -73,7 +74,8 @@ router.route('/categories')
  *       201:
  *         description: UOM created
  */
-router.route('/uom')
+router
+  .route("/uom")
   .get(controller.getUOMs)
   .post(validate(validation.createUOMSchema), controller.createUOM);
 
@@ -119,7 +121,8 @@ router.route('/uom')
  *       201:
  *         description: Product created
  */
-router.route('/products')
+router
+  .route("/products")
   .get(controller.getProducts)
   .post(validate(validation.createProductSchema), controller.createProduct);
 
@@ -154,7 +157,8 @@ router.route('/products')
  *       201:
  *         description: Warehouse created
  */
-router.route('/warehouses')
+router
+  .route("/warehouses")
   .get(controller.getWarehouses)
   .post(validate(validation.createWarehouseSchema), controller.createWarehouse);
 
@@ -191,7 +195,8 @@ router.route('/warehouses')
  *       201:
  *         description: Recipe created
  */
-router.route('/recipes')
+router
+  .route("/recipes")
   .get(controller.getRecipes)
   .post(validate(validation.createRecipeSchema), controller.createRecipe);
 

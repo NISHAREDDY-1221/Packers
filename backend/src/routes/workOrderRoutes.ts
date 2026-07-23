@@ -1,8 +1,8 @@
-import { Router } from 'express';
-import { authenticate } from '../middlewares/auth';
-import { validate } from '../middlewares/validate';
-import * as validation from '../validations/workOrder';
-import * as controller from '../controllers/workOrderController';
+import { Router } from "express";
+import { authenticate } from "../middlewares/auth";
+import { validate } from "../middlewares/validate";
+import * as validation from "../validations/workOrder";
+import * as controller from "../controllers/workOrderController";
 
 const router = Router();
 
@@ -52,7 +52,8 @@ router.use(authenticate);
  *       201:
  *         description: Work Order created
  */
-router.route('/')
+router
+  .route("/")
   .get(controller.getWorkOrders)
   .post(validate(validation.createWorkOrderSchema), controller.createWorkOrder);
 
@@ -82,7 +83,11 @@ router.route('/')
  *       200:
  *         description: Work Order status updated
  */
-router.patch('/:id/status', validate(validation.updateWorkOrderStatusSchema), controller.updateWorkOrderStatus);
+router.patch(
+  "/:id/status",
+  validate(validation.updateWorkOrderStatusSchema),
+  controller.updateWorkOrderStatus,
+);
 
 /**
  * @openapi
@@ -112,7 +117,11 @@ router.patch('/:id/status', validate(validation.updateWorkOrderStatusSchema), co
  *       201:
  *         description: Materials issued successfully
  */
-router.post('/:id/issue-materials', validate(validation.issueMaterialsSchema), controller.issueMaterials);
+router.post(
+  "/:id/issue-materials",
+  validate(validation.issueMaterialsSchema),
+  controller.issueMaterials,
+);
 
 /**
  * @openapi
@@ -131,7 +140,7 @@ router.post('/:id/issue-materials', validate(validation.issueMaterialsSchema), c
  *       200:
  *         description: Packing execution started
  */
-router.post('/:id/start-packing', controller.startPacking);
+router.post("/:id/start-packing", controller.startPacking);
 
 /**
  * @openapi
@@ -161,6 +170,10 @@ router.post('/:id/start-packing', controller.startPacking);
  *       200:
  *         description: Packing completed successfully
  */
-router.post('/:id/complete-packing', validate(validation.completePackingSchema), controller.completePacking);
+router.post(
+  "/:id/complete-packing",
+  validate(validation.completePackingSchema),
+  controller.completePacking,
+);
 
 export default router;

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Settings as SettingsIcon } from 'lucide-react';
+import React from "react";
+import { Settings as SettingsIcon } from "lucide-react";
 
 export const Settings: React.FC = () => {
   return (
@@ -9,7 +9,8 @@ export const Settings: React.FC = () => {
       </div>
       <h2 className="text-lg font-bold text-slate-800 mb-2">Settings</h2>
       <p className="text-slate-500 max-w-sm text-sm">
-        Configure packing preferences, printer layouts, and user profile parameters.
+        Configure packing preferences, printer layouts, and user profile
+        parameters.
       </p>
     </div>
   );

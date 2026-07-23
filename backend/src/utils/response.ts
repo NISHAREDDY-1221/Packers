@@ -1,10 +1,10 @@
-import { Response } from 'express';
+import { Response } from "express";
 
 export const sendResponse = <T>(
   res: Response,
   statusCode: number,
   message: string,
-  data?: T
+  data?: T,
 ) => {
   res.status(statusCode).json({
     success: statusCode >= 200 && statusCode < 300,
