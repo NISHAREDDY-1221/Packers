@@ -14,7 +14,10 @@ export class WorkflowService {
 
     apiFeatures.query = {
       ...apiFeatures.query,
-      include: { workOrder: true, inspector: true },
+      include: { 
+        workOrder: { include: { product: true } }, 
+        inspector: true 
+      },
     };
 
     const [qcs, total] = await Promise.all([
@@ -178,17 +181,17 @@ export class WorkflowService {
     const queryObj = { ...queryString };
     const apiFeatures = new APIFeatures({}, queryObj)
       .filter()
-      .search(["rpNumber", "sourceBatch"])
+      .search(["rpNumber", "newBatchNumber"])
       .sort()
       .paginate();
     apiFeatures.query = {
       ...apiFeatures.query,
-      include: { sourceWo: true, newWo: true },
+      include: { sourceWorkOrder: { include: { product: true } } },
     };
 
     const [rps, total] = await Promise.all([
-      prisma.repacking.findMany(apiFeatures.query),
-      prisma.repacking.count({ where: apiFeatures.query.where }),
+      prisma.repackingLog.findMany(apiFeatures.query),
+      prisma.repackingLog.count({ where: apiFeatures.query.where }),
     ]);
     return { data: rps, total, page: apiFeatures.queryString.page || 1 };
   }

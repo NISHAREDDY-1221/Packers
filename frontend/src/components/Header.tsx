@@ -265,20 +265,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Theme Toggle */}
-        <button
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          title={
-            theme === "light" ? "Switch to dark mode" : "Switch to light mode"
-          }
-          onClick={toggleTheme}
-        >
-          {theme === "light" ? (
-            <Moon size={20} className="text-gray-600 dark:text-gray-300" />
-          ) : (
-            <Sun size={20} className="text-gray-600 dark:text-gray-300" />
-          )}
-        </button>
 
         {/* Notifications */}
         <div className="relative">
@@ -296,7 +282,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 className="fixed inset-0 z-10"
                 onClick={() => setShowNotifications(false)}
               />
-              <div className="absolute right-0 mt-3 w-[320px] sm:w-[380px] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-20">
+              <div className="fixed left-4 right-4 top-16 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-[380px] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 sm:origin-top-right">
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Notifications
@@ -387,7 +373,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 className="fixed inset-0 z-10"
                 onClick={() => setShowDropdown(false)}
               ></div>
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1.5 z-20">
+              <div className="fixed left-4 right-4 top-16 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1.5 z-50 sm:origin-top-right">
                 <div className="px-3 py-1.5 border-b border-gray-100 dark:border-gray-700">
                   <p className="text-xs font-medium text-gray-800 dark:text-gray-200">
                     {user.displayName}

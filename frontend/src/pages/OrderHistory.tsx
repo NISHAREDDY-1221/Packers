@@ -28,8 +28,7 @@ const STATUS_FILTERS_QC = [
   "Pass",
   "Reject",
   "Rework",
-  "Partial Pass",
-  "Discard",
+  "Partial Pass"
 ];
 const STATUS_FILTERS_OP = [
   "All",

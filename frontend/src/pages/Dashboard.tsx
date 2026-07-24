@@ -92,6 +92,15 @@ export const Dashboard: React.FC = () => {
   const qcRejected = todaysQCs.filter((qc) => qc.result === "Reject").length;
   const qcRework = todaysQCs.filter((qc) => qc.result === "Rework").length;
 
+  const passedUnitsToday = todaysQCs
+    .filter((qc) => qc.result === "Pass" || qc.result === "Partial Pass")
+    .reduce((sum, qc) => {
+      const passed = qc.checks && typeof qc.checks === 'object' && 'passedQty' in qc.checks 
+        ? Number((qc.checks as any).passedQty) 
+        : qc.checkedQty;
+      return sum + (passed || 0);
+    }, 0);
+
   // Additional Admin KPI Calculations
   const avgPackingCost = finishedGoods.length > 0
     ? (finishedGoods.reduce((sum, fg) => sum + (fg.costs?.costPerUnit ?? 0), 0) / finishedGoods.length).toFixed(2)
@@ -139,14 +148,6 @@ export const Dashboard: React.FC = () => {
                 </span>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => navigate("/notifications")} className="w-9 h-9 bg-white/15 rounded-full flex items-center justify-center hover:bg-white/25 transition-colors">
-                <Bell size={18} className="text-white" />
-              </button>
-              <button onClick={() => navigate("/notifications")} className="w-9 h-9 bg-white/15 rounded-full flex items-center justify-center hover:bg-white/25 transition-colors">
-                <Moon size={18} className="text-white" />
-              </button>
-            </div>
           </div>
         </div>
 
@@ -164,7 +165,7 @@ export const Dashboard: React.FC = () => {
               </div>
               {/* Row 2 */}
               <div className="grid grid-cols-5 gap-2">
-                <MetricCard title="Today" value={todaysQCs.length} icon={CheckSquare} colorClass="text-indigo-600" bgColorClass="bg-indigo-50" />
+                <MetricCard title="Passed Units" value={passedUnitsToday} icon={CheckSquare} colorClass="text-indigo-600" bgColorClass="bg-indigo-50" />
                 <MetricCard title="Pass Rate" value={todaysQCs.length > 0 ? Math.round((qcPassed / todaysQCs.length) * 100) + "%" : "0%"} icon={TrendingUp} colorClass="text-emerald-600" bgColorClass="bg-emerald-50" />
                 <MetricCard title="Critical" value={qualityChecks.filter(q => q.severity === "Critical").length} icon={AlertOctagon} colorClass="text-red-600" bgColorClass="bg-red-50" />
                 <MetricCard title="Batches" value={new Set(qualityChecks.map(q => q.batchNo)).size} icon={Package} colorClass="text-violet-600" bgColorClass="bg-violet-50" />

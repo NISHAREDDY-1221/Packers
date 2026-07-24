@@ -56,7 +56,9 @@ export const QualityCheck: React.FC = () => {
     "Sampling Inspection",
   );
   const [formSeverity, setFormSeverity] = useState<IQC["severity"]>("Minor");
-  const [formFailureReason, setFormFailureReason] = useState("");
+  const [formFailureReason, setFormFailureReason] = useState<string[]>([]);
+  const [formPassedQty, setFormPassedQty] = useState(10);
+  const [formFailedQty, setFormFailedQty] = useState(0);
   const [formPackedQty, setFormPackedQty] = useState(0);
   const [formPhotos, setFormPhotos] = useState<
     { id: string; file: File; url: string; status: "uploading" | "done" }[]
@@ -152,7 +154,10 @@ export const QualityCheck: React.FC = () => {
       setFormBatchNo("");
       const packed = wo.actualProduced || wo.requiredQuantity;
       setFormPackedQty(packed);
-      setFormCheckedQty(Math.max(1, Math.round(packed * 0.2))); // default 20% sample
+      const defaultSample = Math.max(1, Math.round(packed * 0.2));
+      setFormCheckedQty(defaultSample);
+      setFormPassedQty(defaultSample);
+      setFormFailedQty(0);
     }
   };
 
@@ -178,13 +183,13 @@ export const QualityCheck: React.FC = () => {
       batchNo: formBatchNo,
       inspectionType: formInspectionType,
       checkedQty: formCheckedQty,
-      checks,
+      checks: { ...checks, passedQty: formPassedQty, failedQty: formFailedQty } as any,
       result: formResult,
       severity: ["Rework", "Reject", "Discard"].includes(formResult)
         ? formSeverity
         : undefined,
       failureReason: ["Rework", "Reject", "Discard"].includes(formResult)
-        ? formFailureReason
+        ? formFailureReason.join(", ")
         : undefined,
       inspector: formInspector,
       remarks: formRemarks,
@@ -204,7 +209,9 @@ export const QualityCheck: React.FC = () => {
     setFormQcId("");
     setFormInspectionType("Sampling Inspection");
     setFormSeverity("Minor");
-    setFormFailureReason("");
+    setFormFailureReason([]);
+    setFormPassedQty(10);
+    setFormFailedQty(0);
     setFormRemarks("");
     setFormPhotos([]);
     setChecks({
@@ -258,18 +265,22 @@ export const QualityCheck: React.FC = () => {
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-1">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-            Passed Today
+            Passed Units Today
           </span>
           <span className="text-2xl font-bold text-emerald-600">
-            {passedToday}
+            {qualityChecks
+              .filter(qc => qc.date === todayDate && (qc.result === "Pass" || qc.result === "Partial Pass"))
+              .reduce((sum, qc) => sum + ((qc.checks as any)?.passedQty || qc.checkedQty), 0)}
           </span>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-1">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-            Failed Today
+            Failed Units Today
           </span>
           <span className="text-2xl font-bold text-rose-600">
-            {failedToday}
+            {qualityChecks
+              .filter(qc => qc.date === todayDate)
+              .reduce((sum, qc) => sum + ((qc.checks as any)?.failedQty || 0), 0)}
           </span>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col gap-1">
@@ -557,6 +568,9 @@ export const QualityCheck: React.FC = () => {
               </div>
               <div>
                 <strong>Checked Qty:</strong> {selectedQC.checkedQty}
+              </div>
+              <div>
+                <strong>Passed:</strong> {(selectedQC.checks as any)?.passedQty ?? selectedQC.checkedQty} | <strong>Failed:</strong> {(selectedQC.checks as any)?.failedQty ?? 0}
               </div>
               <div>
                 <strong>Inspection:</strong> {selectedQC.inspectionType}
@@ -914,9 +928,56 @@ export const QualityCheck: React.FC = () => {
                       max={formPackedQty || undefined}
                       className="w-full p-2 border border-slate-200 rounded-lg text-sm font-mono"
                       value={formCheckedQty}
-                      onChange={(e) =>
-                        setFormCheckedQty(Number(e.target.value))
-                      }
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setFormCheckedQty(val);
+                        if (val < formFailedQty) {
+                          setFormFailedQty(val);
+                          setFormPassedQty(0);
+                        } else {
+                          setFormPassedQty(val - formFailedQty);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Passed Qty */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                      Passed Qty *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={formCheckedQty}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-sm font-mono bg-emerald-50 text-emerald-700"
+                      value={formPassedQty}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setFormPassedQty(val);
+                        setFormFailedQty(formCheckedQty - val);
+                      }}
+                    />
+                  </div>
+
+                  {/* Failed Qty */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                      Failed Qty *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={formCheckedQty}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-sm font-mono bg-rose-50 text-rose-700"
+                      value={formFailedQty}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setFormFailedQty(val);
+                        setFormPassedQty(formCheckedQty - val);
+                      }}
                     />
                   </div>
 
@@ -1065,7 +1126,7 @@ export const QualityCheck: React.FC = () => {
                           e.target.value,
                         )
                       ) {
-                        setFormFailureReason("");
+                        setFormFailureReason([]);
                       }
                     }}
                   >
@@ -1073,7 +1134,6 @@ export const QualityCheck: React.FC = () => {
                     <option value="Partial Pass">Partial Pass</option>
                     <option value="Rework">Rework Required</option>
                     <option value="Reject">Reject Batch</option>
-                    <option value="Discard">Discard Batch</option>
                   </select>
                 </div>
                 <div>
@@ -1154,28 +1214,27 @@ export const QualityCheck: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                      Failure Reason *
+                      Failure Reason(s) {["Rework", "Reject", "Discard"].includes(formResult) ? "*" : ""}
                     </label>
-                    <select
-                      required={["Rework", "Reject", "Discard"].includes(
-                        formResult,
-                      )}
-                      className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white font-semibold"
-                      value={formFailureReason}
-                      onChange={(e) => setFormFailureReason(e.target.value)}
-                    >
-                      <option value="">-- Select Reason --</option>
-                      <option value="Seal Defect">Seal Defect</option>
-                      <option value="Barcode Issue">Barcode Issue</option>
-                      <option value="Label Error">Label Error</option>
-                      <option value="Weight Mismatch">Weight Mismatch</option>
-                      <option value="Packaging Damage">Packaging Damage</option>
-                      <option value="Expiry Date Error">
-                        Expiry Date Error
-                      </option>
-                      <option value="MRP Error">MRP Error</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {["Seal Defect", "Barcode Issue", "Label Error", "Weight Mismatch", "Packaging Damage", "Expiry Date Error", "MRP Error", "Other"].map(reason => (
+                        <label key={reason} className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                          <input 
+                            type="checkbox" 
+                            className="w-3.5 h-3.5 text-rose-600 rounded border-slate-300 focus:ring-rose-500" 
+                            checked={formFailureReason.includes(reason)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormFailureReason(prev => [...prev, reason]);
+                              } else {
+                                setFormFailureReason(prev => prev.filter(r => r !== reason));
+                              }
+                            }}
+                          />
+                          {reason}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

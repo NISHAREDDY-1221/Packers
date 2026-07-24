@@ -96,7 +96,7 @@ const sidebarConfig: MenuItem[] = [
     path: "/barcodes-labels",
     label: "Barcodes & Labels",
     icon: QrCode,
-    roles: ["ADMIN", "QC_CHECKER", "OPERATOR"],
+    roles: ["ADMIN", "OPERATOR"],
   },
   {
     type: "link",

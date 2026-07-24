@@ -46,16 +46,16 @@ export interface WorkOrder {
   assignedTeam: string;
   supervisor: string;
   status:
-    | "Draft"
-    | "Pending"
-    | "Approved"
-    | "Material Issued"
-    | "Packing Started"
-    | "QC Pending"
-    | "QC Passed"
-    | "Completed"
-    | "Cancelled"
-    | "Labels Printed";
+  | "Draft"
+  | "Pending"
+  | "Approved"
+  | "Material Issued"
+  | "Packing Started"
+  | "QC Pending"
+  | "QC Passed"
+  | "Completed"
+  | "Cancelled"
+  | "Labels Printed";
   progress?: number;
   actualProduced?: number;
   actualRejected?: number;
@@ -197,6 +197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const refreshGlobalData = async () => {
+    // 1. Fetch Work Orders
     try {
       const res = await workOrderService.getWorkOrders();
       if (res && Array.isArray(res.data)) {
@@ -244,7 +245,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           });
         });
       }
+    } catch (err) {
+      console.error("Failed to fetch work orders in global context", err);
+    }
 
+    // 2. Fetch Quality Checks
+    try {
       const qcRes = await workflowService.getQualityChecks();
       if (qcRes && Array.isArray(qcRes.data)) {
         const resultFormatter = (resStr: string) => {
@@ -257,62 +263,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           return sevStr.charAt(0).toUpperCase() + sevStr.slice(1).toLowerCase();
         };
 
-        const mappedQCs = qcRes.data.map((qc: any) => ({
-          id: qc.id,
-          woId: qc.woId,
-          woNo: qc.workOrder?.woNumber || qc.woNo || "",
-          productName: qc.workOrder?.product?.name || "Unknown Product",
-          batchNo: qc.workOrder?.batchNumber || "",
-          inspectionType: "Sampling Inspection",
-          checkedQty: qc.checkedQty,
-          checks: qc.checksPayload || {},
-          result: resultFormatter(qc.result),
-          severity: severityFormatter(qc.severity),
-          failureReason: qc.failureReason,
-          inspector: qc.inspector?.name || "Inspector",
-          remarks: qc.remarks || "",
-          photoAttached: false,
-          date: qc.createdAt
-            ? new Date(qc.createdAt).toISOString().split("T")[0]
-            : "",
-        }));
+        const mappedQCs = qcRes.data.map((qc: any) => {
+          // Better timezone handling to match browser's local 'Today' date
+          const createdDate = qc.createdAt ? new Date(qc.createdAt) : new Date();
+          const localDateString = new Date(createdDate.getTime() - (createdDate.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
+
+          return {
+            id: qc.id,
+            woId: qc.woId,
+            woNo: qc.workOrder?.woNumber || qc.woNo || "",
+            productName: qc.workOrder?.product?.name || qc.workOrder?.productName || "Unknown Product",
+            batchNo: qc.workOrder?.batchNumber || "",
+            inspectionType: "Sampling Inspection",
+            checkedQty: qc.checkedQty,
+            checks: qc.checksPayload || {},
+            result: resultFormatter(qc.result),
+            severity: severityFormatter(qc.severity),
+            failureReason: qc.failureReason,
+            inspector: qc.inspector?.name || "Inspector",
+            remarks: qc.remarks || "",
+            photoAttached: false,
+            date: localDateString,
+          };
+        });
         setQualityChecks(mappedQCs as QualityCheck[]);
       }
+    } catch (err) {
+      console.error("Failed to fetch quality checks in global context", err);
+    }
 
+    // 3. Fetch Finished Goods
+    try {
       const fgRes = await workflowService.getFinishedGoods();
       if (fgRes && Array.isArray(fgRes.data)) {
-        const mappedFGs = fgRes.data.map((fg: any) => ({
-          id: fg.id,
-          woNo: fg.workOrder?.woNumber || "",
-          productName: fg.workOrder?.product?.name || "",
-          batchNo: fg.batchNumber,
-          postedQty: fg.postedQty,
-          destination: fg.destination,
-          date: fg.createdAt
-            ? new Date(fg.createdAt).toISOString().split("T")[0]
-            : "",
-        }));
+        const mappedFGs = fgRes.data.map((fg: any) => {
+          const createdDate = fg.createdAt ? new Date(fg.createdAt) : new Date();
+          const localDateString = new Date(createdDate.getTime() - (createdDate.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
+
+          return {
+            id: fg.id,
+            woNo: fg.workOrder?.woNumber || "",
+            productName: fg.workOrder?.product?.name || fg.workOrder?.productName || "Unknown Product",
+            batchNo: fg.batchNumber,
+            postedQty: fg.postedQty,
+            destination: fg.destination,
+            date: localDateString,
+          };
+        });
         setFinishedGoods(mappedFGs as FinishedGoods[]);
       }
+    } catch (err) {
+      console.error("Failed to fetch finished goods in global context", err);
+    }
 
+    // 4. Fetch Repacking
+    try {
       const rpRes = await workflowService.getRepacking();
       if (rpRes && Array.isArray(rpRes.data)) {
-        const mappedRPs = rpRes.data.map((rp: any) => ({
-          id: rp.id,
-          sourceBatchNo: rp.sourceWo?.batchNumber || "",
-          sourceProduct: rp.sourceWo?.product?.name || "Unknown",
-          repackType: rp.repackType || "Salvage",
-          recoverableQuantity: rp.recoverableQty,
-          wasteQuantity: rp.wasteQty,
-          repackRecipeId: rp.targetRecipeId || "",
-          date: rp.createdAt
-            ? new Date(rp.createdAt).toISOString().split("T")[0]
-            : "",
-        }));
+        const mappedRPs = rpRes.data.map((rp: any) => {
+          const createdDate = rp.createdAt ? new Date(rp.createdAt) : new Date();
+          const localDateString = new Date(createdDate.getTime() - (createdDate.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
+
+          return {
+            id: rp.id,
+            sourceBatchNo: rp.sourceWorkOrder?.batchNumber || "",
+            sourceProduct: rp.sourceWorkOrder?.product?.name || "Unknown",
+            repackType: rp.repackType || "Salvage",
+            recoverableQuantity: rp.recoverableQty,
+            wasteQuantity: rp.wasteQty,
+            repackRecipeId: rp.targetRecipeId || "",
+            date: localDateString,
+          };
+        });
         setRepackings(mappedRPs as RepackingRecord[]);
       }
     } catch (err) {
-      console.error("Failed to fetch data in global context", err);
+      console.error("Failed to fetch repacking in global context", err);
     }
   };
 
@@ -363,8 +389,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
             wo.requiredQuantity,
           available: Math.round(
             (item.requiredQuantity / recipe.outputQuantity) *
-              wo.requiredQuantity *
-              (1.2 + Math.random()),
+            wo.requiredQuantity *
+            (1.2 + Math.random()),
           ),
           issued: 0,
           batchNo: "",
@@ -377,8 +403,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
             (pkg.quantity / recipe.outputQuantity) * wo.requiredQuantity,
           available: Math.round(
             (pkg.quantity / recipe.outputQuantity) *
-              wo.requiredQuantity *
-              (1.5 + Math.random()),
+            wo.requiredQuantity *
+            (1.5 + Math.random()),
           ),
           issued: 0,
           batchNo: "",
@@ -455,7 +481,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error("Failed to submit QC", err.response?.data || err);
       alert(
         "Failed to submit QC: " +
-          JSON.stringify(err.response?.data?.message || err.message),
+        JSON.stringify(err.response?.data?.message || err.message),
       );
     }
   };
