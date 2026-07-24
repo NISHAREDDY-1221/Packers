@@ -43,16 +43,20 @@ export const Repacking: React.FC = () => {
 
   const handleSelectFailedBatch = (batchNo: string) => {
     setFormSourceBatch(batchNo);
-    const qc = failedQCs.find(
-      (q) =>
-        (q.batchNo ||
-          `BATCH-2026-${workOrders
-            .find((w) => w.id === q.woId)
-            ?.woNo.split("-")
-            .pop()}`) === batchNo,
-    );
+    const qc = failedQCs.find((q) => {
+      const wo = workOrders.find((w) => w.id === q.woId);
+      const qBatchNo = q.batchNo || wo?.batchNumber || `BATCH-2026-${wo?.woNo.split("-").pop()}`;
+      return qBatchNo === batchNo;
+    });
     if (qc) {
       setFormProductName(qc.productName);
+      const wo = workOrders.find(w => w.id === qc.woId);
+      if (wo) {
+        setFormRecipeId(wo.recipeId);
+        setNewBatchNo(`REPACK-${wo.woNo.split("-").pop()}-${Date.now().toString().slice(-4)}`);
+      } else {
+        setNewBatchNo(`REPACK-${Date.now().toString().slice(-6)}`);
+      }
     }
   };
   const [search, setSearch] = useState("");
@@ -78,7 +82,9 @@ export const Repacking: React.FC = () => {
     const rcp = recipes.find((r) => r.id === recipeId);
     if (rcp) {
       setFormProductName(rcp.packingName);
-      setNewBatchNo("");
+      if (!newBatchNo) {
+        setNewBatchNo(`REPACK-${Date.now().toString().slice(-6)}`);
+      }
     }
   };
 

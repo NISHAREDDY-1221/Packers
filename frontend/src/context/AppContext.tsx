@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+﻿import React, { createContext, useContext, useState, useEffect } from "react";
 import { workOrderService } from "../api/workOrderService";
 import { workflowService } from "../api/workflowService";
+import { masterDataService } from "../api/masterDataService";
 
 export interface RecipeConfig {
   id: string;
@@ -55,7 +56,7 @@ export interface WorkOrder {
   | "QC Passed"
   | "Completed"
   | "Cancelled"
-  | "Labels Printed";
+  | "QC Printed";
   progress?: number;
   actualProduced?: number;
   actualRejected?: number;
@@ -197,6 +198,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const refreshGlobalData = async () => {
+    // 0. Fetch Recipes (BOM)
+    try {
+      const recipesRes = await masterDataService.getRecipes();
+      if (recipesRes && Array.isArray(recipesRes)) {
+        const mappedRecipes: RecipeConfig[] = recipesRes.map((r: any) => ({
+          id: r.id,
+          packingName: r.name,
+          category: r.outputProduct?.category?.name || "General",
+          packingType: "Standard",
+          brand: "Generic",
+          outputSku: r.outputProduct?.sku || r.outputProductId,
+          outputQuantity: r.outputQty,
+          unit: r.outputProduct?.uom?.abbreviation || "kg",
+          defaultBatchFormula: "BATCH-{YY}-{MM}-{DD}",
+          defaultBarcodeFormat: "Code 128",
+          shelfLife: 180,
+          storageCondition: "Room Temperature",
+          labelTemplate: "Standard Label",
+          gst: 0,
+          hsn: "0000",
+          mrp: 100,
+          sellingPrice: 100,
+          bomItems: (r.items || [])
+            .filter((i: any) => !i.isPackaging)
+            .map((i: any) => ({
+              inputItem: i.inputProduct?.name || i.inputProductId,
+              requiredQuantity: i.requiredQty,
+              expectedLoss: 0,
+              tolerance: i.tolerancePct || 0,
+              unit: i.inputProduct?.uom?.abbreviation || "kg",
+            })),
+          packagingMaterials: (r.items || [])
+            .filter((i: any) => i.isPackaging)
+            .map((i: any) => ({
+              material: i.inputProduct?.name || i.inputProductId,
+              quantity: i.requiredQty,
+            })),
+          machineType: "Default Machine",
+        }));
+        setRecipes(mappedRecipes);
+      }
+    } catch (err) {
+      console.error("Failed to fetch recipes in global context", err);
+    }
+
     // 1. Fetch Work Orders
     try {
       const res = await workOrderService.getWorkOrders();
@@ -211,7 +257,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           QC_PASSED: "QC Passed",
           COMPLETED: "Completed",
           CANCELLED: "Cancelled",
-          LABELS_PRINTED: "Labels Printed",
+          LABELS_PRINTED: "QC Printed",
         };
         const mappedData = res.data.map((wo: any) => ({
           ...wo,
@@ -231,15 +277,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
             : wo.expectedCompletion || "",
         }));
         setWorkOrders((prev) => {
+          const printedWos = JSON.parse(localStorage.getItem("printed_wos") || "{}");
           return (mappedData as WorkOrder[]).map((newWo) => {
             const existing = prev.find((p) => p.id === newWo.id);
-            // If the UI has advanced the status to 'Labels Printed', preserve it locally!
-            if (
-              existing &&
-              existing.status === "Labels Printed" &&
-              newWo.status === "Completed"
-            ) {
-              return { ...newWo, status: "Labels Printed" };
+            // If the UI has advanced the status to 'QC Printed', preserve it locally 
+            // ONLY if the backend is still 'QC Passed'. If backend is 'Completed', let it be Completed.
+            const isPrintedLocally = (existing && existing.status === "QC Printed") || printedWos[newWo.id];
+            
+            if (isPrintedLocally && newWo.status === "QC Passed") {
+              return { ...newWo, status: "QC Printed" };
             }
             return newWo;
           });
@@ -327,12 +373,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           return {
             id: rp.id,
             sourceBatchNo: rp.sourceWorkOrder?.batchNumber || "",
-            sourceProduct: rp.sourceWorkOrder?.product?.name || "Unknown",
+            productName: rp.sourceWorkOrder?.product?.name || "Unknown",
             repackType: rp.repackType || "Salvage",
-            recoverableQuantity: rp.recoverableQty,
-            wasteQuantity: rp.wasteQty,
+            recoverableQuantity: rp.recoverableQty || 0,
+            wasteQuantity: rp.wasteQty || 0,
             repackRecipeId: rp.targetRecipeId || "",
-            date: localDateString,
+            newBatchNo: rp.newBatchNo || `REPACK-${rp.id.slice(-4)}`,
+            newLabelPrinted: rp.newLabelPrinted || false,
+            createdAt: localDateString,
           };
         });
         setRepackings(mappedRPs as RepackingRecord[]);
@@ -429,6 +477,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     status: WorkOrder["status"],
     extra?: Partial<WorkOrder>,
   ) => {
+    if (status === "QC Printed") {
+      const printedWos = JSON.parse(localStorage.getItem("printed_wos") || "{}");
+      printedWos[woId] = true;
+      localStorage.setItem("printed_wos", JSON.stringify(printedWos));
+    }
     setWorkOrders((prev) =>
       prev.map((wo) => (wo.id === woId ? { ...wo, status, ...extra } : wo)),
     );
@@ -508,7 +561,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await workflowService.logRepacking({
         sourceWoId:
-          workOrders.find((w) => w.batchNumber === rp.sourceBatchNo)?.id || "",
+          workOrders.find((w) => (w.batchNumber || `BATCH-2026-${w.woNo.split("-").pop()}`) === rp.sourceBatchNo)?.id || "",
         targetRecipeId: rp.repackRecipeId,
         repackType: rp.repackType,
         recoverableQty: rp.recoverableQuantity,

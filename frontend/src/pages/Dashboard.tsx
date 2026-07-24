@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -63,7 +63,7 @@ export const Dashboard: React.FC = () => {
       w.status === "QC Pending",
   ).length;
   const completedWOs = workOrders.filter(
-    (w) => w.status === "Completed" || w.status === "Labels Printed",
+    (w) => w.status === "Completed" || w.status === "QC Printed",
   ).length;
   const qcRejects = qualityChecks.filter(
     (q) => q.result === "Reject" || q.result === "Rework",
@@ -80,7 +80,7 @@ export const Dashboard: React.FC = () => {
     .filter(
       (w) =>
         w.status !== "Completed" &&
-        w.status !== "Labels Printed" &&
+        w.status !== "QC Printed" &&
         w.status !== "Cancelled",
     )
     .slice(0, 4);
@@ -111,7 +111,7 @@ export const Dashboard: React.FC = () => {
   const wastagePercent = totalRecoverable + totalWaste > 0 ? Math.round((totalWaste / (totalRecoverable + totalWaste)) * 100) : 0;
 
   const barcodeGenCount = workOrders
-    .filter((w) => w.status === "Labels Printed" || w.status === "Completed")
+    .filter((w) => w.status === "QC Printed" || w.status === "Completed")
     .reduce((sum, w) => sum + (w.actualProduced || w.requiredQuantity || 0), 0);
 
   const activeHours = Math.max(1, new Date().getHours() - 8);
@@ -139,12 +139,12 @@ export const Dashboard: React.FC = () => {
         <div className="bg-[#00891D] -mx-2 md:-mx-4 -mt-2 md:-mt-4 px-5 pt-5 pb-24 relative">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-green-100 text-sm">{greeting}, {user?.name?.split(" ")[0] || "User"} 👋</p>
+              <p className="text-green-100 text-sm">{greeting}, {user?.name?.split(" ")[0] || "User"} ðŸ‘‹</p>
               <h2 className="text-white text-xl font-bold mt-0.5">VillagKart Store</h2>
               <div className="flex items-center gap-2 mt-2">
                 <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse"></span>
                 <span className="text-green-100 text-xs font-medium">
-                  Store Open · Avg Processing {Math.round(workOrders.reduce((s, w) => s + (w.packingTimeSeconds || 0), 0) / Math.max(completedWOs, 1) / 60)} min
+                  Store Open Â· Avg Processing {Math.round(workOrders.reduce((s, w) => s + (w.packingTimeSeconds || 0), 0) / Math.max(completedWOs, 1) / 60)} min
                 </span>
               </div>
             </div>
@@ -200,7 +200,7 @@ export const Dashboard: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Weekly Performance</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This Week · Mon-Sun</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This Week Â· Mon-Sun</p>
               </div>
               <span className="text-xs font-semibold text-green-600 bg-green-50 dark:bg-green-900/30 px-3 py-1.5 rounded-full">
                 {userRole === "QC_CHECKER" ? todaysQCs.length + " checks this week" : completedWOs + " orders this week"}
@@ -319,7 +319,7 @@ export const Dashboard: React.FC = () => {
           Packing & Repacking Dashboard
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          Operations Command Center — Live monitoring of packing lines, batches,
+          Operations Command Center â€” Live monitoring of packing lines, batches,
           and efficiency
         </p>
       </div>
@@ -448,7 +448,7 @@ export const Dashboard: React.FC = () => {
                 Packing Cost
               </span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">
-                ₹{avgPackingCost}{" "}
+                â‚¹{avgPackingCost}{" "}
                 <span className="text-[10px] text-slate-400 font-medium">
                   /u
                 </span>
@@ -698,7 +698,7 @@ export const Dashboard: React.FC = () => {
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                                 wo.status === "Completed" ||
-                                wo.status === "Labels Printed"
+                                wo.status === "QC Printed"
                                   ? "bg-green-50 text-green-700 border-green-200"
                                   : wo.status === "Cancelled"
                                     ? "bg-slate-50 text-slate-400 border-slate-200"

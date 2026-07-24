@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import type { WorkOrder } from "../context/AppContext";
 import {
@@ -17,7 +17,7 @@ import {
 import { workOrderService } from "../api/workOrderService";
 
 export const PackingExecution: React.FC = () => {
-  const { workOrders, recipes, refreshGlobalData } = useApp();
+  const { workOrders, recipes, user, qualityChecks, materialIssues, refreshGlobalData } = useApp();
   const [activeWO, setActiveWO] = useState<WorkOrder | null>(null);
 
   // Read-only timer states for active job monitoring
@@ -134,19 +134,17 @@ export const PackingExecution: React.FC = () => {
     }
   };
 
-  const formatTime = (secs: number) => {
-    const hrs = Math.floor(secs / 3600)
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours.toString().padStart(2, "0")}:${minutes
       .toString()
-      .padStart(2, "0");
-    const m = Math.floor((secs % 3600) / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = (secs % 60).toString().padStart(2, "0");
-    return `${hrs}:${m}:${s}`;
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const getPriorityStyle = (p: WorkOrder["priority"]) => {
-    switch (p) {
+  const getPriorityStyle = (priority: string) => {
+    switch (priority) {
       case "Urgent":
         return "bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30";
       case "High":
@@ -155,6 +153,8 @@ export const PackingExecution: React.FC = () => {
         return "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30";
       case "Low":
         return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800/30 dark:text-slate-400 dark:border-slate-700/50";
+      default:
+        return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
@@ -178,23 +178,26 @@ export const PackingExecution: React.FC = () => {
         return "bg-[#00891D] text-white border border-[#00891D]";
       case "Cancelled":
         return "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-450 dark:border-rose-900/30";
-      case "Labels Printed":
+      case "QC Printed":
         return "bg-green-600 text-white border border-green-700";
+      default:
+        return "";
     }
   };
 
-  // Progress metrics
+  // Progress metrics calculation
   const progressMetrics = useMemo(() => {
     if (!selectedWO) return null;
-    const req = selectedWO.requiredQuantity;
-    const completionPct = getWorkOrderProgress(selectedWO);
+    const req = selectedWO.requiredQuantity || 0;
     const packed = selectedWO.actualProduced || 0;
-    const rejected = selectedWO.actualRejected || 0;
+    const qc = qualityChecks.find(q => q.woId === selectedWO.id);
+    const rejected = qc && (qc.result === "Reject" || qc.result === "Partial Pass" || qc.result === "Rework") 
+      ? (qc.checkedQty - (qc.checks as any)?.passedQty || qc.checkedQty) 
+      : (selectedWO.actualRejected || 0);
     const remaining = Math.max(0, req - packed);
-    const waste = 0;
-
-    return { req, packed, remaining, rejected, waste, completionPct };
-  }, [selectedWO]);
+    const completionPct = req > 0 ? Math.round((packed / req) * 100) : 0;
+    return { req, packed, remaining, rejected, completionPct };
+  }, [selectedWO, qualityChecks]);
 
   // Materials Consumption List
   const materialsList = useMemo(() => {
@@ -202,29 +205,99 @@ export const PackingExecution: React.FC = () => {
     const recipe = recipes.find((r) => r.id === selectedWO.recipeId);
     if (!recipe) return [];
 
+    const issue = materialIssues.find((m) => m.woId === selectedWO.id);
+
     return [
       ...recipe.bomItems.map((item) => {
+        const reqQty = selectedWO.requiredQuantity || 0;
+        const actualQty = selectedWO.actualProduced || 0;
+        const baseQty = item.requiredQuantity || 0;
+        
+        const issueItem = issue?.materials.find(m => m.item === item.inputItem);
+        const issued = issueItem?.issued || (baseQty * reqQty); 
+        const consumed = baseQty * actualQty;
+        const remaining = Math.max(0, issued - consumed);
+
         return {
           material: item.inputItem,
-          issued: 0,
-          consumed: 0,
-          remaining: 0,
-          unit: "kg",
-          batch: "",
+          issued: issued,
+          consumed: consumed,
+          remaining: remaining,
+          unit: item.unit || "kg",
+          batch: issueItem?.batchNo || `BAT-MAT-${selectedWO.woNo}`,
         };
       }),
       ...recipe.packagingMaterials.map((pkg) => {
+        const reqQty = selectedWO.requiredQuantity || 0;
+        const actualQty = selectedWO.actualProduced || 0;
+        const baseQty = pkg.quantity || 1;
+        
+        const issueItem = issue?.materials.find(m => m.item === pkg.material);
+        const issued = issueItem?.issued || (baseQty * reqQty);
+        const consumed = baseQty * actualQty;
+        const remaining = Math.max(0, issued - consumed);
+
         return {
           material: pkg.material,
-          issued: 0,
-          consumed: 0,
-          remaining: 0,
+          issued: issued,
+          consumed: consumed,
+          remaining: remaining,
           unit: "units",
-          batch: "",
+          batch: issueItem?.batchNo || `BAT-PKG-${selectedWO.woNo}`,
         };
       }),
     ];
-  }, [selectedWO, recipes]);
+  }, [selectedWO, recipes, materialIssues]);
+
+  const wasteSummary = useMemo(() => {
+    let weightLoss = 0;
+    let packagingWaste = 0;
+    
+    materialsList.forEach(m => {
+      if (m.unit === "kg" || m.unit === "g" || m.unit === "lbs" || m.unit === "L") {
+        weightLoss += m.remaining;
+      } else {
+        packagingWaste += m.remaining;
+      }
+    });
+
+    const rejected = progressMetrics?.rejected || 0;
+    const recoverable = Math.floor(rejected * 0.8); // 80% recovery rule of thumb for repacking
+
+    return { weightLoss, packagingWaste, recoverable };
+  }, [materialsList, progressMetrics]);
+
+  const operatorPerformance = useMemo(() => {
+    if (!selectedWO) return null;
+    
+    const operatorName = selectedWO.supervisor || "Unassigned";
+    
+    const totalProcessed = (progressMetrics?.packed || 0) + (progressMetrics?.rejected || 0);
+    const efficiency = totalProcessed > 0 
+      ? ((progressMetrics!.packed / totalProcessed) * 100).toFixed(1) + "%"
+      : "100.0%";
+
+    let activeSince = "Not Started";
+    if (selectedWO.startedAt) {
+      activeSince = new Date(selectedWO.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (["Packing Started", "Completed", "QC Passed", "QC Pending"].includes(selectedWO.status)) {
+      activeSince = new Date(selectedWO.updatedAt || selectedWO.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    let idleTime = "0 mins";
+    if (["Material Issued", "Pending", "Draft"].includes(selectedWO.status)) {
+      idleTime = "N/A";
+    } else if (selectedWO.status === "Packing Started") {
+      idleTime = "5 mins"; // Based on standard sensor mock gap
+    }
+
+    return {
+      operatorName,
+      efficiency,
+      activeSince,
+      idleTime
+    };
+  }, [selectedWO, progressMetrics]);
 
   const activeRecipe = useMemo(() => {
     if (!selectedWO) return null;
@@ -449,7 +522,7 @@ export const PackingExecution: React.FC = () => {
                       Recipe/BOM
                     </span>
                     <span className="font-bold text-slate-700 dark:text-gray-300">
-                      {selectedWO.recipeId}
+                      {recipes.find(r => r.id === selectedWO.recipeId)?.packingName || selectedWO.recipeId}
                     </span>
                   </div>
                   <div>
@@ -465,7 +538,7 @@ export const PackingExecution: React.FC = () => {
                       Assigned Operator
                     </span>
                     <span className="font-bold text-slate-700 dark:text-gray-300">
-                      Ramesh Patel (Op #3)
+                      {user?.name || "Operator"}
                     </span>
                   </div>
                   <div>
@@ -481,7 +554,7 @@ export const PackingExecution: React.FC = () => {
                       Machine
                     </span>
                     <span className="font-bold text-slate-700 dark:text-gray-300">
-                      H-Speed Packer M4
+                      {selectedWO.machine || "Default Machine"}
                     </span>
                   </div>
                   <div>
@@ -498,9 +571,7 @@ export const PackingExecution: React.FC = () => {
                     <span className="block font-semibold text-slate-400 dark:text-gray-500">
                       Start Time
                     </span>
-                    <span className="font-bold text-slate-700 dark:text-gray-300">
-                      08:30 AM
-                    </span>
+                      {selectedWO.startedAt ? new Date(selectedWO.startedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Not Started"}
                   </div>
                   <div>
                     <span className="block font-semibold text-slate-400 dark:text-gray-500">
@@ -597,12 +668,12 @@ export const PackingExecution: React.FC = () => {
                         stage === "Packing Started" ||
                         (stage === "Packing Completed" &&
                           getWorkOrderProgress(selectedWO) === 100)
-                          ? "✓ "
+                          ? "âœ“ "
                           : ""}
                         {stage === "Packing In Progress" &&
                         getWorkOrderProgress(selectedWO) > 0 &&
                         getWorkOrderProgress(selectedWO) < 100
-                          ? "● "
+                          ? "â— "
                           : ""}
                         {stage}
                       </div>
@@ -787,7 +858,7 @@ export const PackingExecution: React.FC = () => {
                             Weight Loss
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-150 mt-1 block">
-                            0 kg
+                            {wasteSummary.weightLoss.toFixed(2)} kg
                           </span>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
@@ -795,7 +866,7 @@ export const PackingExecution: React.FC = () => {
                             Packaging Waste
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-150 mt-1 block">
-                            0 units
+                            {wasteSummary.packagingWaste.toFixed(0)} units
                           </span>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
@@ -811,7 +882,7 @@ export const PackingExecution: React.FC = () => {
                             Recoverable Quantity
                           </span>
                           <span className="font-bold text-green-700 mt-1 block">
-                            0 units
+                            {wasteSummary.recoverable} units
                           </span>
                         </div>
                       </div>
@@ -999,7 +1070,7 @@ export const PackingExecution: React.FC = () => {
                             Tolerance Limit:
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-200">
-                            ±{activeRecipe.bomItems[0]?.tolerance || 0.5}%
+                            Â±{activeRecipe.bomItems[0]?.tolerance || 0.5}%
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -1030,7 +1101,7 @@ export const PackingExecution: React.FC = () => {
                     Material Issue Summary
                   </h4>
                   <div className="border border-slate-200 dark:border-gray-700 rounded-xl divide-y divide-slate-100 dark:divide-gray-700 overflow-hidden bg-white dark:bg-gray-800">
-                    {mockMaterialsList.map((item, idx) => (
+                    {materialsList.map((item, idx) => (
                       <div
                         key={idx}
                         className="p-3.5 flex justify-between items-center"
@@ -1070,15 +1141,15 @@ export const PackingExecution: React.FC = () => {
                           Operator Name
                         </span>
                         <span className="font-bold text-slate-750 dark:text-gray-205">
-                          Ramesh Patel
+                          {operatorPerformance?.operatorName || "Unassigned"}
                         </span>
                       </div>
                       <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
                         <span className="text-slate-400 dark:text-gray-500 block text-[10px]">
                           Operator Efficiency
                         </span>
-                        <span className="font-bold text-[#00891D] dark:text-green-400 font-bold">
-                          96.5%
+                        <span className="font-bold text-[#00891D] dark:text-green-400">
+                          {operatorPerformance?.efficiency || "0%"}
                         </span>
                       </div>
                       <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
@@ -1086,7 +1157,7 @@ export const PackingExecution: React.FC = () => {
                           Active Since
                         </span>
                         <span className="font-bold text-slate-700 dark:text-gray-300 font-medium">
-                          08:30 AM
+                          {operatorPerformance?.activeSince || "N/A"}
                         </span>
                       </div>
                       <div className="p-3 bg-slate-50 dark:bg-gray-750 border border-slate-100 dark:border-gray-700 rounded-lg">
@@ -1094,7 +1165,7 @@ export const PackingExecution: React.FC = () => {
                           Idle Time
                         </span>
                         <span className="font-bold text-slate-700 dark:text-gray-300 font-medium">
-                          05 mins
+                          {operatorPerformance?.idleTime || "0 mins"}
                         </span>
                       </div>
                     </div>

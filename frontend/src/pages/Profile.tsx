@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useAuth } from "../context/AuthContext";
 import { useApp } from "../context/AppContext";
 import {
@@ -40,7 +40,7 @@ export const Profile: React.FC = () => {
     userRole === "QC_CHECKER"
       ? qualityChecks.filter((q) => q.result === "Pass").length
       : workOrders.filter(
-          (w) => w.status === "Completed" || w.status === "Labels Printed",
+          (w) => w.status === "Completed" || w.status === "QC Printed",
         ).length;
   const slaPercent =
     totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
@@ -74,7 +74,7 @@ export const Profile: React.FC = () => {
           {user?.name || "Loading..."}
         </h2>
         <p className="text-green-100 text-xs mt-0.5">
-          {userRole.replace("_", " ")} · VillagKart Store
+          {userRole.replace("_", " ")} Â· VillagKart Store
         </p>
 
         {/* Stats Row */}

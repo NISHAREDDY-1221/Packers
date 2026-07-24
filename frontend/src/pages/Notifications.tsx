@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Bell, CheckCircle, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import api from "../api/axios";
+import { useApp } from "../context/AppContext";
 
 interface Notification {
   id: string;
@@ -13,31 +13,45 @@ interface Notification {
 
 export const Notifications: React.FC = () => {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { workOrders } = useApp();
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (user?.id) {
-      api.get(`/notifications/${user.id}`)
-        .then(res => {
-          if (res.data.data) {
-            setNotifications(res.data.data);
-          }
-        })
-        .finally(() => setLoading(false));
+  const generatedNotifications = useMemo(() => {
+    const notifs: Notification[] = [];
+    
+    const urgent = workOrders.filter((w) => w.priority === "URGENT" || w.priority === "Urgent");
+    if (urgent.length > 0) {
+      notifs.push({
+        id: "urgent-wos",
+        title: "Urgent Work Orders",
+        message: `There are ${urgent.length} urgent work orders pending.`,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
     }
-  }, [user]);
 
-  const markAsRead = async (id: string) => {
-    try {
-      await api.patch(`/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    } catch (e) {
-      console.error(e);
+    const qcPending = workOrders.filter((w) => w.status === "QC Pending");
+    if (qcPending.length > 0) {
+      notifs.push({
+        id: "qc-pending",
+        title: "Quality Checks Pending",
+        message: `${qcPending.length} completed jobs are waiting for Quality Check.`,
+        isRead: false,
+        createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
+      });
     }
+    
+    return notifs;
+  }, [workOrders]);
+
+  const notifications = generatedNotifications.map((n) => ({
+    ...n,
+    isRead: dismissedIds.has(n.id)
+  }));
+
+  const markAsRead = (id: string) => {
+    setDismissedIds((prev) => new Set(prev).add(id));
   };
-
-  if (loading) return <div className="p-8 text-center">Loading notifications...</div>;
 
   return (
     <div className="max-w-3xl mx-auto mt-6 text-left">

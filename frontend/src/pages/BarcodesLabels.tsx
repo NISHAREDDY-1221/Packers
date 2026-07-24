@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { useApp } from "../context/AppContext";
 import type { WorkOrder } from "../context/AppContext";
 import {
@@ -203,7 +203,7 @@ export const BarcodesLabels: React.FC = () => {
   // Find work orders that have completed packing execution (post-packing statuses)
   const readyWorkOrders = useMemo(() => {
     return workOrders.filter((w) => 
-      ["QC Pending", "QC Passed", "Labels Printed", "Completed"].includes(w.status)
+      ["QC Pending", "QC Passed", "QC Printed", "Completed"].includes(w.status)
     );
   }, [workOrders]);
 
@@ -339,7 +339,7 @@ export const BarcodesLabels: React.FC = () => {
         return "bg-[#00891D] text-white border border-[#00891D]";
       case "Cancelled":
         return "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-455 dark:border-rose-900/30";
-      case "Labels Printed":
+      case "QC Printed":
         return "bg-green-600 text-white border border-green-700";
       default:
         return "bg-slate-100 text-slate-700";
@@ -408,7 +408,7 @@ export const BarcodesLabels: React.FC = () => {
           </div>
           <div style="display: flex; justify-content: space-between; margin-top: 2px;">
             <span>Lot: <b>${lotNo || "N/A"}</b></span>
-            <span>MRP: <b>₹${mrp || 0}.00</b></span>
+            <span>MRP: <b>â‚¹${mrp || 0}.00</b></span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-top: 2px; font-size: 7px;">
             <span>MFG: ${mfgDate}</span>
@@ -563,7 +563,7 @@ export const BarcodesLabels: React.FC = () => {
 
     // Update Work Order Status in Context to 'Labels Printed'
     if (selectedWO) {
-      updateWorkOrderStatus(selectedWO.id, "Labels Printed");
+      updateWorkOrderStatus(selectedWO.id, "QC Printed");
     }
   };
 
@@ -786,8 +786,8 @@ export const BarcodesLabels: React.FC = () => {
                   title="Click to toggle printer status"
                 >
                   {printerStatus === "Online"
-                    ? "🟢 Printer Online"
-                    : "🔴 Printer Offline"}
+                    ? "ðŸŸ¢ Printer Online"
+                    : "ðŸ”´ Printer Offline"}
                 </div>
               </div>
             </div>
@@ -870,7 +870,7 @@ export const BarcodesLabels: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-505 uppercase mb-1">
-                  MRP (₹)
+                  MRP (â‚¹)
                 </label>
                 <input
                   type="number"
@@ -1004,7 +1004,7 @@ export const BarcodesLabels: React.FC = () => {
                     MRP:
                   </span>
                   <span className="font-bold text-[#00891D]">
-                    ₹{mrp || 0}.00{" "}
+                    â‚¹{mrp || 0}.00{" "}
                     <span className="text-[9px] font-normal text-slate-400 dark:text-gray-500">
                       (Incl. Taxes)
                     </span>
@@ -1092,7 +1092,9 @@ export const BarcodesLabels: React.FC = () => {
           </h3>
 
           <div className="space-y-3 max-h-[460px] overflow-y-auto sidebar-scrollbar pr-1">
-            {history.map((job) => (
+            {history
+              .filter(job => new Date(job.timestamp).toDateString() === new Date().toDateString())
+              .map((job) => (
               <div
                 key={job.id}
                 className="p-3 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-750/30 text-xs space-y-1.5 transition-colors"

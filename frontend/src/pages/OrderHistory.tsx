@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+﻿import React, { useState, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useApp } from "../context/AppContext";
 import {
@@ -20,7 +20,7 @@ interface HistoryItem {
   subtitle: string;
   date: string;
   status: string;
-  type: "qc" | "wo";
+  type: "qc" | "wo" | "repack";
 }
 
 const STATUS_FILTERS_QC = [
@@ -35,13 +35,14 @@ const STATUS_FILTERS_OP = [
   "Completed",
   "QC Pending",
   "QC Passed",
-  "Labels Printed",
+  "QC Printed",
   "Cancelled",
+  "Repacked",
 ];
 
 export const OrderHistory: React.FC = () => {
   const { user } = useAuth();
-  const { workOrders, qualityChecks } = useApp();
+  const { workOrders, qualityChecks, repackings } = useApp();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
@@ -67,13 +68,13 @@ export const OrderHistory: React.FC = () => {
         type: "qc" as const,
       }));
     } else {
-      items = workOrders
+      const woItems = workOrders
         .filter(
           (wo) =>
             wo.status === "Completed" ||
             wo.status === "QC Pending" ||
             wo.status === "QC Passed" ||
-            wo.status === "Labels Printed" ||
+            wo.status === "QC Printed" ||
             wo.status === "Cancelled",
         )
         .map((wo) => ({
@@ -84,6 +85,17 @@ export const OrderHistory: React.FC = () => {
           status: wo.status,
           type: "wo" as const,
         }));
+        
+      const rpItems = repackings.map((rp) => ({
+        id: rp.id,
+        title: "Repack - " + rp.newBatchNo,
+        subtitle: rp.productName || "Repacking",
+        date: rp.createdAt?.split(" ")[0] || new Date().toISOString().split("T")[0],
+        status: "Repacked",
+        type: "repack" as const,
+      }));
+
+      items = [...woItems, ...rpItems];
     }
 
     // Apply status filter
@@ -105,7 +117,7 @@ export const OrderHistory: React.FC = () => {
     return items.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
-  }, [workOrders, qualityChecks, userRole, searchQuery, activeFilter]);
+  }, [workOrders, qualityChecks, repackings, userRole, searchQuery, activeFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -121,8 +133,10 @@ export const OrderHistory: React.FC = () => {
         return "text-orange-600 bg-orange-50";
       case "QC Pending":
         return "text-amber-600 bg-amber-50";
-      case "Labels Printed":
+      case "QC Printed":
         return "text-blue-600 bg-blue-50";
+      case "Repacked":
+        return "text-indigo-600 bg-indigo-50";
       default:
         return "text-gray-600 bg-gray-50";
     }
@@ -142,6 +156,8 @@ export const OrderHistory: React.FC = () => {
         return <RefreshCw size={14} />;
       case "QC Pending":
         return <AlertTriangle size={14} />;
+      case "Repacked":
+        return <RefreshCw size={14} />;
       default:
         return <Clock size={14} />;
     }

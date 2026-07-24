@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useApp } from "../context/AppContext";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -45,7 +46,7 @@ interface SearchResult {
   route: string;
 }
 
-const mockSearchData: SearchResult[] = [];
+
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const navigate = useNavigate();
@@ -58,6 +59,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { user: authUser, logout } = useAuth();
+  const { workOrders, recipes } = useApp();
 
   const user = authUser
     ? {
@@ -77,7 +79,55 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           "https://ui-avatars.com/api/?name=Loading&background=00891d&color=fff&size=128&bold=true",
       };
 
-  const notifications: any[] = [];
+  const dynamicSearchData = useMemo<SearchResult[]>(() => {
+    const results: SearchResult[] = [];
+    
+    recipes.forEach((r) => {
+      results.push({
+        id: r.id,
+        type: "recipe",
+        title: r.packingName || r.id,
+        subtitle: `SKU: ${r.outputSku}`,
+        route: "/recipe-bom"
+      });
+    });
+
+    workOrders.forEach((w) => {
+      results.push({
+        id: w.id,
+        type: "workOrder",
+        title: w.woNo,
+        subtitle: `${w.productName} - ${w.status}`,
+        route: "/work-orders"
+      });
+    });
+
+    return results;
+  }, [workOrders, recipes]);
+
+  const notifications = useMemo(() => {
+    const notifs = [];
+    
+    const urgent = workOrders.filter((w) => w.priority === "URGENT" || w.priority === "Urgent");
+    if (urgent.length > 0) {
+      notifs.push({
+        id: "urgent-wos",
+        text: `There are ${urgent.length} urgent work orders pending.`,
+        timeAgo: "Just now",
+      });
+    }
+
+    const qcPending = workOrders.filter((w) => w.status === "QC Pending");
+    if (qcPending.length > 0) {
+      notifs.push({
+        id: "qc-pending",
+        text: `${qcPending.length} completed jobs are waiting for Quality Check.`,
+        timeAgo: "10 min ago",
+      });
+    }
+    
+    return notifs;
+  }, [workOrders]);
 
   const handleLogout = () => {
     logout();
@@ -87,12 +137,12 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const searchResults = useMemo<SearchResult[]>(() => {
     if (!searchQuery.trim()) return [];
     const query = searchQuery.toLowerCase().trim();
-    return mockSearchData.filter(
+    return dynamicSearchData.filter(
       (item) =>
         item.title.toLowerCase().includes(query) ||
         (item.subtitle && item.subtitle.toLowerCase().includes(query)),
     );
-  }, [searchQuery]);
+  }, [searchQuery, dynamicSearchData]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

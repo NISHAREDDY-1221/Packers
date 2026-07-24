@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import type { QualityCheck as IQC } from "../context/AppContext";
 import { ShieldCheck, X, Search, Image as ImageIcon, ClipboardCheck } from "lucide-react";
 
 const formatDateString = (dateStr: string) => {
-  if (!dateStr) return "—";
+  if (!dateStr) return "â€”";
   if (dateStr.length === 10 && dateStr.includes("-")) {
     const parts = dateStr.split("-");
     if (parts[0].length === 4) return `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -14,7 +14,7 @@ const formatDateString = (dateStr: string) => {
 };
 
 const formatDateTimeString = (dateStr: string) => {
-  if (!dateStr) return "—";
+  if (!dateStr) return "â€”";
   const d = new Date(dateStr);
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -28,7 +28,7 @@ const formatDateTimeString = (dateStr: string) => {
 };
 
 const formatTimeWithDate = (d: Date | null) => {
-  if (!d) return "—";
+  if (!d) return "â€”";
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
@@ -82,7 +82,7 @@ export const QualityCheck: React.FC = () => {
     }
   }, [user]);
 
-  // Checklist states — grouped: Packaging / Product / Label
+  // Checklist states â€” grouped: Packaging / Product / Label
   const [checks, setChecks] = useState({
     // Packaging
     sealIntegrity: true,
@@ -500,7 +500,7 @@ export const QualityCheck: React.FC = () => {
                       className="px-2 py-3 text-[10px] text-slate-500 truncate max-w-[100px]"
                       title={qc.remarks}
                     >
-                      {qc.remarks || "—"}
+                      {qc.remarks || "â€”"}
                     </td>
                     <td className="px-2 py-3 whitespace-nowrap text-center">
                       <span
@@ -634,7 +634,7 @@ export const QualityCheck: React.FC = () => {
                           : "text-rose-600 font-bold"
                       }
                     >
-                      {passed ? "✓ Pass" : "✗ Fail"}
+                      {passed ? "âœ“ Pass" : "âœ— Fail"}
                     </span>
                   </div>
                 ))}
@@ -680,7 +680,7 @@ export const QualityCheck: React.FC = () => {
                       <div className="font-mono text-slate-700">
                         {selectedQC.startTime
                           ? formatDateTimeString(selectedQC.startTime)
-                          : "—"}
+                          : "â€”"}
                       </div>
                     </div>
                   </div>
@@ -693,7 +693,7 @@ export const QualityCheck: React.FC = () => {
                       <div className="font-mono text-slate-700">
                         {selectedQC.completionTime
                           ? formatDateTimeString(selectedQC.completionTime)
-                          : "—"}
+                          : "â€”"}
                       </div>
                     </div>
                   </div>
@@ -768,7 +768,7 @@ export const QualityCheck: React.FC = () => {
                 )}
               </div>
 
-              {/* Work Order Summary — auto-populates on selection */}
+              {/* Work Order Summary â€” auto-populates on selection */}
               {formWoId &&
                 (() => {
                   const wo = pendingQC_WOs.find((w) => w.id === formWoId);
@@ -783,7 +783,7 @@ export const QualityCheck: React.FC = () => {
                     wo.lastUpdated || wo.expectedCompletion;
                   const completedDate = completedDateRaw
                     ? formatDateString(completedDateRaw)
-                    : "—";
+                    : "â€”";
                   return (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
                       <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">
@@ -832,7 +832,7 @@ export const QualityCheck: React.FC = () => {
                         </div>
                         <div className="flex flex-col">
                           <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wide">
-                            Labels Printed
+                            QC Printed
                           </span>
                           <span className="font-bold text-slate-800">
                             {labelsPrinted} labels
@@ -850,7 +850,7 @@ export const QualityCheck: React.FC = () => {
                       <div className="pt-1 flex items-center gap-1.5">
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            wo.status === "Labels Printed"
+                            wo.status === "QC Printed"
                               ? "bg-green-50 text-green-700 border-green-200"
                               : "bg-amber-50 text-amber-700 border-amber-200"
                           }`}
@@ -903,7 +903,7 @@ export const QualityCheck: React.FC = () => {
 
                 {/* Sampling Info Row */}
                 <div className="grid grid-cols-3 gap-3">
-                  {/* Packed Quantity — read-only */}
+                  {/* Packed Quantity â€” read-only */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                       Packed Qty
@@ -916,7 +916,7 @@ export const QualityCheck: React.FC = () => {
                     />
                   </div>
 
-                  {/* Checked Quantity — editable */}
+                  {/* Checked Quantity â€” editable */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                       Checked Qty *
@@ -1007,13 +1007,13 @@ export const QualityCheck: React.FC = () => {
                     >
                       {formPackedQty > 0
                         ? `${Math.min(100, Math.round((formCheckedQty / formPackedQty) * 100))}%`
-                        : "—"}
+                        : "â€”"}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Verification Checklist — 3 grouped sections */}
+              {/* Verification Checklist â€” 3 grouped sections */}
               <div className="border border-slate-100 rounded-lg bg-slate-50 overflow-hidden">
                 <div className="px-3 py-2 border-b border-slate-200 bg-slate-100">
                   <span className="font-bold text-[10px] text-slate-500 uppercase tracking-wide">
