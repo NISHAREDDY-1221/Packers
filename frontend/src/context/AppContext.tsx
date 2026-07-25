@@ -43,8 +43,11 @@ export interface WorkOrder {
   expectedCompletion: string;
   assignedTeam: string;
   supervisor: string;
-  status: 'Draft' | 'Pending' | 'Approved' | 'Material Issued' | 'Packing Started' | 'QC Pending' | 'QC Passed' | 'Completed' | 'Cancelled' | 'Labels Printed';
+  status: 'Draft' | 'Pending' | 'Approved' | 'Material Issued' | 'Packing Started' | 'QC Pending' | 'QC Passed' | 'Completed' | 'Cancelled' | 'Labels Printed' | 'QC Printed';
   progress?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  startedAt?: string;
   actualProduced?: number;
   actualRejected?: number;
   packingTimeSeconds?: number;

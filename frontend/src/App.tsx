@@ -9,6 +9,7 @@ import { MasterData } from './pages/MasterData';
 import { RecipeBOM } from './pages/RecipeBOM';
 import { WorkOrders } from './pages/WorkOrders';
 import { MaterialIssue } from './pages/MaterialIssue';
+import { MaterialIssueDetails } from './pages/MaterialIssueDetails';
 import { PackingExecution } from './pages/PackingExecution';
 import { BarcodesLabels } from './pages/BarcodesLabels';
 import { QualityCheck } from './pages/QualityCheck';
@@ -17,6 +18,7 @@ import { Repacking } from './pages/Repacking';
 import { Reports } from './pages/Reports';
 import { Approvals } from './pages/Approvals';
 import { Notifications } from './pages/Notifications';
+import { PackingExecutionDetails } from './pages/PackingExecutionDetails';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 
@@ -54,8 +56,16 @@ const router = createBrowserRouter([
         element: <MaterialIssue />,
       },
       {
+        path: 'material-issue/:id',
+        element: <MaterialIssueDetails />,
+      },
+      {
         path: 'packing-execution',
         element: <PackingExecution />,
+      },
+      {
+        path: 'packing-execution/:id',
+        element: <PackingExecutionDetails />,
       },
       {
         path: 'barcodes-labels',

@@ -249,7 +249,7 @@ export const WorkOrders: React.FC = () => {
     setEditPriority(wo.priority);
     setEditAssignedTeam(('Team Alpha'));
     setEditSupervisor((wo.supervisor?.name || ''));
-    setEditExpectedCompletion((wo.expectedDate || ''));
+    setEditExpectedCompletion(wo.expectedDate ? new Date(wo.expectedDate).toISOString().substring(0, 10) : '');
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -585,7 +585,7 @@ export const WorkOrders: React.FC = () => {
                         {wo.status}
                       </span>
                     </td>
-                    <td className="p-3 text-gray-600 font-mono">{(wo.expectedDate || '')}</td>
+                    <td className="p-3 text-gray-600 font-mono">{wo.expectedDate ? new Date(wo.expectedDate).toLocaleDateString() : ''}</td>
                     <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setSelectedWO(wo)}
@@ -693,7 +693,7 @@ export const WorkOrders: React.FC = () => {
                           </div>
                           <div className="flex justify-between">
                             <span>Due Date:</span>
-                            <span className="font-mono font-bold text-gray-650">{(wo.expectedDate || '')}</span>
+                            <span className="font-mono font-bold text-gray-650">{wo.expectedDate ? new Date(wo.expectedDate).toLocaleDateString() : ''}</span>
                           </div>
                         </div>
                       </div>
@@ -767,7 +767,7 @@ export const WorkOrders: React.FC = () => {
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Expected Completion</span>
-                  <span className="font-bold text-gray-900">{selectedWO.expectedDate}</span>
+                  <span className="font-bold text-gray-900">{selectedWO.expectedDate ? new Date(selectedWO.expectedDate).toLocaleDateString() : ''}</span>
                 </div>
               </div>
 
