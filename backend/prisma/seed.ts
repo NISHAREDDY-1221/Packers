@@ -27,6 +27,16 @@ async function main() {
     },
   });
 
+  const qcRole = await prisma.role.upsert({
+    where: { name: 'QC_INSPECTOR' },
+    update: {},
+    create: {
+      name: 'QC_INSPECTOR',
+      description: 'Quality Control Inspector',
+      permissions: ['QC'],
+    },
+  });
+
   // 2. Create Admin User
   const hashedPassword = await bcrypt.hash('admin123', 10);
   const adminUser = await prisma.user.upsert({
@@ -40,9 +50,33 @@ async function main() {
     },
   });
 
-  console.log('Seeding complete! Admin User created.');
-  console.log('Email: admin@villagkart.com');
-  console.log('Password: admin123');
+  const operatorUser = await prisma.user.upsert({
+    where: { email: 'operator@villagkart.com' },
+    update: {},
+    create: {
+      email: 'operator@villagkart.com',
+      password: hashedPassword,
+      name: 'Packing Operator',
+      roleId: operatorRole.id,
+    },
+  });
+
+  const qcUser = await prisma.user.upsert({
+    where: { email: 'qc@villagkart.com' },
+    update: {},
+    create: {
+      email: 'qc@villagkart.com',
+      password: hashedPassword,
+      name: 'QC Inspector',
+      roleId: qcRole.id,
+    },
+  });
+
+  console.log('Seeding complete! Users created.');
+  console.log('Admin: admin@villagkart.com');
+  console.log('Operator: operator@villagkart.com');
+  console.log('QC: qc@villagkart.com');
+  console.log('Password for all: admin123');
 }
 
 main()

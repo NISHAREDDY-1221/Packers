@@ -1,15 +1,14 @@
 import { Router } from 'express';
-import { authenticate, requirePermission } from '../middlewares/auth';
+import { authenticate, requireRoles } from '../middlewares/auth';
 import { validate } from '../middlewares/validate';
 import * as validation from '../validations/master';
 import * as controller from '../controllers/masterController';
 
 const router = Router();
 
-// Protect all master data routes and require MANAGE_MASTER_DATA permission
-// In a real app we might allow READ access to more roles, but keeping it simple for now
+// Protect all master data routes for ADMIN only
 router.use(authenticate);
-// router.use(requirePermission('MANAGE_MASTER_DATA')); // Uncomment when ready to enforce
+router.use(requireRoles(['ADMIN']));
 
 /**
  * @openapi
@@ -44,6 +43,11 @@ router.route('/categories')
   .get(controller.getCategories)
   .post(validate(validation.createCategorySchema), controller.createCategory);
 
+router.route('/categories/:id')
+  .put(validate(validation.updateCategorySchema), controller.updateCategory)
+  .patch(controller.toggleCategoryStatus)
+  .delete(controller.deleteCategory);
+
 /**
  * @openapi
  * /master-data/uom:
@@ -76,6 +80,11 @@ router.route('/categories')
 router.route('/uom')
   .get(controller.getUOMs)
   .post(validate(validation.createUOMSchema), controller.createUOM);
+
+router.route('/uom/:id')
+  .put(validate(validation.updateUOMSchema), controller.updateUOM)
+  .patch(controller.toggleUOMStatus)
+  .delete(controller.deleteUOM);
 
 /**
  * @openapi
@@ -123,6 +132,11 @@ router.route('/products')
   .get(controller.getProducts)
   .post(validate(validation.createProductSchema), controller.createProduct);
 
+router.route('/products/:id')
+  .put(validate(validation.updateProductSchema), controller.updateProduct)
+  .patch(controller.toggleProductStatus)
+  .delete(controller.deleteProduct);
+
 /**
  * @openapi
  * /master-data/warehouses:
@@ -157,6 +171,11 @@ router.route('/products')
 router.route('/warehouses')
   .get(controller.getWarehouses)
   .post(validate(validation.createWarehouseSchema), controller.createWarehouse);
+
+router.route('/warehouses/:id')
+  .put(validate(validation.updateWarehouseSchema), controller.updateWarehouse)
+  .patch(controller.toggleWarehouseStatus)
+  .delete(controller.deleteWarehouse);
 
 /**
  * @openapi

@@ -36,16 +36,27 @@ export class WorkOrderService {
     return workOrder;
   }
 
-  static async getWorkOrders(queryString: any = {}) {
+  static async getWorkOrders(queryString: any = {}, user: any = null) {
     const queryObj = { ...queryString };
     const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
       .filter()
       .search(['woNumber', 'batchNumber'])
       .sort()
       .paginate();
-      
+
+    let whereClause = apiFeatures.query.where || {};
+    
+    // RBAC Scoping
+    if (user?.role === 'OPERATOR') {
+      whereClause = { ...whereClause, operatorId: user.id };
+    } else if (user?.role === 'QC_INSPECTOR') {
+      // Typically QC inspectors only care about QC pending, but for now we scope to explicitly assigned or QC_PENDING
+      whereClause = { ...whereClause, status: 'QC_PENDING' };
+    }
+
     apiFeatures.query = { 
       ...apiFeatures.query, 
+      where: whereClause,
       include: { 
         product: true, 
         recipe: {

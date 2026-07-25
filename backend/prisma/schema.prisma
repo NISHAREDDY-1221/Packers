@@ -22,6 +22,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   workOrders     WorkOrder[]
+  assignedWos    WorkOrder[] @relation("OperatorAssigned")
+  assignedQc     WorkOrder[] @relation("InspectorAssigned")
   qualityChecks  QualityCheck[]
   materialIssues MaterialIssue[]
   auditLogs      AuditLog[]
@@ -47,6 +49,7 @@ model Category {
   id          String    @id @default(uuid())
   name        String    @unique
   description String?
+  isActive    Boolean   @default(true)
   products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -56,6 +59,7 @@ model UnitOfMeasure {
   id           String    @id @default(uuid())
   name         String    @unique // e.g. kg, g, ml, L, pcs
   abbreviation String    @unique
+  isActive     Boolean   @default(true)
   products     Product[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -90,6 +94,7 @@ model Warehouse {
   id               String            @id @default(uuid())
   name             String            @unique
   location         String?
+  isActive         Boolean           @default(true)
   storageLocations StorageLocation[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -152,6 +157,12 @@ model WorkOrder {
   batchNumber      String?     @unique
   supervisorId     String
   supervisor       User        @relation(fields: [supervisorId], references: [id])
+  
+  operatorId       String?
+  operator         User?       @relation("OperatorAssigned", fields: [operatorId], references: [id])
+
+  inspectorId      String?
+  inspector        User?       @relation("InspectorAssigned", fields: [inspectorId], references: [id])
   
   expectedDate     DateTime?
   startedAt        DateTime?

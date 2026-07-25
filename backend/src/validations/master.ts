@@ -7,10 +7,24 @@ export const createCategorySchema = z.object({
   }),
 });
 
+export const updateCategorySchema = z.object({
+  body: z.object({
+    name: z.string().min(1, 'Name is required').optional(),
+    description: z.string().optional(),
+  }),
+});
+
 export const createUOMSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
     abbreviation: z.string().min(1, 'Abbreviation is required'),
+  }),
+});
+
+export const updateUOMSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, 'Name is required').optional(),
+    abbreviation: z.string().min(1, 'Abbreviation is required').optional(),
   }),
 });
 
@@ -24,9 +38,26 @@ export const createProductSchema = z.object({
   }),
 });
 
+export const updateProductSchema = z.object({
+  body: z.object({
+    sku: z.string().min(1, 'SKU is required').optional(),
+    name: z.string().min(1, 'Name is required').optional(),
+    categoryId: z.string().uuid().optional(),
+    uomId: z.string().uuid().optional(),
+    type: z.enum(['RAW_MATERIAL', 'PACKAGING', 'FINISHED_GOOD']).optional(),
+  }),
+});
+
 export const createWarehouseSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
+    location: z.string().optional(),
+  }),
+});
+
+export const updateWarehouseSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, 'Name is required').optional(),
     location: z.string().optional(),
   }),
 });

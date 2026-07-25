@@ -15,7 +15,7 @@ export const createWorkOrder = catchAsync(async (req: Request, res: Response) =>
 });
 
 export const getWorkOrders = catchAsync(async (req: Request, res: Response) => {
-  const result = await WorkOrderService.getWorkOrders(req.query);
+  const result = await WorkOrderService.getWorkOrders(req.query, req.user);
   sendResponse(res, 200, 'Work Orders retrieved', result);
 });
 

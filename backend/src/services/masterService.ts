@@ -7,6 +7,27 @@ export class CategoryService {
     return prisma.category.create({ data });
   }
 
+  static async update(id: string, data: { name?: string; description?: string }) {
+    return prisma.category.update({ where: { id }, data });
+  }
+
+  static async toggleStatus(id: string) {
+    const category = await prisma.category.findUnique({ where: { id } });
+    if (!category) throw new AppError(404, 'Category not found');
+    return prisma.category.update({
+      where: { id },
+      data: { isActive: !category.isActive }
+    });
+  }
+
+  static async delete(id: string) {
+    const categoryCount = await prisma.product.count({ where: { categoryId: id } });
+    if (categoryCount > 0) {
+      throw new AppError(400, 'This category cannot be deleted because it is currently assigned to one or more products.');
+    }
+    return prisma.category.delete({ where: { id } });
+  }
+
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
     const apiFeatures = new APIFeatures({}, queryObj)
@@ -14,6 +35,8 @@ export class CategoryService {
       .search(['name', 'description'])
       .sort()
       .paginate();
+
+    apiFeatures.query = { ...apiFeatures.query, include: { _count: { select: { products: true } } } };
 
     const [categories, total] = await Promise.all([
       prisma.category.findMany(apiFeatures.query),
@@ -29,6 +52,27 @@ export class UomService {
     return prisma.unitOfMeasure.create({ data });
   }
 
+  static async update(id: string, data: { name?: string; abbreviation?: string }) {
+    return prisma.unitOfMeasure.update({ where: { id }, data });
+  }
+
+  static async toggleStatus(id: string) {
+    const uom = await prisma.unitOfMeasure.findUnique({ where: { id } });
+    if (!uom) throw new AppError(404, 'Unit of Measure not found');
+    return prisma.unitOfMeasure.update({
+      where: { id },
+      data: { isActive: !uom.isActive }
+    });
+  }
+
+  static async delete(id: string) {
+    const productCount = await prisma.product.count({ where: { uomId: id } });
+    if (productCount > 0) {
+      throw new AppError(400, 'This Unit of Measure cannot be deleted because it is currently assigned to one or more products or recipes.');
+    }
+    return prisma.unitOfMeasure.delete({ where: { id } });
+  }
+
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
     const apiFeatures = new APIFeatures({}, queryObj)
@@ -36,6 +80,8 @@ export class UomService {
       .search(['name', 'abbreviation'])
       .sort()
       .paginate();
+
+    apiFeatures.query = { ...apiFeatures.query, include: { _count: { select: { products: true } } } };
 
     const [uoms, total] = await Promise.all([
       prisma.unitOfMeasure.findMany(apiFeatures.query),
@@ -51,6 +97,31 @@ export class ProductService {
     return prisma.product.create({ data });
   }
 
+  static async update(id: string, data: { sku?: string; name?: string; categoryId?: string; uomId?: string; type?: any }) {
+    return prisma.product.update({ where: { id }, data });
+  }
+
+  static async toggleStatus(id: string) {
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) throw new AppError(404, 'Product not found');
+    return prisma.product.update({
+      where: { id },
+      data: { isActive: !product.isActive }
+    });
+  }
+
+  static async delete(id: string) {
+    const recipesAsOutput = await prisma.recipe.count({ where: { outputProductId: id } });
+    const recipeItems = await prisma.recipeItem.count({ where: { inputProductId: id } });
+    const workOrders = await prisma.workOrder.count({ where: { productId: id } });
+    const finishedGoods = await prisma.finishedGoods.count({ where: { productId: id } });
+    
+    if (recipesAsOutput > 0 || recipeItems > 0 || workOrders > 0 || finishedGoods > 0) {
+      throw new AppError(400, 'This Product cannot be deleted because it is currently assigned to one or more recipes, work orders, or finished goods.');
+    }
+    return prisma.product.delete({ where: { id } });
+  }
+
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
     const apiFeatures = new APIFeatures({}, queryObj)
@@ -59,7 +130,14 @@ export class ProductService {
       .sort()
       .paginate();
 
-    apiFeatures.query = { ...apiFeatures.query, include: { category: true, uom: true } };
+    apiFeatures.query = { 
+      ...apiFeatures.query, 
+      include: { 
+        category: true, 
+        uom: true,
+        _count: { select: { recipesAsOutput: true, recipeItems: true, workOrders: true, finishedGoods: true } }
+      } 
+    };
 
     const [products, total] = await Promise.all([
       prisma.product.findMany(apiFeatures.query),
@@ -75,6 +153,27 @@ export class WarehouseService {
     return prisma.warehouse.create({ data });
   }
 
+  static async update(id: string, data: { name?: string; location?: string }) {
+    return prisma.warehouse.update({ where: { id }, data });
+  }
+
+  static async toggleStatus(id: string) {
+    const warehouse = await prisma.warehouse.findUnique({ where: { id } });
+    if (!warehouse) throw new AppError(404, 'Warehouse not found');
+    return prisma.warehouse.update({
+      where: { id },
+      data: { isActive: !warehouse.isActive }
+    });
+  }
+
+  static async delete(id: string) {
+    const storageLocations = await prisma.storageLocation.count({ where: { warehouseId: id } });
+    if (storageLocations > 0) {
+      throw new AppError(400, 'This Warehouse cannot be deleted because it currently has storage locations.');
+    }
+    return prisma.warehouse.delete({ where: { id } });
+  }
+
   static async getAll(queryString: any) {
     const queryObj = { ...queryString };
     const apiFeatures = new APIFeatures({}, queryObj)
@@ -83,7 +182,7 @@ export class WarehouseService {
       .sort()
       .paginate();
       
-    apiFeatures.query = { ...apiFeatures.query, include: { storageLocations: true } };
+    apiFeatures.query = { ...apiFeatures.query, include: { storageLocations: true, _count: { select: { storageLocations: true } } } };
 
     const [warehouses, total] = await Promise.all([
       prisma.warehouse.findMany(apiFeatures.query),
