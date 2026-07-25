@@ -824,7 +824,7 @@ export const WorkOrders: React.FC = () => {
                       onClick={() => {
                         workOrderService.updateWorkOrderStatus(selectedWO.id, 'PENDING').then(() => { showToast('Submitted for approval.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
                       }}
-                      className="bg-[#00891D] hover:bg-[#007518] text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer"
+                      className="bg-[#00891D] hover:bg-[#007518] text-white px-2.5 py-1 text-xs rounded-lg font-medium cursor-pointer"
                     >
                       Submit for Approval
                     </button>

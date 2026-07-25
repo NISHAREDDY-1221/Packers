@@ -4,16 +4,27 @@ import { Navigate } from 'react-router-dom';
 import { Package, Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If already authenticated, redirect to dashboard
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+  // If already authenticated, redirect based on role
+  if (isAuthenticated && user) {
+    const userRole = typeof user.role === 'string' ? user.role : (user.role as any)?.name;
+    if (userRole === 'ADMIN' || userRole === 'MANAGER') {
+      return <Navigate to="/" replace />;
+    } else if (userRole === 'OPERATOR' || userRole === 'QC_INSPECTOR') {
+      return <Navigate to="/staff" replace />;
+    } else {
+      // Invalid session or unknown role
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      // Let them stay on the login page to re-authenticate properly
+      window.location.reload(); // Force full reload to clear context state
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

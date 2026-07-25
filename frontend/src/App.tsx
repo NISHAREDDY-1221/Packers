@@ -3,7 +3,8 @@ import { AppProvider } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { AppLayout } from './components/AppLayout';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { MobileLayout } from './components/MobileLayout';
+import { RoleRoute } from './components/RoleRoute';
 import { Dashboard } from './pages/Dashboard';
 import { MasterData } from './pages/MasterData';
 import { RecipeBOM } from './pages/RecipeBOM';
@@ -21,6 +22,9 @@ import { Notifications } from './pages/Notifications';
 import { PackingExecutionDetails } from './pages/PackingExecutionDetails';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
+import { StaffDashboard } from './pages/staff/StaffDashboard';
+import { AssignedTasks } from './pages/staff/AssignedTasks';
+import { TaskExecution } from './pages/staff/TaskExecution';
 
 const router = createBrowserRouter([
   {
@@ -30,9 +34,9 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: (
-      <ProtectedRoute>
+      <RoleRoute allowedRoles={['ADMIN', 'MANAGER']}>
         <AppLayout />
-      </ProtectedRoute>
+      </RoleRoute>
     ),
     children: [
       {
@@ -101,9 +105,49 @@ const router = createBrowserRouter([
       },
     ],
   },
-]);
+  {
+    path: '/staff',
+    element: (
+      <RoleRoute allowedRoles={['OPERATOR', 'QC_INSPECTOR']}>
+        <MobileLayout />
+      </RoleRoute>
+    ),
+    children: [
+      {
+        path: '',
+        element: <StaffDashboard />,
+      },
+      {
+        path: 'tasks',
+        element: <AssignedTasks />,
+      },
+      {
+        path: 'tasks/:id',
+        element: <TaskExecution />,
+      },
+      {
+        path: 'history',
+        element: <div className="p-4">History Coming Soon</div>, // TODO
+      },
+      {
+        path: 'profile',
+        element: <div className="p-4">Profile Coming Soon</div>, // TODO
+      },
+    ],
+  },
+], {
+  future: {
+    // @ts-ignore
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+    v7_fetcherPersist: true,
+    v7_normalizeFormMethod: true,
+    v7_partialHydration: true,
+    v7_skipActionErrorRevalidation: true,
+  },
+});
 
-function App() {
+export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>

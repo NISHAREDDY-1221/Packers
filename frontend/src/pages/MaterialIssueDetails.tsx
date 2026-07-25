@@ -6,7 +6,7 @@ import type { WorkOrder } from '../api/workOrderService';
 
 import {
   Package, CheckCircle, AlertTriangle, X,
-  Scan, RefreshCw, CornerUpLeft, ArrowLeftRight
+  Scan, RefreshCw, CornerUpLeft, ArrowLeftRight, ArrowLeft
 } from 'lucide-react';
 
 export const MaterialIssueDetails: React.FC = () => {
@@ -92,7 +92,7 @@ export const MaterialIssueDetails: React.FC = () => {
       setIssueSuccess(`Successfully issued materials for ${selectedWO.woNumber}`);
       setTimeout(() => {
         setIssueSuccess(null);
-        navigate('/operations/material-issue');
+        navigate('/material-issue');
       }, 2000);
       
     } catch (err) {
@@ -117,7 +117,7 @@ export const MaterialIssueDetails: React.FC = () => {
       <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700">
         <Package className="text-slate-300 dark:text-gray-600 mb-4" size={48} />
         <h3 className="text-lg font-bold text-slate-700 dark:text-gray-300">Work Order Not Found</h3>
-        <button onClick={() => navigate('/operations/material-issue')} className="mt-4 px-4 py-2 bg-[#00891D] text-white rounded-lg">Go Back</button>
+        <button onClick={() => navigate('/material-issue')} className="mt-4 px-4 py-2 bg-[#00891D] text-white rounded-lg">Go Back</button>
       </div>
     );
   }
@@ -127,10 +127,14 @@ export const MaterialIssueDetails: React.FC = () => {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Material Issue Details</h2>
-          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1 cursor-pointer hover:text-slate-700" onClick={() => navigate('/operations/material-issue')}>
+          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1 cursor-pointer hover:text-slate-700" onClick={() => navigate('/material-issue')}>
             Home &gt; Operations &gt; Material Issue &gt; {selectedWO.woNumber}
           </p>
         </div>
+        <button onClick={() => navigate('/material-issue')} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-600 dark:text-gray-300 transition-colors">
+          <ArrowLeft size={16} />
+          <span>Back</span>
+        </button>
       </div>
 
       {issueSuccess && (

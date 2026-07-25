@@ -62,52 +62,66 @@ export const MaterialIssue: React.FC = () => {
     { 
       key: 'woNumber',
       label: 'WO No', 
+      className: 'w-[12%] text-center',
       render: (row: WorkOrder) => <span className="font-mono text-gray-700 dark:text-gray-300 font-bold">{row.woNumber}</span> 
     },
     { 
       key: 'product',
       label: 'Product', 
+      className: 'w-[20%] text-center',
       render: (row: WorkOrder) => row.product?.name || row.productId 
     },
     { 
       key: 'recipe',
       label: 'Recipe', 
+      className: 'w-[20%] text-center',
       render: (row: WorkOrder) => row.recipe?.name || row.recipeId 
     },
     { 
       key: 'reqQty',
       label: 'Req Qty', 
+      className: 'w-[10%] text-center',
       render: (row: WorkOrder) => <span className="font-mono">{row.requiredQty}</span> 
     },
     { 
       key: 'priority',
       label: 'Priority', 
+      className: 'w-[10%] text-center',
       render: (row: WorkOrder) => (
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-          row.priority === 'URGENT' ? 'bg-red-100 text-red-700' :
-          row.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
-          'bg-gray-100 text-gray-600'
-        }`}>
-          {row.priority}
-        </span>
+        <div className="flex justify-center">
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            row.priority === 'URGENT' ? 'bg-red-100 text-red-700' :
+            row.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+            'bg-gray-100 text-gray-600'
+          }`}>
+            {row.priority}
+          </span>
+        </div>
       ) 
     },
     { 
       key: 'status',
       label: 'Status', 
-      render: (row: WorkOrder) => <StatusIcon status={row.status === 'COMPLETED' ? 'success' : row.status === 'MATERIAL_ISSUED' ? 'info' : row.status === 'APPROVED' ? 'pending' : row.status === 'DRAFT' ? 'warning' : 'pending'} /> 
+      className: 'w-[10%] text-center',
+      render: (row: WorkOrder) => (
+        <div className="flex justify-center">
+          <StatusIcon status={row.status === 'COMPLETED' ? 'success' : row.status === 'MATERIAL_ISSUED' ? 'info' : row.status === 'APPROVED' ? 'pending' : row.status === 'DRAFT' ? 'warning' : 'pending'} />
+        </div>
+      )
     },
     { 
       key: 'expectedDate',
       label: 'Expected Date', 
+      className: 'w-[12%] text-center',
       render: (row: WorkOrder) => <span className="font-mono text-gray-500">{row.expectedDate ? new Date(row.expectedDate).toLocaleDateString() : 'N/A'}</span> 
     },
     {
       key: 'action',
       label: 'Action',
+      className: 'w-[6%] text-center',
       render: (row: WorkOrder) => (
-        <div className="flex gap-2">
-          <ViewIconButton onClick={() => navigate(`/operations/material-issue/${row.id}`)} title="View Material Issue Details" />
+        <div className="flex justify-center gap-2">
+          <ViewIconButton onClick={() => navigate(`/material-issue/${row.id}`)} title="View Material Issue Details" />
         </div>
       )
     }

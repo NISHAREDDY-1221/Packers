@@ -66,6 +66,17 @@ export const masterDataService = {
     const res = await apiClient.post<{ success: boolean; data: Category }>('/master-data/categories', data);
     return res.data.data;
   },
+  async updateCategory(id: string, data: Partial<Category>): Promise<Category> {
+    const res = await apiClient.put<{ success: boolean; data: Category }>(`/master-data/categories/${id}`, data);
+    return res.data.data;
+  },
+  async toggleCategoryStatus(id: string): Promise<Category> {
+    const res = await apiClient.patch<{ success: boolean; data: Category }>(`/master-data/categories/${id}`);
+    return res.data.data;
+  },
+  async deleteCategory(id: string): Promise<void> {
+    await apiClient.delete(`/master-data/categories/${id}`);
+  },
 
   // Units of Measure
   async getUOMs(): Promise<UnitOfMeasure[]> {
@@ -75,6 +86,17 @@ export const masterDataService = {
   async createUOM(data: Partial<UnitOfMeasure>): Promise<UnitOfMeasure> {
     const res = await apiClient.post<{ success: boolean; data: UnitOfMeasure }>('/master-data/uom', data);
     return res.data.data;
+  },
+  async updateUOM(id: string, data: Partial<UnitOfMeasure>): Promise<UnitOfMeasure> {
+    const res = await apiClient.put<{ success: boolean; data: UnitOfMeasure }>(`/master-data/uom/${id}`, data);
+    return res.data.data;
+  },
+  async toggleUOMStatus(id: string): Promise<UnitOfMeasure> {
+    const res = await apiClient.patch<{ success: boolean; data: UnitOfMeasure }>(`/master-data/uom/${id}`);
+    return res.data.data;
+  },
+  async deleteUOM(id: string): Promise<void> {
+    await apiClient.delete(`/master-data/uom/${id}`);
   },
 
   // Products
@@ -86,6 +108,17 @@ export const masterDataService = {
     const res = await apiClient.post<{ success: boolean; data: Product }>('/master-data/products', data);
     return res.data.data;
   },
+  async updateProduct(id: string, data: Partial<Product>): Promise<Product> {
+    const res = await apiClient.put<{ success: boolean; data: Product }>(`/master-data/products/${id}`, data);
+    return res.data.data;
+  },
+  async toggleProductStatus(id: string): Promise<Product> {
+    const res = await apiClient.patch<{ success: boolean; data: Product }>(`/master-data/products/${id}`);
+    return res.data.data;
+  },
+  async deleteProduct(id: string): Promise<void> {
+    await apiClient.delete(`/master-data/products/${id}`);
+  },
 
   // Warehouses
   async getWarehouses(): Promise<Warehouse[]> {
@@ -95,6 +128,17 @@ export const masterDataService = {
   async createWarehouse(data: Partial<Warehouse>): Promise<Warehouse> {
     const res = await apiClient.post<{ success: boolean; data: Warehouse }>('/master-data/warehouses', data);
     return res.data.data;
+  },
+  async updateWarehouse(id: string, data: Partial<Warehouse>): Promise<Warehouse> {
+    const res = await apiClient.put<{ success: boolean; data: Warehouse }>(`/master-data/warehouses/${id}`, data);
+    return res.data.data;
+  },
+  async toggleWarehouseStatus(id: string): Promise<Warehouse> {
+    const res = await apiClient.patch<{ success: boolean; data: Warehouse }>(`/master-data/warehouses/${id}`);
+    return res.data.data;
+  },
+  async deleteWarehouse(id: string): Promise<void> {
+    await apiClient.delete(`/master-data/warehouses/${id}`);
   },
 
   // Recipes / BOM

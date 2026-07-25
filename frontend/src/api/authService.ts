@@ -5,10 +5,7 @@ export interface User {
   email: string;
   name: string;
   roleId: string;
-  role: {
-    name: string;
-    permissions: string[];
-  };
+  role: string;
 }
 
 export interface LoginCredentials {

@@ -24,14 +24,19 @@ const SortableTableHeader = ({
 
   const isSortable = !!onSort;
 
+  const isLeftAlign = className.includes('text-left');
+  const isRightAlign = className.includes('text-right');
+  const justifyClass = isLeftAlign ? 'justify-start' : isRightAlign ? 'justify-end' : 'justify-center';
+  const textClass = isLeftAlign ? 'text-left' : isRightAlign ? 'text-right' : 'text-center';
+
   return (
     <th
-      className={`px-2 py-3 text-center ${
+      className={`px-2 py-3 ${textClass} ${
         isSortable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors' : ''
       } ${className}`}
       onClick={isSortable ? handleClick : undefined}
     >
-      <div className="flex items-center justify-center gap-1 sm:gap-1.5">
+      <div className={`flex items-center ${justifyClass} gap-1 sm:gap-1.5`}>
         <span className="text-[10px] sm:text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">{label}</span>
         {isSortable && (
           <SortIcon

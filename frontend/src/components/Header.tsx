@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   const user = authUser ? {
     displayName: authUser.name,
-    role: authUser.role?.name || 'USER',
+    role: authUser.role || 'USER',
     email: authUser.email,
     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.name)}&background=00891d&color=fff&size=128&bold=true`,
   } : {
