@@ -40,7 +40,30 @@ async function main() {
     },
   });
 
-  console.log('Seeding complete! Admin User created.');
+  // 3. Create Operators
+  const operator1 = await prisma.user.upsert({
+    where: { email: 'suresh@villagkart.com' },
+    update: {},
+    create: {
+      email: 'suresh@villagkart.com',
+      password: hashedPassword,
+      name: 'Suresh Kumar',
+      roleId: operatorRole.id,
+    },
+  });
+
+  const operator2 = await prisma.user.upsert({
+    where: { email: 'ramesh@villagkart.com' },
+    update: {},
+    create: {
+      email: 'ramesh@villagkart.com',
+      password: hashedPassword,
+      name: 'Ramesh Singh',
+      roleId: operatorRole.id,
+    },
+  });
+
+  console.log('Seeding complete! Admin User and Operators created.');
   console.log('Email: admin@villagkart.com');
   console.log('Password: admin123');
 }

@@ -17,7 +17,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { masterDataService } from "../api/masterDataService";
-import type { Recipe } from "../api/masterDataService";
+import type { Recipe, User } from "../api/masterDataService";
 
 const KANBAN_COLUMNS: WoStatus[] = [
   "DRAFT",
@@ -35,6 +35,71 @@ interface TimelineStep {
   label: string;
   desc: string;
 }
+
+const SearchableSelect = ({ options, value, onChange, placeholder }: { options: string[], value: string, onChange: (v: string) => void, placeholder: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <div 
+        className="w-full p-2 border border-gray-200 rounded-lg bg-white flex justify-between items-center cursor-pointer min-h-[38px]"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className={value ? "text-gray-900" : "text-gray-400"}>{value || placeholder}</span>
+        <ChevronRight size={14} className={`transform transition-transform ${isOpen ? "rotate-90" : "rotate-0"} text-gray-400`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              type="text"
+              autoFocus
+              className="w-full p-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#00891D]"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt}
+                  className={`p-2 text-sm cursor-pointer hover:bg-gray-50 ${value === opt ? 'bg-[#00891D]/10 text-[#00891D] font-medium' : 'text-gray-700'}`}
+                  onClick={() => {
+                    onChange(opt);
+                    setIsOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  {opt}
+                </div>
+              ))
+            ) : (
+              <div className="p-2 text-xs text-gray-400 text-center">No results found</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const WorkOrders: React.FC = () => {
   const { refreshGlobalData } = useApp();
@@ -79,6 +144,12 @@ export const WorkOrders: React.FC = () => {
       setApiRecipesLoading(false);
     }
   };
+
+  // API Users state
+  const [apiUsers, setApiUsers] = useState<User[]>([]);
+  React.useEffect(() => {
+    masterDataService.getUsers().then(setApiUsers).catch(console.error);
+  }, []);
 
   // View mode state
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
@@ -146,11 +217,13 @@ export const WorkOrders: React.FC = () => {
     [workOrders],
   );
   const supervisors = useMemo(
-    () =>
-      Array.from(
-        new Set(workOrders.map((wo) => wo.supervisor?.name || wo.supervisorId)),
-      ),
-    [workOrders],
+    () => {
+      const dbUsers = apiUsers
+        .filter(u => !u.role || u.role.name === 'OPERATOR')
+        .map(u => u.name);
+      return Array.from(new Set(dbUsers));
+    },
+    [apiUsers]
   );
   const teams = useMemo(
     () => ["Packing Team Alpha", "Packing Team Beta", "Quality Assurance"],
@@ -187,16 +260,17 @@ export const WorkOrders: React.FC = () => {
         filterStatus === "All" || wo.status === filterStatus;
       const matchesPriority =
         filterPriority === "All" || wo.priority === filterPriority;
-      const matchesCategory =
-        filterCategory === "All" ||
-        (wo.product?.category?.name || "Misc") === filterCategory;
       const matchesSupervisor =
         filterSupervisor === "All" ||
         (wo.supervisor?.name || "") === filterSupervisor;
-      const matchesTeam = filterTeam === "All" || "Team Alpha" === filterTeam;
-      const woDatePrefix = wo.expectedDate
-        ? wo.expectedDate.substring(0, 10)
-        : "";
+      let woDatePrefix = "";
+      if (wo.expectedDate) {
+        try {
+          woDatePrefix = new Date(wo.expectedDate).toISOString().substring(0, 10);
+        } catch (e) {
+          woDatePrefix = wo.expectedDate.substring(0, 10);
+        }
+      }
       const matchesDate = !filterDate || woDatePrefix === filterDate;
 
       // 3. KPI filter override
@@ -219,9 +293,7 @@ export const WorkOrders: React.FC = () => {
         matchesSearch &&
         matchesStatus &&
         matchesPriority &&
-        matchesCategory &&
         matchesSupervisor &&
-        matchesTeam &&
         matchesDate &&
         matchesKpi
       );
@@ -231,9 +303,7 @@ export const WorkOrders: React.FC = () => {
     search,
     filterStatus,
     filterPriority,
-    filterCategory,
     filterSupervisor,
-    filterTeam,
     filterDate,
     kpiFilter,
   ]);
@@ -290,6 +360,9 @@ export const WorkOrders: React.FC = () => {
     e.preventDefault();
     if (!formRecipeId) return;
     const recipe = apiRecipes.find((r) => r.id === formRecipeId)!;
+    const selectedSupervisor = apiUsers.find(u => u.name === formSupervisor);
+    const supervisorIdToUse = selectedSupervisor?.id || "00000000-0000-0000-0000-000000000000";
+
     try {
       await workOrderService.createWorkOrder({
         productId: recipe.outputProductId,
@@ -299,7 +372,7 @@ export const WorkOrders: React.FC = () => {
         expectedDate: formExpectedCompletion
           ? new Date(formExpectedCompletion).toISOString()
           : undefined,
-        supervisorId: "00000000-0000-0000-0000-000000000000",
+        supervisorId: supervisorIdToUse,
       });
       setIsCreateOpen(false);
       showToast("Work order created successfully.");
@@ -595,53 +668,17 @@ export const WorkOrders: React.FC = () => {
 
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
-              Category
-            </label>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            >
-              <option value="All">All Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
-              Supervisor
+              Operator
             </label>
             <select
               value={filterSupervisor}
               onChange={(e) => setFilterSupervisor(e.target.value)}
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
             >
-              <option value="All">All Supervisors</option>
+              <option value="All">All Operators</option>
               {supervisors.map((s) => (
                 <option key={s} value={s}>
                   {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">
-              Assigned Team
-            </label>
-            <select
-              value={filterTeam}
-              onChange={(e) => setFilterTeam(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            >
-              <option value="All">All Teams</option>
-              {teams.map((t) => (
-                <option key={t} value={t}>
-                  {t}
                 </option>
               ))}
             </select>
@@ -664,9 +701,7 @@ export const WorkOrders: React.FC = () => {
         {(search ||
           filterStatus !== "All" ||
           filterPriority !== "All" ||
-          filterCategory !== "All" ||
           filterSupervisor !== "All" ||
-          filterTeam !== "All" ||
           filterDate ||
           kpiFilter !== "all") && (
           <div className="flex justify-between items-center text-[11px] text-gray-500 pt-1.5 border-t border-gray-100 font-medium">
@@ -678,7 +713,7 @@ export const WorkOrders: React.FC = () => {
                 setSearch("");
                 setFilterStatus("All");
                 setFilterPriority("All");
-                setFilterCategory("All");
+
                 setFilterSupervisor("All");
                 setFilterTeam("All");
                 setFilterDate("");
@@ -730,11 +765,9 @@ export const WorkOrders: React.FC = () => {
                   <th className="p-3 font-semibold text-gray-505 uppercase text-right">
                     Required Quantity
                   </th>
+
                   <th className="p-3 font-semibold text-gray-505 uppercase">
-                    Assigned Team
-                  </th>
-                  <th className="p-3 font-semibold text-gray-505 uppercase">
-                    Supervisor
+                    Assigned To
                   </th>
                   <th className="p-3 font-semibold text-gray-500 uppercase">
                     Priority
@@ -768,9 +801,7 @@ export const WorkOrders: React.FC = () => {
                     <td className="p-3 text-right font-bold text-gray-900">
                       {wo.requiredQty}
                     </td>
-                    <td className="p-3 text-gray-600 font-medium">
-                      {"Team Alpha"}
-                    </td>
+
                     <td className="p-3 text-gray-600 font-medium">
                       {wo.supervisor?.name || ""}
                     </td>
@@ -789,7 +820,7 @@ export const WorkOrders: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-3 text-gray-600 font-mono">
-                      {wo.expectedDate || ""}
+                      {wo.expectedDate ? new Date(wo.expectedDate).toLocaleDateString() : ""}
                     </td>
                     <td
                       className="p-3 text-right"
@@ -916,7 +947,7 @@ export const WorkOrders: React.FC = () => {
                           <div className="flex justify-between">
                             <span>Assigned:</span>
                             <span className="font-semibold text-gray-700 truncate max-w-[100px]">
-                              {"Team Alpha"}
+                              {wo.supervisor?.name || "Unassigned"}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -1002,18 +1033,11 @@ export const WorkOrders: React.FC = () => {
                     {selectedWO.requiredQty} Units
                   </span>
                 </div>
+
                 <div className="flex justify-between p-2.5">
-                  <span className="text-gray-505 font-medium">
-                    Assigned Team
-                  </span>
+                  <span className="text-gray-505 font-medium">Assigned To</span>
                   <span className="font-semibold text-gray-900">
-                    {"Team Alpha"}
-                  </span>
-                </div>
-                <div className="flex justify-between p-2.5">
-                  <span className="text-gray-505 font-medium">Supervisor</span>
-                  <span className="font-semibold text-gray-900">
-                    {selectedWO.supervisor?.name || ""}
+                    {selectedWO.supervisor?.name || "Unassigned"}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">
@@ -1320,29 +1344,16 @@ export const WorkOrders: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                    Assigned Team
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={formAssignedTeam}
-                    onChange={(e) => setFormAssignedTeam(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                    Supervisor
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={formSupervisor}
-                    onChange={(e) => setFormSupervisor(e.target.value)}
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                  Assign Operator *
+                </label>
+                <SearchableSelect
+                  options={supervisors}
+                  value={formSupervisor}
+                  onChange={setFormSupervisor}
+                  placeholder="Select Operator..."
+                />
               </div>
 
               <div className="border-t border-gray-200 pt-4 flex justify-end gap-2 bg-gray-50 p-3 -mx-5 -mb-5 rounded-b-xl">
@@ -1444,29 +1455,16 @@ export const WorkOrders: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                    Assigned Team
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={editAssignedTeam}
-                    onChange={(e) => setEditAssignedTeam(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                    Supervisor
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={editSupervisor}
-                    onChange={(e) => setEditSupervisor(e.target.value)}
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                  Assign Operator *
+                </label>
+                <SearchableSelect
+                  options={supervisors}
+                  value={editSupervisor}
+                  onChange={setEditSupervisor}
+                  placeholder="Select Operator..."
+                />
               </div>
 
               <div className="border-t border-gray-200 pt-4 flex justify-end gap-2 bg-gray-55 p-3 -mx-5 -mb-5 rounded-b-xl">

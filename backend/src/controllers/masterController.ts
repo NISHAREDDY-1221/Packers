@@ -7,6 +7,7 @@ import {
   ProductService,
   WarehouseService,
   RecipeService,
+  UserService,
 } from "../services/masterService";
 
 // --- Categories ---
@@ -66,4 +67,10 @@ export const createRecipe = catchAsync(async (req: Request, res: Response) => {
 export const getRecipes = catchAsync(async (req: Request, res: Response) => {
   const result = await RecipeService.getAll(req.query);
   sendResponse(res, 200, "Recipes retrieved", result);
+});
+
+// --- Users ---
+export const getUsers = catchAsync(async (req: Request, res: Response) => {
+  const result = await UserService.getAll(req.query);
+  sendResponse(res, 200, "Users retrieved", result);
 });

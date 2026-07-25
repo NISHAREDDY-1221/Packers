@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, CheckCircle, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useApp } from "../context/AppContext";
+import { notificationService } from "../api/notificationService";
 
 interface Notification {
   id: string;
@@ -13,44 +13,37 @@ interface Notification {
 
 export const Notifications: React.FC = () => {
   const { user } = useAuth();
-  const { workOrders } = useApp();
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const generatedNotifications = useMemo(() => {
-    const notifs: Notification[] = [];
-    
-    const urgent = workOrders.filter((w) => w.priority === "URGENT" || w.priority === "Urgent");
-    if (urgent.length > 0) {
-      notifs.push({
-        id: "urgent-wos",
-        title: "Urgent Work Orders",
-        message: `There are ${urgent.length} urgent work orders pending.`,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-      });
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications();
     }
+  }, [user?.id]);
 
-    const qcPending = workOrders.filter((w) => w.status === "QC Pending");
-    if (qcPending.length > 0) {
-      notifs.push({
-        id: "qc-pending",
-        title: "Quality Checks Pending",
-        message: `${qcPending.length} completed jobs are waiting for Quality Check.`,
-        isRead: false,
-        createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
-      });
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      setIsLoading(true);
+      const data = await notificationService.getNotifications(user.id);
+      setNotifications(data);
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    return notifs;
-  }, [workOrders]);
+  };
 
-  const notifications = generatedNotifications.map((n) => ({
-    ...n,
-    isRead: dismissedIds.has(n.id)
-  }));
-
-  const markAsRead = (id: string) => {
-    setDismissedIds((prev) => new Set(prev).add(id));
+  const markAsRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    }
   };
 
   return (
@@ -71,7 +64,11 @@ export const Notifications: React.FC = () => {
       </div>
 
       <div className="space-y-3">
-        {notifications.length === 0 ? (
+        {isLoading ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+            Loading notifications...
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">
             No notifications found.
           </div>

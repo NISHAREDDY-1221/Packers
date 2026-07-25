@@ -1,13 +1,16 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { workOrderService } from "../api/workOrderService";
+import { masterDataService } from "../api/masterDataService";
 import type { WorkOrder } from "../api/workOrderService";
+import type { Product, Warehouse } from "../api/masterDataService";
 
 import {
   Package,
   CheckCircle,
   HelpCircle,
   Clock,
+  AlertCircle,
   AlertTriangle,
   X,
   Info,
@@ -26,16 +29,25 @@ export const MaterialIssue: React.FC = () => {
   } = useApp();
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const fetchWO = async () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+
+  const fetchData = async () => {
     try {
-      const res = await workOrderService.getWorkOrders();
-      setWorkOrders(res.data);
+      const [woRes, prodRes, whRes] = await Promise.all([
+        workOrderService.getWorkOrders(),
+        masterDataService.getProducts(),
+        masterDataService.getWarehouses()
+      ]);
+      setWorkOrders(woRes.data);
+      setProducts(prodRes);
+      setWarehouses(whRes);
     } catch (e) {
       console.error(e);
     }
   };
   useEffect(() => {
-    fetchWO();
+    fetchData();
   }, []);
 
   // Compute pending issues from APPROVED work orders
@@ -48,17 +60,20 @@ export const MaterialIssue: React.FC = () => {
         woNumber: w.woNumber,
         status: "Pending",
         materials:
-          w.recipe?.items?.map((item) => ({
-            item: item.inputProduct?.name || "Unknown",
-            required: item.requiredQty * w.requiredQty,
-            available: 0,
-            issued: 0,
-            batchNo: "",
-            location: "",
-            type: item.isPackaging ? "Packaging" : "Raw",
-          })) || [],
+          w.recipe?.items?.map((item) => {
+            const prod = products.find((p) => p.id === item.inputProductId);
+            return {
+              item: item.inputProduct?.name || "Unknown",
+              required: item.requiredQty * w.requiredQty,
+              available: prod ? prod.availableStock : 0,
+              issued: 0,
+              batchNo: "",
+              location: "",
+              type: item.isPackaging ? "Packaging" : "Raw",
+            };
+          }) || [],
       }));
-  }, [workOrders]);
+  }, [workOrders, products]);
 
   // Compute completed issues from MATERIAL_ISSUED work orders
   const completedIssues = useMemo(() => {
@@ -139,12 +154,14 @@ export const MaterialIssue: React.FC = () => {
       .toISOString()
       .split("T")[0];
 
-    issue.materials.forEach((m) => {
-      newBatches[m.item] = "";
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    issue.materials.forEach((m, idx) => {
+      const issueAmt = Math.min(m.required, m.available);
+      newBatches[m.item] = issueAmt > 0 ? `BATCH-${today.replace(/-/g, "")}-${randomSuffix + idx}` : "";
       newMfgDates[m.item] = today;
       newExpiryDates[m.item] = expiry;
-      newLocations[m.item] = "";
-      newIssued[m.item] = m.required;
+      newLocations[m.item] = issueAmt > 0 ? "villagkart" : "";
+      newIssued[m.item] = issueAmt;
     });
 
     setBatches(newBatches);
@@ -227,8 +244,11 @@ export const MaterialIssue: React.FC = () => {
   }, [selectedIssue, batches, defaultBatches, partialIssueChecked]);
 
   // Handle Form Submission Confirm Trigger
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const handleIssueSubmit = () => {
     if (!selectedIssue) return;
+    setSubmitError(null);
     setShowConfirmModal(true);
   };
 
@@ -248,12 +268,11 @@ export const MaterialIssue: React.FC = () => {
       .then(() => {
         setShowConfirmModal(false);
         setSelectedIssue(null);
-        fetchWO();
         refreshGlobalData();
         showToast("Materials issued successfully.");
       })
       .catch((e: any) => {
-        alert(e.response?.data?.message || "Error issuing materials");
+        setSubmitError(e.response?.data?.message || "Error issuing materials");
       });
   };
 
@@ -467,15 +486,15 @@ export const MaterialIssue: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">
-                        Assigned Team
+                        Supervisor
                       </span>
                       <span className="text-slate-850 font-semibold block truncate max-w-[120px]">
-                        {"Team Alpha"}
+                        Admin User
                       </span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-bold">
-                        Supervisor
+                        Assigned To
                       </span>
                       <span className="text-slate-850 font-semibold">
                         {linkedWO.supervisor?.name || "Unassigned"}
@@ -496,60 +515,14 @@ export const MaterialIssue: React.FC = () => {
                         Expected Completion
                       </span>
                       <span className="text-slate-850 font-bold font-mono block mt-0.5">
-                        {linkedWO.expectedDate}
+                        {linkedWO.expectedDate ? new Date(linkedWO.expectedDate).toLocaleDateString() : ""}
                       </span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Material Summary Header Card */}
-              {summaryMetrics && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">
-                      Total Materials
-                    </span>
-                    <span className="text-base font-bold text-slate-800 mt-1 block">
-                      {summaryMetrics.total} Items
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs">
-                    <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block">
-                      Available
-                    </span>
-                    <span className="text-base font-bold text-emerald-600 mt-1 block">
-                      {summaryMetrics.available} Stocked
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs">
-                    <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block">
-                      Shortage
-                    </span>
-                    <span
-                      className={`text-base font-bold mt-1 block ${summaryMetrics.shortage > 0 ? "text-red-650" : "text-slate-500"}`}
-                    >
-                      {summaryMetrics.shortage} Short
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs">
-                    <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block">
-                      Estimated Cost
-                    </span>
-                    <span className="text-base font-bold text-slate-800 mt-1 block">
-                      ${summaryMetrics.cost}
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs">
-                    <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block">
-                      Auto Batches
-                    </span>
-                    <span className="text-base font-bold text-blue-600 mt-1 block">
-                      {summaryMetrics.batches} Assigned
-                    </span>
-                  </div>
-                </div>
-              )}
+
 
               {/* Checklist Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-y border-slate-150 py-2.5">
@@ -669,7 +642,7 @@ export const MaterialIssue: React.FC = () => {
               </div>
 
               {/* Checklist Table */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
@@ -749,14 +722,9 @@ export const MaterialIssue: React.FC = () => {
                               <div className="flex items-center gap-1.5">
                                 <input
                                   type="text"
-                                  className="border border-slate-200 p-1 rounded font-mono text-[10px] w-28 bg-white focus:outline-none focus:border-[#00891D]"
+                                  readOnly
+                                  className="border border-slate-200 p-1 rounded font-mono text-[10px] w-28 bg-slate-100 text-slate-500 focus:outline-none cursor-default"
                                   value={batches[m.item] || ""}
-                                  onChange={(e) =>
-                                    setBatches({
-                                      ...batches,
-                                      [m.item]: e.target.value,
-                                    })
-                                  }
                                 />
                                 <button
                                   type="button"
@@ -811,8 +779,7 @@ export const MaterialIssue: React.FC = () => {
                               )}
                             </td>
                             <td className="p-2.5">
-                              <input
-                                type="text"
+                              <select
                                 className="border border-slate-200 p-1 rounded text-[10px] w-28 bg-white focus:outline-none focus:border-[#00891D]"
                                 value={locations[m.item] || ""}
                                 onChange={(e) =>
@@ -821,7 +788,14 @@ export const MaterialIssue: React.FC = () => {
                                     [m.item]: e.target.value,
                                   })
                                 }
-                              />
+                              >
+                                <option value="">Select location...</option>
+                                {warehouses.map((wh) => (
+                                  <option key={wh.id} value={wh.name}>
+                                    {wh.name}
+                                  </option>
+                                ))}
+                              </select>
                             </td>
                             <td className="p-2.5 text-center">
                               <input
@@ -868,18 +842,18 @@ export const MaterialIssue: React.FC = () => {
                 </table>
               </div>
 
-              {/* Bottom Confirmation Summary */}
-              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-2 text-xs">
-                <span className="font-bold text-slate-800 block border-b border-slate-200 pb-1.5">
+              {/* Confirmation Details Header */}
+              <div className="mt-4 border border-slate-150 rounded-lg p-3 bg-slate-50/50">
+                <h5 className="font-bold text-slate-800 text-xs mb-3">
                   Confirmation Summary
-                </span>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-slate-650 font-medium">
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[10px] border-t border-slate-150 pt-2.5">
                   <div>
                     <span className="text-slate-400 block text-[9px] uppercase font-bold">
                       Materials to Issue
                     </span>
                     <span className="text-slate-850 font-bold block truncate max-w-[150px]">
-                      {selectedIssue.materials.map((m) => m.item).join(", ")}
+                      {selectedIssue.materials.filter(m => (issuedQuantities[m.item] || 0) > 0).map(m => m.item).join(", ") || "-"}
                     </span>
                   </div>
                   <div>
@@ -896,26 +870,10 @@ export const MaterialIssue: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[9px] uppercase font-bold">
-                      Estimated Cost
-                    </span>
-                    <span className="text-slate-850 font-bold block">
-                      ${summaryMetrics?.cost || "0.00"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px] uppercase font-bold">
                       Warehouse
                     </span>
                     <span className="text-slate-850 font-bold block">
-                      Main Warehouse A
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[9px] uppercase font-bold">
-                      Selected Batches
-                    </span>
-                    <span className="text-slate-850 font-bold block">
-                      {summaryMetrics?.batches || 0} Batches
+                      {Array.from(new Set(Object.values(locations).filter(Boolean))).join(", ") || "-"}
                     </span>
                   </div>
                 </div>
@@ -984,7 +942,14 @@ export const MaterialIssue: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-left text-slate-700">
+            {submitError && (
+              <div className="m-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-lg flex items-center gap-2">
+                <AlertCircle size={16} />
+                {submitError}
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 text-sm text-slate-700 text-left bg-slate-50">
               <p className="font-bold text-slate-805">
                 Please verify the final allocations before confirming deduction:
               </p>

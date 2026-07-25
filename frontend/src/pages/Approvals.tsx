@@ -11,6 +11,7 @@ import {
   Check,
   Clock,
 } from "lucide-react";
+import { useApp } from "../context/AppContext";
 import { approvalService } from "../api/approvalService";
 import type {
   ApprovalRequest,
@@ -20,6 +21,7 @@ import type {
 } from "../types/approvals";
 
 export const Approvals: React.FC = () => {
+  const { workOrders } = useApp();
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -151,6 +153,14 @@ export const Approvals: React.FC = () => {
     );
   };
 
+  const getProductName = (req: ApprovalRequest) => {
+    if (req.type === "WORK_ORDER" || req.type === "MATERIAL_ISSUE" || req.type === "PACKING_VARIANCE") {
+      const wo = workOrders.find((w) => w.id === req.relatedEntityId);
+      return wo ? wo.productName : "—";
+    }
+    return "—";
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -275,6 +285,7 @@ export const Approvals: React.FC = () => {
                 <th className="p-4 whitespace-nowrap">Request ID</th>
                 <th className="p-4 whitespace-nowrap">Type</th>
                 <th className="p-4 whitespace-nowrap">Related To</th>
+                <th className="p-4 whitespace-nowrap">Product Name</th>
                 <th className="p-4 whitespace-nowrap">Requested By</th>
                 <th className="p-4 whitespace-nowrap">Date</th>
                 <th className="p-4 whitespace-nowrap">Priority</th>
@@ -315,6 +326,9 @@ export const Approvals: React.FC = () => {
                     </td>
                     <td className="p-4 text-slate-600 dark:text-gray-300">
                       {req.relatedEntityName}
+                    </td>
+                    <td className="p-4 text-slate-600 dark:text-gray-300 font-medium text-xs">
+                      {getProductName(req)}
                     </td>
                     <td className="p-4 text-slate-600 dark:text-gray-300">
                       {req.requestedBy}

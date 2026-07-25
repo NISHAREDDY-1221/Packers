@@ -1,8 +1,7 @@
 import { Router, Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../utils/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Get settings and profile for a user
 router.get("/:userId", async (req: Request, res: Response) => {

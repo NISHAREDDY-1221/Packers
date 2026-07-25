@@ -30,11 +30,11 @@ export const Reports: React.FC = () => {
   };
 
   // 10 Filters State
-  const [filterDate, setFilterDate] = useState("2026-07-16");
+  const [filterDate, setFilterDate] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterEmployee, setFilterEmployee] = useState("All");
   const [filterProduct, setFilterProduct] = useState("All");
-  const [filterBatch, setFilterBatch] = useState("BATCH-2026-RICE-01");
+  const [filterBatch, setFilterBatch] = useState("All");
   const [filterWorkOrder, setFilterWorkOrder] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterSupervisor, setFilterSupervisor] = useState("All");
@@ -42,11 +42,11 @@ export const Reports: React.FC = () => {
   const [filterLocation, setFilterLocation] = useState("All");
 
   const resetFilters = () => {
-    setFilterDate("2026-07-16");
+    setFilterDate("");
     setFilterCategory("All");
     setFilterEmployee("All");
     setFilterProduct("All");
-    setFilterBatch("BATCH-2026-RICE-01");
+    setFilterBatch("All");
     setFilterWorkOrder("All");
     setFilterStatus("All");
     setFilterSupervisor("All");
@@ -76,6 +76,24 @@ export const Reports: React.FC = () => {
     );
   };
 
+  const filteredFG = React.useMemo(() => {
+    return finishedGoods.filter((fg) => {
+      if (filterDate && !fg.postedAt?.includes(filterDate)) return false;
+      if (filterProduct !== "All" && fg.productName !== filterProduct) return false;
+      if (filterBatch !== "All" && fg.batchNo !== filterBatch) return false;
+      if (filterWorkOrder !== "All" && fg.woNo !== filterWorkOrder) return false;
+      return true;
+    });
+  }, [finishedGoods, filterDate, filterProduct, filterBatch, filterWorkOrder]);
+
+  const filteredRepackings = React.useMemo(() => {
+    return repackings.filter((rp) => {
+      if (filterDate && !rp.createdAt?.includes(filterDate)) return false;
+      if (filterProduct !== "All" && rp.productName !== filterProduct) return false;
+      return true;
+    });
+  }, [repackings, filterDate, filterProduct]);
+
   // RENDER REPORT CONTENT BASED ON SELECT TAB
   const renderReportContent = () => {
     switch (activeTab) {
@@ -87,7 +105,7 @@ export const Reports: React.FC = () => {
                 Packing Production Log
               </h3>
               <span className="text-xs text-slate-500 font-medium">
-                {finishedGoods.length + 3} records found
+                {filteredFG.length} records found
               </span>
             </div>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
@@ -104,7 +122,7 @@ export const Reports: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {finishedGoods.map((fg) => (
+                  {filteredFG.map((fg) => (
                     <tr key={fg.id} className="hover:bg-slate-50/50">
                       <td className="p-3 text-slate-500">
                         {(fg.postedAt || "2026-07-16").split(" ")[0]}
@@ -127,7 +145,7 @@ export const Reports: React.FC = () => {
                       <td className="p-3 text-slate-600">Suresh Kumar</td>
                     </tr>
                   ))}
-                  {finishedGoods.length === 0 && (
+                  {filteredFG.length === 0 && (
                     <tr>
                       <td
                         colSpan={7}
@@ -148,10 +166,10 @@ export const Reports: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-slate-800 text-sm">
-                Repacking Recovery Summary
+                Repacking Log
               </h3>
               <span className="text-xs text-slate-500 font-medium">
-                {repackings.length + 2} records found
+                {filteredRepackings.length} records found
               </span>
             </div>
             <div className="overflow-x-auto table-scrollbar vk-table-container">
@@ -168,7 +186,7 @@ export const Reports: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {repackings.map((rp) => (
+                  {filteredRepackings.map((rp) => (
                     <tr key={rp.id} className="hover:bg-slate-50/50">
                       <td className="p-3 text-slate-500">
                         {(rp.createdAt || "-").split(" ")[0]}
@@ -197,7 +215,7 @@ export const Reports: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                  {repackings.length === 0 && (
+                  {filteredRepackings.length === 0 && (
                     <tr>
                       <td
                         colSpan={7}

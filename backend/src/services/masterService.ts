@@ -166,3 +166,26 @@ export class RecipeService {
     return { data: recipes, total, page: apiFeatures.queryString.page || 1 };
   }
 }
+
+export class UserService {
+  static async getAll(query: any = {}) {
+    const apiFeatures = new APIFeatures({}, query)
+      .filter()
+      .sort()
+      .paginate();
+
+    apiFeatures.query = {
+      ...apiFeatures.query,
+      include: {
+        role: true,
+      },
+    };
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany(apiFeatures.query),
+      prisma.user.count({ where: apiFeatures.query.where }),
+    ]);
+
+    return { data: users, total, page: apiFeatures.queryString.page || 1 };
+  }
+}

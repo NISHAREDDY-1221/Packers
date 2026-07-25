@@ -11,6 +11,8 @@ async function main() {
   const prod = await prisma.product.upsert({ where: { sku: 'PUL-TOOR-1KG' }, update: {}, create: { sku: 'PUL-TOOR-1KG', name: 'Toor Dal 1kg', categoryId: cat.id, uomId: uom.id, type: 'FINISHED_GOOD' } });
   const rec = await prisma.recipe.upsert({ where: { code: 'REC-TOOR-1KG' }, update: {}, create: { code: 'REC-TOOR-1KG', name: 'Toor Dal 1kg Recipe', outputProductId: prod.id, outputQty: 1 } });
   
+  const op1 = await prisma.user.findFirst({ where: { role: { name: 'OPERATOR' } } });
+  
   const wo = await prisma.workOrder.upsert({
     where: { woNumber: 'WO-12345' },
     update: {},
@@ -21,7 +23,7 @@ async function main() {
       status: 'APPROVED',
       priority: 'HIGH',
       requiredQty: 500,
-      supervisorId: adminUser.id
+      supervisorId: op1 ? op1.id : adminUser.id
     }
   });
   console.log('Seeded data');

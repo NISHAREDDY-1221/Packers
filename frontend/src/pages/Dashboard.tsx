@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React, { useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -46,13 +46,17 @@ const MetricCard = ({
 );
 
 export const Dashboard: React.FC = () => {
-  const { qualityChecks, finishedGoods, repackings, workOrders } = useApp();
+  const { qualityChecks, finishedGoods, repackings, workOrders, materialIssues, refreshGlobalData } = useApp();
   const { user } = useAuth();
   const navigate = useNavigate();
   const userRole =
     typeof user?.role === "string"
       ? user.role
       : (user?.role as any)?.name || "OPERATOR";
+
+  useEffect(() => {
+    refreshGlobalData();
+  }, []);
 
   const pendingWOs = workOrders.filter(
     (w) =>
@@ -122,8 +126,92 @@ export const Dashboard: React.FC = () => {
     : 0;
     
   const machineUtil = workOrders.length > 0 ? Math.min(100, Math.round((activeWOs.length / workOrders.length) * 100) + 15) : 0;
-  const nearExpiry = 0; // Mock until batch expiry is tracked
+  
+  // -- Dynamic Panel Data (Admin) --
+  const activeWOsAdmin = workOrders.filter(
+    (w) => w.status !== "Completed" && w.status !== "QC Printed" && w.status !== "Cancelled"
+  );
 
+  const activeLines = workOrders
+    .filter((w) => w.status === "Packing Started")
+    .map((w) => ({
+      lineId: w.assignedTeam || w.operator || "Line 1",
+      productName: w.productName,
+      progress: Math.round(((w.actualProduced || 0) / w.requiredQuantity) * 100),
+      status: "Running"
+    }));
+
+  const materialShortages = materialIssues
+    .flatMap((mi) => 
+      mi.materials
+        .filter((m) => (m.issued || 0) < m.required || mi.status === "Pending")
+        .map((m) => ({
+          woId: mi.woId,
+          materialName: m.name,
+          required: m.required,
+          issued: m.issued || 0,
+        }))
+    )
+    .slice(0, 3);
+
+  const activeBatchesCount = new Set(activeWOsAdmin.map((w) => w.batchNumber)).size;
+  const shiftTargetProgress = Math.round((completedWOs / Math.max(1, activeWOsAdmin.length + completedWOs)) * 100);
+
+  const dailyProduction = finishedGoods.reduce((acc, fg) => {
+    acc[fg.productName] = (acc[fg.productName] || 0) + fg.postedQty;
+    return acc;
+  }, {} as Record<string, number>);
+  const dailyProductionArr = Object.entries(dailyProduction).map(([name, qty]) => ({ name, qty }));
+
+  const categoryWise = workOrders.reduce((acc, wo) => {
+    const cat = wo.productName.split(" ")[0] || "General";
+    acc[cat] = (acc[cat] || 0) + (wo.actualProduced || 0);
+    return acc;
+  }, {} as Record<string, number>);
+  const categoryWiseArr = Object.entries(categoryWise).map(([name, qty]) => ({ name, qty }));
+
+  const employeePerformanceList = workOrders
+    .filter((w) => w.status === "Completed" || w.status === "QC Printed")
+    .reduce((acc, wo) => {
+      const emp = wo.operator || wo.assignedTeam || "Unknown";
+      acc[emp] = (acc[emp] || 0) + (wo.actualProduced || 0);
+      return acc;
+    }, {} as Record<string, number>);
+  const employeePerformanceArr = Object.entries(employeePerformanceList).map(([name, qty]) => ({ name, qty }));
+
+  const rmConsumption = materialIssues.reduce((acc, mi) => {
+    mi.materials.forEach((m) => {
+      acc[m.name] = (acc[m.name] || 0) + (m.issued || 0);
+    });
+    return acc;
+  }, {} as Record<string, number>);
+  const rmConsumptionArr = Object.entries(rmConsumption)
+    .filter(([_, qty]) => qty > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, qty]) => ({ name, qty }));
+
+  const rejectedItemsList = qualityChecks
+    .filter((qc) => qc.result === "Reject" || qc.result === "Rework")
+    .map((qc) => ({
+      batchNo: qc.batchNo,
+      product: qc.productName,
+      status: qc.result,
+    }))
+    .slice(0, 4);
+
+  const batchStatusList = workOrders
+    .filter((w) => w.batchNumber || w.woNo)
+    .slice(0, 5)
+    .map((w) => ({
+      batchNo: w.batchNumber || `BATCH-2026-${w.woNo?.split("-").pop() || "000"}`,
+      productName: w.productName,
+      status: w.status,
+    }));
+
+
+
+  const qcPendingOps = workOrders.filter((w) => w.status === "QC Pending").length;
 
   if (userRole === "QC_CHECKER" || userRole === "OPERATOR") {
     const greeting = new Date().getHours() < 12 ? "Good Morning" : new Date().getHours() < 17 ? "Good Afternoon" : "Good Evening";
@@ -131,7 +219,6 @@ export const Dashboard: React.FC = () => {
     // Operator-specific metrics
     const packingStarted = workOrders.filter((w) => w.status === "Packing Started").length;
     const materialIssued = workOrders.filter((w) => w.status === "Material Issued").length;
-    const qcPendingOps = workOrders.filter((w) => w.status === "QC Pending").length;
 
     return (
       <div className="pb-10 bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -144,7 +231,7 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center gap-2 mt-2">
                 <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse"></span>
                 <span className="text-green-100 text-xs font-medium">
-                  Store Open Â· Avg Processing {Math.round(workOrders.reduce((s, w) => s + (w.packingTimeSeconds || 0), 0) / Math.max(completedWOs, 1) / 60)} min
+                  Store Open - Avg Processing {Math.round(workOrders.reduce((s, w) => s + (w.packingTimeSeconds || 0), 0) / Math.max(completedWOs, 1) / 60)} min
                 </span>
               </div>
             </div>
@@ -200,7 +287,7 @@ export const Dashboard: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Weekly Performance</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This Week Â· Mon-Sun</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This Week - Mon-Sun</p>
               </div>
               <span className="text-xs font-semibold text-green-600 bg-green-50 dark:bg-green-900/30 px-3 py-1.5 rounded-full">
                 {userRole === "QC_CHECKER" ? todaysQCs.length + " checks this week" : completedWOs + " orders this week"}
@@ -319,7 +406,7 @@ export const Dashboard: React.FC = () => {
           Packing & Repacking Dashboard
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          Operations Command Center â€” Live monitoring of packing lines, batches,
+          Operations Command Center - Live monitoring of packing lines, batches,
           and efficiency
         </p>
       </div>
@@ -344,10 +431,6 @@ export const Dashboard: React.FC = () => {
               {todayOutput || 0}{" "}
               <span className="text-xs font-medium text-slate-400">units</span>
             </h4>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
           </div>
 
           {/* 2. Today's Repacking */}
@@ -362,10 +445,6 @@ export const Dashboard: React.FC = () => {
               {todayRepacking || 0}{" "}
               <span className="text-xs font-medium text-slate-400">units</span>
             </h4>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
           </div>
 
           {/* 3. Pending Work Orders */}
@@ -380,10 +459,6 @@ export const Dashboard: React.FC = () => {
               {pendingWOs || 0}{" "}
               <span className="text-xs font-medium text-slate-400">orders</span>
             </h4>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
           </div>
 
           {/* 4. Completed Work Orders */}
@@ -399,10 +474,6 @@ export const Dashboard: React.FC = () => {
                 {completedWOs || 0}{" "}
                 <span className="text-xs font-medium text-slate-400">jobs</span>
               </h4>
-              <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
-                <TrendingUp size={10} />
-                <span>-</span>
-              </div>
             </div>
           )}
 
@@ -421,42 +492,21 @@ export const Dashboard: React.FC = () => {
                   batches
                 </span>
               </h4>
-              <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-1">
-                <span>-</span>
-              </div>
             </div>
           )}
         </div>
 
         {/* Secondary Row - 8 Columns */}
         {userRole === "ADMIN" && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {/* 6. Packing Efficiency */}
             <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
               <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">
                 Packing Efficiency
               </span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">{packingEfficiency}%</h4>
-              <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2">
-                <span>-</span>
-              </div>
             </div>
 
-            {/* 7. Packing Cost */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
-              <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">
-                Packing Cost
-              </span>
-              <h4 className="text-lg font-bold text-slate-800 mt-1">
-                â‚¹{avgPackingCost}{" "}
-                <span className="text-[10px] text-slate-400 font-medium">
-                  /u
-                </span>
-              </h4>
-              <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2">
-                <span>-</span>
-              </div>
-            </div>
 
             {/* 8. Wastage % */}
             <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
@@ -464,9 +514,6 @@ export const Dashboard: React.FC = () => {
                 Wastage %
               </span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">{wastagePercent}%</h4>
-              <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
-                <span>-</span>
-              </div>
             </div>
 
             {/* 9. Today's Finished Goods */}
@@ -480,9 +527,6 @@ export const Dashboard: React.FC = () => {
                   u
                 </span>
               </h4>
-              <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
-                <span>-</span>
-              </div>
             </div>
 
             {/* 10. Barcode Generated */}
@@ -496,26 +540,8 @@ export const Dashboard: React.FC = () => {
                   tags
                 </span>
               </h4>
-              <div className="flex items-center justify-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate w-full">
-                <span>-</span>
-              </div>
             </div>
 
-            {/* 11. Near Expiry (NEW) */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
-              <span className="text-[10px] font-semibold text-slate-500 block truncate w-full">
-                Near Expiry
-              </span>
-              <h4 className="text-lg font-bold text-slate-800 mt-1">
-                {nearExpiry}{" "}
-                <span className="text-[10px] text-slate-400 font-medium">
-                  batches
-                </span>
-              </h4>
-              <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400 font-semibold mt-2 truncate w-full">
-                <span>-</span>
-              </div>
-            </div>
 
             {/* 12. Employee Productivity (NEW) */}
             <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col items-center justify-center text-center min-h-[100px]">
@@ -528,9 +554,6 @@ export const Dashboard: React.FC = () => {
                   u/hr
                 </span>
               </h4>
-              <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate">
-                <span>-</span>
-              </div>
             </div>
 
             {/* 13. Machine Utilization (NEW) */}
@@ -539,9 +562,6 @@ export const Dashboard: React.FC = () => {
                 Machine Util
               </span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">{machineUtil}%</h4>
-              <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate">
-                <span>-</span>
-              </div>
             </div>
           </div>
         )}
@@ -775,9 +795,26 @@ export const Dashboard: React.FC = () => {
                   Live Packing Queue (Lines)
                 </h4>
 
-                <div className="text-slate-400 text-xs mt-4">
-                  No active packing lines.
-                </div>
+                {activeLines.length === 0 ? (
+                  <div className="text-slate-400 text-xs mt-4">
+                    No active packing lines.
+                  </div>
+                ) : (
+                  <div className="space-y-3 mt-4">
+                    {activeLines.map((line, idx) => (
+                      <div key={idx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-bold text-xs text-slate-800">{line.lineId}</span>
+                          <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">{line.progress}%</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 mb-2 truncate">{line.productName}</div>
+                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-green-500 h-full rounded-full" style={{ width: `${line.progress}%` }}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -802,9 +839,26 @@ export const Dashboard: React.FC = () => {
               </NavLink>
             </div>
 
-            <div className="text-slate-400 text-xs">
-              No material shortages currently reported.
-            </div>
+            {materialShortages.length === 0 ? (
+              <div className="text-slate-400 text-xs">
+                No material shortages currently reported.
+              </div>
+            ) : (
+              <div className="space-y-2 mt-2">
+                {materialShortages.map((ms, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-2 bg-rose-50/50 border border-rose-100 rounded-lg">
+                    <div>
+                      <div className="font-bold text-xs text-rose-900">{ms.materialName}</div>
+                      <div className="text-[10px] text-rose-600 font-medium">{ms.woId}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-xs text-rose-700">{ms.issued} / {ms.required}</div>
+                      <div className="text-[10px] text-rose-500">Issued / Req</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* FOURTH SECTION: PACKING STATUS, DAILY PRODUCTION, CATEGORY WISE PACKING */}
@@ -829,29 +883,29 @@ export const Dashboard: React.FC = () => {
                   <span className="text-slate-500 font-medium">
                     Active Batches
                   </span>
-                  <span className="font-bold text-slate-800">0 Batches</span>
+                  <span className="font-bold text-slate-800">{activeBatchesCount} Batches</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">
                     Completed Today
                   </span>
-                  <span className="font-bold text-green-600">0 Jobs</span>
+                  <span className="font-bold text-green-600">{completedWOs} Jobs</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">
                     Pending QC Release
                   </span>
-                  <span className="font-bold text-orange-500">0 Batches</span>
+                  <span className="font-bold text-orange-500">{qcPendingOps} Batches</span>
                 </div>
                 <div className="pt-1.5">
                   <div className="flex justify-between mb-1 text-[10px] font-bold text-slate-400">
                     <span>Shift Target Progress</span>
-                    <span>0%</span>
+                    <span>{shiftTargetProgress}%</span>
                   </div>
                   <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                     <div
                       className="bg-green-600 h-full rounded-full"
-                      style={{ width: "0%" }}
+                      style={{ width: `${shiftTargetProgress}%` }}
                     ></div>
                   </div>
                 </div>
@@ -873,9 +927,29 @@ export const Dashboard: React.FC = () => {
                 </NavLink>
               </div>
 
-              <div className="text-slate-400 text-xs mt-4">
-                No daily production data available yet.
-              </div>
+              {dailyProductionArr.length === 0 ? (
+                <div className="text-slate-400 text-xs mt-4">
+                  No daily production data available yet.
+                </div>
+              ) : (
+                <div className="space-y-3 mt-4">
+                  {dailyProductionArr.slice(0, 4).map((dp, idx) => {
+                    const maxQty = Math.max(...dailyProductionArr.map(d => d.qty), 1);
+                    const pct = Math.round((dp.qty / maxQty) * 100);
+                    return (
+                      <div key={idx}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-semibold text-slate-700 truncate">{dp.name}</span>
+                          <span className="font-bold text-green-700">{dp.qty} u</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Category Wise Packing */}
@@ -893,9 +967,34 @@ export const Dashboard: React.FC = () => {
                 </NavLink>
               </div>
 
-              <div className="text-slate-400 text-xs mt-4">
-                No category packing data available.
-              </div>
+              {categoryWiseArr.length === 0 ? (
+                <div className="text-slate-400 text-xs mt-4">
+                  No category packing data available.
+                </div>
+              ) : (
+                <div className="space-y-3 mt-4">
+                  {categoryWiseArr.slice(0, 4).map((cat, idx) => {
+                    const total = Math.max(categoryWiseArr.reduce((s, c) => s + c.qty, 0), 1);
+                    const pct = Math.round((cat.qty / total) * 100);
+                    return (
+                      <div key={idx} className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0 text-indigo-600 font-bold text-[10px]">
+                          {pct}%
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between text-xs mb-0.5">
+                            <span className="font-semibold text-slate-700 truncate">{cat.name}</span>
+                            <span className="font-bold text-slate-800">{cat.qty}</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -916,9 +1015,29 @@ export const Dashboard: React.FC = () => {
                 </NavLink>
               </div>
 
-              <div className="text-slate-400 text-xs mt-4">
-                No employee performance data available.
-              </div>
+              {employeePerformanceArr.length === 0 ? (
+                <div className="text-slate-400 text-xs mt-4">
+                  No employee performance data available.
+                </div>
+              ) : (
+                <div className="space-y-3 mt-4">
+                  {employeePerformanceArr.slice(0, 4).map((emp, idx) => {
+                    const maxQty = Math.max(...employeePerformanceArr.map(e => e.qty), 1);
+                    const pct = Math.round((emp.qty / maxQty) * 100);
+                    return (
+                      <div key={idx} className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-bold text-xs text-slate-800">{emp.name}</span>
+                          <span className="text-[10px] font-semibold text-green-700">{emp.qty} Units</span>
+                        </div>
+                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Raw Material Consumption */}
@@ -936,9 +1055,20 @@ export const Dashboard: React.FC = () => {
                 </NavLink>
               </div>
 
-              <div className="text-slate-400 text-xs mt-4">
-                No material consumption data available.
-              </div>
+              {rmConsumptionArr.length === 0 ? (
+                <div className="text-slate-400 text-xs mt-4">
+                  No material consumption data available.
+                </div>
+              ) : (
+                <div className="space-y-3 mt-4">
+                  {rmConsumptionArr.map((rm, idx) => (
+                    <div key={idx} className="flex justify-between items-center pb-2 border-b border-slate-100 last:border-0 last:pb-0">
+                      <span className="text-xs font-semibold text-slate-700">{rm.name}</span>
+                      <span className="text-xs font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-full">{rm.qty}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Rejected Items */}
@@ -956,9 +1086,25 @@ export const Dashboard: React.FC = () => {
                 </NavLink>
               </div>
 
-              <div className="text-slate-400 text-xs mt-4">
-                No rejected items recorded.
-              </div>
+              {rejectedItemsList.length === 0 ? (
+                <div className="text-slate-400 text-xs mt-4">
+                  No rejected items recorded.
+                </div>
+              ) : (
+                <div className="space-y-2 mt-4">
+                  {rejectedItemsList.map((rej, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-2 bg-rose-50 border border-rose-100 rounded-lg">
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-rose-900 truncate">{rej.batchNo}</div>
+                        <div className="text-[10px] text-rose-600 truncate">{rej.product}</div>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-rose-500 px-2 py-1 rounded">
+                        {rej.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -977,7 +1123,38 @@ export const Dashboard: React.FC = () => {
               </NavLink>
             </div>
 
-            <div className="text-slate-400 text-xs">No active batches.</div>
+            {batchStatusList.length === 0 ? (
+              <div className="text-slate-400 text-xs">No active batches.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                      <th className="pb-2 font-semibold">Batch No</th>
+                      <th className="pb-2 font-semibold">Product</th>
+                      <th className="pb-2 font-semibold text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {batchStatusList.map((batch, idx) => (
+                      <tr key={idx}>
+                        <td className="py-2 text-xs font-bold text-slate-800">{batch.batchNo}</td>
+                        <td className="py-2 text-[10px] text-slate-500 truncate max-w-[120px]" title={batch.productName}>{batch.productName}</td>
+                        <td className="py-2 text-right">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            batch.status === 'Completed' || batch.status === 'QC Printed' ? 'bg-green-100 text-green-700' :
+                            batch.status === 'QC Pending' || batch.status === 'Packing Started' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {batch.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

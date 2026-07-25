@@ -200,4 +200,8 @@ router
   .get(controller.getRecipes)
   .post(validate(validation.createRecipeSchema), controller.createRecipe);
 
+router
+  .route("/users")
+  .get(controller.getUsers);
+
 export default router;

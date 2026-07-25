@@ -1,6 +1,16 @@
 import apiClient from "./axios";
 
 // --- Types matching Prisma Schema ---
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  roleId: string;
+  role?: {
+    name: string;
+  };
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -25,6 +35,7 @@ export interface Product {
   uomId: string;
   type?: "RAW_MATERIAL" | "PACKAGING" | "FINISHED_GOOD";
   isActive?: boolean;
+  availableStock?: number;
   category?: Category;
   uom?: UnitOfMeasure;
 }
@@ -120,5 +131,11 @@ export const masterDataService = {
       data,
     );
     return res.data.data;
+  },
+
+  // Users
+  async getUsers(): Promise<User[]> {
+    const res = await apiClient.get<any>("/master-data/users");
+    return res.data.data.data || res.data.data;
   },
 };

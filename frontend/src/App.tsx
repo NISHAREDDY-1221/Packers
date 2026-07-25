@@ -157,7 +157,11 @@ const router = createBrowserRouter([
       },
     ],
   },
-]);
+], {
+  future: {
+    v7_startTransition: true,
+  }
+});
 
 function App() {
   return (
