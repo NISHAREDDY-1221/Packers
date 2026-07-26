@@ -1,28 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { qcTasksService } from '../services/qcTasksService';
 import type { QCInspection } from '../../../shared/types';
-import { Search, Filter, History, Clock, CheckCircle, ArrowRight, X } from 'lucide-react';
+import { Search, Filter, History, Clock, CheckCircle, AlertTriangle, ArrowRight, X } from 'lucide-react';
 
 export const QCHistory: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [jobs, setJobs] = useState<QCInspection[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Search & Filter State
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [filterDate, setFilterDate] = useState('All');
+  const [filterDate, setFilterDate] = useState(location.state?.date || 'All');
+  const [filterStatus, setFilterStatus] = useState(location.state?.status || 'All');
 
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         const response = await qcTasksService.getWorkOrders();
-        // For QC history, let's show QC_PASSED work orders.
-        const completedJobs = response.data.filter((wo: any) => wo.status === 'QC_PASSED');
+        // Show both passed and failed work orders in history
+        const completedJobs = response.data.filter((wo: any) => 
+          wo.status === 'QC_PASSED' || wo.status === 'PACKING_STARTED' || wo.status === 'FAILED'
+        );
         
-        // Sort latest completed first
-        completedJobs.sort((a: any, b: any) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+        // Sort latest completed first (using updatedAt as fallback for failed jobs)
+        completedJobs.sort((a: any, b: any) => new Date(b.completedAt || b.updatedAt || 0).getTime() - new Date(a.completedAt || a.updatedAt || 0).getTime());
         setJobs(completedJobs);
       } catch (err) {
         console.error('Failed to fetch history', err);
@@ -45,18 +49,28 @@ export const QCHistory: React.FC = () => {
     if (!matchesSearch) return false;
 
     // Date Filter
-    if (filterDate !== 'All' && job.completedAt) {
+    if (filterDate !== 'All') {
       const now = new Date();
-      const jobDate = new Date(job.completedAt);
-      if (filterDate === 'Today') {
-        if (jobDate.toDateString() !== now.toDateString()) return false;
-      } else if (filterDate === 'This Week') {
-        const weekAgo = new Date();
-        weekAgo.setDate(now.getDate() - 7);
-        if (jobDate < weekAgo) return false;
-      } else if (filterDate === 'This Month') {
-        if (jobDate.getMonth() !== now.getMonth() || jobDate.getFullYear() !== now.getFullYear()) return false;
+      // Use completedAt for passed, updatedAt for failed as a fallback
+      const jobDateStr = job.completedAt || job.updatedAt;
+      if (jobDateStr) {
+        const jobDate = new Date(jobDateStr);
+        if (filterDate === 'Today') {
+          if (jobDate.toDateString() !== now.toDateString()) return false;
+        } else if (filterDate === 'This Week') {
+          const weekAgo = new Date();
+          weekAgo.setDate(now.getDate() - 7);
+          if (jobDate < weekAgo) return false;
+        } else if (filterDate === 'This Month') {
+          if (jobDate.getMonth() !== now.getMonth() || jobDate.getFullYear() !== now.getFullYear()) return false;
+        }
       }
+    }
+
+    // Status Filter
+    if (filterStatus !== 'All') {
+      if (filterStatus === 'passed' && job.status !== 'QC_PASSED') return false;
+      if (filterStatus === 'failed' && job.status === 'QC_PASSED') return false; // Any other status is considered failed/rework in this context
     }
 
     return true;
@@ -118,6 +132,18 @@ export const QCHistory: React.FC = () => {
                 </button>
               ))}
             </div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase mt-4">Status</label>
+            <div className="flex flex-wrap gap-2">
+              {['All', 'passed', 'failed'].map(opt => (
+                <button 
+                  key={opt}
+                  onClick={() => setFilterStatus(opt)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors capitalize ${filterStatus === opt ? 'bg-green-600 text-white border-green-600' : 'bg-gray-50 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100'}`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -140,9 +166,12 @@ export const QCHistory: React.FC = () => {
                     <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{job.product?.name || 'Product'}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">Batch: {job.batchNumber || 'N/A'}</p>
                   </div>
-                  <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center border bg-green-50 text-green-700 border-green-100`}>
-                    <CheckCircle size={12} className="mr-1" />
-                    Passed
+                  <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center border ${job.status === 'QC_PASSED' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                    {job.status === 'QC_PASSED' ? (
+                      <><CheckCircle size={12} className="mr-1" /> Passed</>
+                    ) : (
+                      <><AlertTriangle size={12} className="mr-1" /> Failed</>
+                    )}
                   </div>
                 </div>
 

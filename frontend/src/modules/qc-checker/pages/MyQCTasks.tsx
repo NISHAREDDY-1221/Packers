@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, Filter, PackageCheck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { qcTasksService } from '../services/qcTasksService';
 import type { QCInspection } from '../../../shared/types';
 
 export const MyQCTasks: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'pending' | 'ready' | 'in-progress'>('ready');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'pending' | 'ready' | 'in-progress'>(location.state?.filter || 'ready');
   const [tasks, setTasks] = useState<QCInspection[]>([]);
   const [loading, setLoading] = useState(true);
 

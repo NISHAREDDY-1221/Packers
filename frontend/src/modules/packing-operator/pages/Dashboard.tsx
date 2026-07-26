@@ -167,7 +167,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => navigate('/operator/active-packing')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-green-50 hover:text-green-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-green-200 group"
               >
-                <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm mr-3 group-hover:bg-green-100 text-gray-600 group-hover:text-green-600">
+                <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg shadow-sm mr-3 text-green-600">
                   <Play size={20} />
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-green-700">Resume Packing</span>
@@ -177,7 +177,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => navigate('/operator/jobs')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-blue-200 group"
               >
-                <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm mr-3 group-hover:bg-blue-100 text-gray-600 group-hover:text-blue-600">
+                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg shadow-sm mr-3 text-blue-600">
                   <Package size={20} />
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-blue-700">My Jobs</span>
@@ -187,7 +187,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => navigate('/operator/report-issue')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-red-50 hover:text-red-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-red-200 group"
               >
-                <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm mr-3 group-hover:bg-red-100 text-gray-600 group-hover:text-red-600">
+                <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg shadow-sm mr-3 text-red-600">
                   <AlertTriangle size={20} />
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-red-700">Report Issue</span>

@@ -43,12 +43,60 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const kpis = [
-    { title: 'Pending Inspection', value: stats.pending.toString(), icon: Clock, color: 'text-gray-500', bg: 'bg-gray-100', border: 'border-gray-200' },
-    { title: 'Ready for QC', value: stats.ready.toString(), icon: PackageCheck, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-    { title: 'QC In Progress', value: stats.inProgress.toString(), icon: Play, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
-    { title: 'Passed Today', value: stats.completed.toString(), icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
-    { title: 'Failed Today', value: stats.delayed.toString(), icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100' },
-    { title: 'Issues Reported', value: stats.issues.toString(), icon: AlertCircle, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+    { 
+      title: 'Pending Inspection', 
+      value: stats.pending.toString(), 
+      icon: Clock, 
+      color: 'text-gray-500', 
+      bg: 'bg-gray-100', 
+      border: 'border-gray-200',
+      onClick: () => navigate('/qc/tasks', { state: { filter: 'pending' } })
+    },
+    { 
+      title: 'Ready for QC', 
+      value: stats.ready.toString(), 
+      icon: PackageCheck, 
+      color: 'text-blue-600', 
+      bg: 'bg-blue-50', 
+      border: 'border-blue-100',
+      onClick: () => navigate('/qc/tasks', { state: { filter: 'ready' } })
+    },
+    { 
+      title: 'QC In Progress', 
+      value: stats.inProgress.toString(), 
+      icon: Play, 
+      color: 'text-orange-600', 
+      bg: 'bg-orange-50', 
+      border: 'border-orange-100',
+      onClick: () => navigate('/qc/active-inspection')
+    },
+    { 
+      title: 'Passed Today', 
+      value: stats.completed.toString(), 
+      icon: CheckCircle, 
+      color: 'text-green-600', 
+      bg: 'bg-green-50', 
+      border: 'border-green-100',
+      onClick: () => navigate('/qc/history', { state: { status: 'passed', date: 'Today' } })
+    },
+    { 
+      title: 'Failed Today', 
+      value: stats.delayed.toString(), 
+      icon: AlertTriangle, 
+      color: 'text-red-600', 
+      bg: 'bg-red-50', 
+      border: 'border-red-100',
+      onClick: () => navigate('/qc/history', { state: { status: 'failed', date: 'Today' } })
+    },
+    { 
+      title: 'Issues Reported', 
+      value: stats.issues.toString(), 
+      icon: AlertCircle, 
+      color: 'text-purple-600', 
+      bg: 'bg-purple-50', 
+      border: 'border-purple-100',
+      onClick: () => {} // On hold
+    },
   ];
 
   return (
@@ -58,7 +106,11 @@ export const Dashboard: React.FC = () => {
         {kpis.map((kpi, index) => {
           const Icon = kpi.icon;
           return (
-            <div key={index} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between h-full transition-transform hover:-translate-y-1">
+            <div 
+              key={index} 
+              onClick={kpi.onClick}
+              className={`bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between h-full transition-transform ${kpi.title !== 'Issues Reported' ? 'hover:-translate-y-1 cursor-pointer' : ''}`}
+            >
               <div className="flex justify-between items-start mb-4">
                 <div className={`p-2.5 rounded-xl ${kpi.bg} ${kpi.border} border`}>
                   <Icon size={20} className={kpi.color} />
@@ -153,7 +205,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => navigate('/qc/active-inspection')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-green-50 hover:text-green-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-green-200 group"
               >
-                <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm mr-3 group-hover:bg-green-100 text-gray-600 group-hover:text-green-600">
+                <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg shadow-sm mr-3 text-green-600">
                   <Play size={20} />
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-green-700">Resume QC</span>
@@ -163,7 +215,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => navigate('/qc/tasks')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-blue-200 group"
               >
-                <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm mr-3 group-hover:bg-blue-100 text-gray-600 group-hover:text-blue-600">
+                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg shadow-sm mr-3 text-blue-600">
                   <PackageCheck size={20} />
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-blue-700">My QC Tasks</span>
@@ -173,7 +225,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => navigate('/qc/report-issue')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-red-50 hover:text-red-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-red-200 group"
               >
-                <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm mr-3 group-hover:bg-red-100 text-gray-600 group-hover:text-red-600">
+                <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg shadow-sm mr-3 text-red-600">
                   <AlertTriangle size={20} />
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-red-700">Report Issue</span>

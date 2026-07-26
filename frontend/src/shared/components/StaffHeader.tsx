@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Sun, Moon, Bell, Menu } from 'lucide-react';
+import { MapPin, Sun, Moon, Bell } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface StaffHeaderProps {
@@ -61,11 +61,8 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({ darkMode, setDarkMode,
 
       {/* Mobile Header */}
       <header className="md:hidden bg-green-600 text-white px-4 py-4 shadow-md z-10 shrink-0 flex flex-col gap-3">
-        {/* Top Row: Hamburger & Notifications */}
-        <div className="flex justify-between items-center">
-          <button className="p-1 hover:bg-green-700 rounded-lg transition-colors">
-            <Menu size={24} />
-          </button>
+        {/* Top Row: Notifications */}
+        <div className="flex justify-end items-center">
           <div className="flex items-center gap-2">
             <button 
               className="p-1 hover:bg-green-700 rounded-lg transition-colors relative"
