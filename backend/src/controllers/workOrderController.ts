@@ -44,3 +44,44 @@ export const startPacking = catchAsync(async (req: Request, res: Response) => {
   const updatedWO = await WorkOrderService.startPacking(id, userId);
   sendResponse(res, 200, 'Packing execution started', updatedWO);
 });
+
+export const updateQuantity = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { actualProduced, actualRejected } = req.body;
+  const userId = req.user!.id;
+
+  const updatedWO = await WorkOrderService.updateQuantity(id, { actualProduced, actualRejected }, userId);
+  sendResponse(res, 200, 'Quantities updated', updatedWO);
+});
+
+export const pausePacking = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { reason } = req.body;
+  const userId = req.user!.id;
+
+  const updatedWO = await WorkOrderService.pausePacking(id, reason, userId);
+  sendResponse(res, 200, 'Packing paused', updatedWO);
+});
+
+export const resumePacking = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = req.user!.id;
+
+  const updatedWO = await WorkOrderService.resumePacking(id, userId);
+  sendResponse(res, 200, 'Packing resumed', updatedWO);
+});
+
+export const completePacking = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const userId = req.user!.id;
+
+  const updatedWO = await WorkOrderService.completePacking(id, userId);
+  sendResponse(res, 200, 'Packing completed', updatedWO);
+});
+
+export const getAuditLogsForWorkOrder = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  
+  const logs = await WorkOrderService.getAuditLogs(id);
+  sendResponse(res, 200, 'Audit logs retrieved', logs);
+});

@@ -193,4 +193,146 @@ export class WorkOrderService {
 
     return updatedWO;
   }
+
+  static async updateQuantity(id: string, data: { actualProduced?: number; actualRejected?: number }, userId: string) {
+    const workOrder = await prisma.workOrder.findUnique({ where: { id } });
+    if (!workOrder) throw new AppError(404, 'Work Order not found');
+    
+    if (workOrder.status !== 'PACKING_STARTED' && workOrder.status !== 'QC_PENDING') {
+      throw new AppError(400, 'Cannot update quantities for this work order status');
+    }
+
+    const produced = data.actualProduced ?? workOrder.actualProduced ?? 0;
+    const rejected = data.actualRejected ?? workOrder.actualRejected ?? 0;
+
+    if (produced + rejected > workOrder.requiredQty) {
+      throw new AppError(400, 'Total quantities cannot exceed required quantity');
+    }
+
+    const updatedWO = await prisma.workOrder.update({
+      where: { id },
+      data: {
+        actualProduced: produced,
+        actualRejected: rejected,
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'UPDATE_QUANTITY',
+        entity: 'WorkOrder',
+        entityId: updatedWO.id,
+        oldData: { actualProduced: workOrder.actualProduced, actualRejected: workOrder.actualRejected },
+        newData: { actualProduced: updatedWO.actualProduced, actualRejected: updatedWO.actualRejected },
+      }
+    });
+
+    return updatedWO;
+  }
+
+  static async pausePacking(id: string, reason: string, userId: string) {
+    const workOrder = await prisma.workOrder.findUnique({ where: { id } });
+    if (!workOrder) throw new AppError(404, 'Work Order not found');
+
+    if (workOrder.status !== 'PACKING_STARTED') {
+      throw new AppError(400, 'Cannot pause packing for this work order status');
+    }
+
+    const updatedWO = await prisma.workOrder.update({
+      where: { id },
+      data: { isPaused: true, pauseReason: reason },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'PAUSE_PACKING',
+        entity: 'WorkOrder',
+        entityId: updatedWO.id,
+        newData: { isPaused: true, pauseReason: reason },
+      }
+    });
+
+    return updatedWO;
+  }
+
+  static async resumePacking(id: string, userId: string) {
+    const workOrder = await prisma.workOrder.findUnique({ where: { id } });
+    if (!workOrder) throw new AppError(404, 'Work Order not found');
+
+    if (!workOrder.isPaused) {
+      throw new AppError(400, 'Work Order is not paused');
+    }
+
+    const updatedWO = await prisma.workOrder.update({
+      where: { id },
+      data: { isPaused: false, pauseReason: null },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'RESUME_PACKING',
+        entity: 'WorkOrder',
+        entityId: updatedWO.id,
+        newData: { isPaused: false, pauseReason: null },
+      }
+    });
+
+    return updatedWO;
+  }
+
+  static async completePacking(id: string, userId: string) {
+    const workOrder = await prisma.workOrder.findUnique({ where: { id } });
+    if (!workOrder) throw new AppError(404, 'Work Order not found');
+
+    const produced = workOrder.actualProduced ?? 0;
+    const rejected = workOrder.actualRejected ?? 0;
+
+    if (produced + rejected < workOrder.requiredQty) {
+      throw new AppError(400, 'Cannot complete packing until all required quantity is processed');
+    }
+
+    const updatedWO = await prisma.workOrder.update({
+      where: { id },
+      data: {
+        status: 'QC_PENDING',
+        completedAt: new Date(),
+        isPaused: false,
+        pauseReason: null
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'COMPLETE_PACKING',
+        entity: 'WorkOrder',
+        entityId: updatedWO.id,
+        oldData: { status: workOrder.status },
+        newData: { status: updatedWO.status, completedAt: updatedWO.completedAt },
+      }
+    });
+
+    return updatedWO;
+  }
+
+  static async getAuditLogs(workOrderId: string) {
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        entity: 'WorkOrder',
+        entityId: workOrderId
+      },
+      include: {
+        user: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+    return logs;
+  }
 }

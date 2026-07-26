@@ -27,6 +27,7 @@ model User {
   qualityChecks  QualityCheck[]
   materialIssues MaterialIssue[]
   auditLogs      AuditLog[]
+  reportedIssues Issue[] @relation("ReportedIssues")
 
   requestedApprovals ApprovalRequest[] @relation("RequestedApprovals")
   approvalActions    ApprovalHistory[] @relation("ApprovalActions")
@@ -158,6 +159,9 @@ model WorkOrder {
   supervisorId     String
   supervisor       User        @relation(fields: [supervisorId], references: [id])
   
+  isPaused         Boolean     @default(false)
+  pauseReason      String?
+  
   operatorId       String?
   operator         User?       @relation("OperatorAssigned", fields: [operatorId], references: [id])
 
@@ -174,6 +178,7 @@ model WorkOrder {
   qualityChecks    QualityCheck[]
   finishedGoods    FinishedGoods[]
   repackingLogs    RepackingLog[]
+  reportedIssues   Issue[]
 }
 
 enum WoStatus {
@@ -354,5 +359,34 @@ model ApprovalHistory {
   actionBy          User            @relation("ApprovalActions", fields: [actionById], references: [id])
   actionDate        DateTime        @default(now())
   comments          String?
+}
+
+// ----------------------------------------
+// Issues
+// ----------------------------------------
+
+model Issue {
+  id           String    @id @default(uuid())
+  type         IssueType
+  description  String
+  photoUrls    String[]  @default([])
+  woId         String?
+  workOrder    WorkOrder? @relation(fields: [woId], references: [id])
+  reportedById String
+  reportedBy   User       @relation("ReportedIssues", fields: [reportedById], references: [id])
+  status       String     @default("OPEN")
+  priority     Priority   @default(MEDIUM)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum IssueType {
+  MACHINE_ISSUE
+  MATERIAL_SHORTAGE
+  BARCODE_PROBLEM
+  DAMAGED_PRODUCT
+  PACKING_QUALITY_ISSUE
+  APP_SYSTEM_ISSUE
+  OTHER
 }
 

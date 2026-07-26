@@ -133,4 +133,10 @@ router.post('/:id/issue-materials', validate(validation.issueMaterialsSchema), c
  */
 router.post('/:id/start-packing', controller.startPacking);
 
+router.patch('/:id/update-quantity', validate(validation.updateQuantitySchema), controller.updateQuantity);
+router.post('/:id/pause', validate(validation.pausePackingSchema), controller.pausePacking);
+router.post('/:id/resume', controller.resumePacking);
+router.post('/:id/complete', controller.completePacking);
+router.get('/:id/audit-logs', controller.getAuditLogsForWorkOrder);
+
 export default router;

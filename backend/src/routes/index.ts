@@ -5,6 +5,7 @@ import workOrderRoutes from './workOrderRoutes';
 import workflowRoutes from './workflowRoutes';
 import reportRoutes from './reportRoutes';
 import approvalRoutes from './approvalRoutes';
+import issueRoutes from './issueRoutes';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/work-orders', workOrderRoutes);
 router.use('/workflows', workflowRoutes);
 router.use('/reports', reportRoutes);
 router.use('/approvals', approvalRoutes);
+router.use('/issues', issueRoutes);
 
 export default router;
