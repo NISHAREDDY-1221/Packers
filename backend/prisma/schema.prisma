@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ----------------------------------------
@@ -76,6 +77,7 @@ model Product {
   uom           UnitOfMeasure  @relation(fields: [uomId], references: [id])
   type          ProductType // RAW_MATERIAL, PACKAGING, FINISHED_GOOD
   isActive      Boolean        @default(true)
+  availableStock Float?        @default(0)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   
