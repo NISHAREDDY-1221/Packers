@@ -9,6 +9,20 @@ export const getQualityChecks = catchAsync(async (req: Request, res: Response) =
   sendResponse(res, 200, 'Quality Checks retrieved', result);
 });
 
+// --- QC Checklists ---
+export const getQcChecklists = catchAsync(async (req: Request, res: Response) => {
+  // Configurable QC Checkpoints
+  const checklists = [
+    { id: '1', label: 'Packaging Quality', required: true },
+    { id: '2', label: 'Label Verification', required: true },
+    { id: '3', label: 'Barcode Verification', required: true },
+    { id: '4', label: 'Quantity Verification', required: true },
+    { id: '5', label: 'Product Condition', required: true },
+    { id: '6', label: 'Expiry Date Verification', required: true },
+  ];
+  sendResponse(res, 200, 'QC Checklists retrieved', { data: checklists });
+});
+
 export const submitQualityCheck = catchAsync(async (req: Request, res: Response) => {
   const { woId, checkedQty, result, severity, failureReason, remarks, checksPayload } = req.body;
   const inspectorId = req.user!.id;

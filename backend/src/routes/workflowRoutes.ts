@@ -62,6 +62,19 @@ router.route('/quality-checks')
 
 /**
  * @openapi
+ * /workflows/qc-checklists:
+ *   get:
+ *     summary: Get all QC Checklists
+ *     tags:
+ *       - Workflows
+ *     responses:
+ *       200:
+ *         description: QC Checklists retrieved
+ */
+router.get('/qc-checklists', controller.getQcChecklists);
+
+/**
+ * @openapi
  * /workflows/finished-goods:
  *   post:
  *     summary: Post to Finished Goods
