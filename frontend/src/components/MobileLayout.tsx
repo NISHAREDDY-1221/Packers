@@ -21,12 +21,11 @@ export const MobileLayout: React.FC = () => {
   }, [darkMode]);
 
   const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
-  const isQC = userRole === 'QC_INSPECTOR';
+  const isQC = userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
+  const isProfilePage = location.pathname.includes('/profile');
 
   useEffect(() => {
-    if (!isQC) {
-      workOrderService.getWorkOrders().then(res => setAssignedJobsCount(res.data.length)).catch(console.error);
-    }
+    workOrderService.getWorkOrders().then(res => setAssignedJobsCount(res.data.length)).catch(console.error);
   }, [isQC]);
 
   const handleLogout = () => {
@@ -47,8 +46,9 @@ export const MobileLayout: React.FC = () => {
   };
 
   const navItems = isQC ? [
-    { icon: Home, label: 'Home', path: '/staff' },
-    { icon: PackageCheck, label: 'QC Tasks', path: '/staff/tasks' },
+    { icon: Home, label: 'Dashboard', path: '/staff' },
+    { icon: PackageCheck, label: 'My QC Tasks', path: '/staff/tasks' },
+    { icon: Package, label: 'Active QC', path: '/staff/active' },
     { icon: History, label: 'History', path: '/staff/history' },
     { icon: UserCircle, label: 'Profile', path: '/staff/profile' },
   ] : [
@@ -134,26 +134,20 @@ export const MobileLayout: React.FC = () => {
       {/* Main Content Column */}
       <div className="flex flex-col flex-1 min-w-0 relative">
         {/* Desktop Header */}
+        {!isProfilePage && (
         <header className="hidden md:flex bg-green-600 text-white px-6 h-20 justify-between items-center shadow-md z-10 shrink-0">
-          {isQC ? (
-            <div className="flex flex-col">
-              <span className="font-bold text-xl leading-tight">VillagKart</span>
-              <span className="text-xs font-semibold opacity-90 uppercase tracking-wider">{userRole?.replace('_', ' ')}</span>
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-xl font-bold leading-tight">{getGreeting()}, {user?.name?.split(' ')[0] || 'User'} 👋</p>
             </div>
-          ) : (
-            <div className="flex items-center gap-6">
-              <div>
-                <p className="text-xl font-bold leading-tight">{getGreeting()}, {user?.name?.split(' ')[0] || 'User'} 👋</p>
-              </div>
-              <div className="h-8 w-px bg-green-500 mx-2"></div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold leading-none">{userRole === 'OPERATOR' ? 'Packing Operator' : userRole?.replace('_', ' ')}</span>
-                <span className="text-xs opacity-90 flex items-center gap-1 leading-none mt-1">
-                  <MapPin size={12} /> {(user as any)?.warehouse?.name || 'Hyderabad Warehouse'}
-                </span>
-              </div>
+            <div className="h-8 w-px bg-green-500 mx-2"></div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold leading-none">{isQC ? 'QC Checker' : userRole === 'OPERATOR' ? 'Packing Operator' : userRole?.replace('_', ' ')}</span>
+              <span className="text-xs opacity-90 flex items-center gap-1 leading-none mt-1">
+                <MapPin size={12} /> {(user as any)?.warehouse?.name || 'Hyderabad Warehouse'}
+              </span>
             </div>
-          )}
+          </div>
           
           <div className="flex items-center gap-4">
             {!isQC && (
@@ -176,68 +170,58 @@ export const MobileLayout: React.FC = () => {
                   <Bell size={20} />
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
                 </button>
-                <button onClick={handleLogout} className="flex items-center gap-2 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors">
-                  <LogOut size={18} />
-                  <span className="text-sm font-medium">Logout</span>
-                </button>
               </>
             )}
           </div>
         </header>
+        )}
 
         {/* Mobile Header */}
+        {!isProfilePage && (
         <header className="md:hidden bg-green-600 text-white px-4 py-4 shadow-md z-10 shrink-0 flex flex-col gap-3">
-          {isQC ? (
+          <>
+            {/* Top Row: Hamburger & Notifications */}
             <div className="flex justify-between items-center">
-              <div className="flex flex-col">
-                <span className="font-bold text-lg leading-tight">VillagKart</span>
-                <span className="text-[10px] opacity-80 uppercase tracking-wider">{userRole?.replace('_', ' ')}</span>
-              </div>
-              <button onClick={handleLogout} className="p-2 hover:bg-green-700 rounded-full transition-colors">
-                <LogOut size={20} />
+              <button className="p-1 hover:bg-green-700 rounded-lg transition-colors">
+                <Menu size={24} />
               </button>
-            </div>
-          ) : (
-            <>
-              {/* Top Row: Hamburger & Notifications */}
-              <div className="flex justify-between items-center">
-                <button className="p-1 hover:bg-green-700 rounded-lg transition-colors">
-                  <Menu size={24} />
+              <div className="flex items-center gap-2">
+                <button 
+                  className="p-1 hover:bg-green-700 rounded-lg transition-colors relative"
+                  onClick={() => setDarkMode(!darkMode)}
+                >
+                  {darkMode ? <Sun size={24} /> : <Moon size={24} />}
                 </button>
-                <div className="flex items-center gap-2">
-                  <button 
-                    className="p-1 hover:bg-green-700 rounded-lg transition-colors relative"
-                    onClick={() => setDarkMode(!darkMode)}
-                  >
-                    {darkMode ? <Sun size={24} /> : <Moon size={24} />}
-                  </button>
-                  <button onClick={() => navigate('/staff/tasks')} className="p-1 hover:bg-green-700 rounded-lg transition-colors relative">
-                    <Bell size={24} />
-                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-green-600 rounded-full"></span>
-                  </button>
-                </div>
+                <button onClick={() => navigate('/staff/tasks')} className="p-1 hover:bg-green-700 rounded-lg transition-colors relative">
+                  <Bell size={24} />
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-green-600 rounded-full"></span>
+                </button>
               </div>
+            </div>
 
-              {/* Second Row: Greeting */}
-              <div>
-                <h1 className="text-2xl font-bold">{getGreeting()}, {user?.name?.split(' ')[0] || 'User'} 👋</h1>
-              </div>
+            {/* Second Row: Greeting */}
+            <div>
+              <h1 className="text-2xl font-bold">{getGreeting()}, {user?.name?.split(' ')[0] || 'User'} 👋</h1>
+            </div>
 
-              {/* Third Row: Role & Warehouse */}
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold opacity-95">{userRole === 'OPERATOR' ? 'Packing Operator' : userRole?.replace('_', ' ')}</span>
-                <span className="text-xs opacity-80 flex items-center gap-1">
-                  <MapPin size={12} /> {(user as any)?.warehouse?.name || 'Hyderabad Warehouse'}
-                </span>
-              </div>
+            {/* Third Row: Role & Warehouse */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold opacity-95">{isQC ? 'QC Checker' : userRole === 'OPERATOR' ? 'Packing Operator' : userRole?.replace('_', ' ')}</span>
+              <span className="text-xs opacity-80 flex items-center gap-1">
+                <MapPin size={12} /> {(user as any)?.warehouse?.name || 'Hyderabad Warehouse'}
+              </span>
+            </div>
 
-              {/* Fourth Row: Operational Summary */}
-              <div className="mt-1 bg-green-700/50 rounded-xl p-2.5 flex items-center justify-center text-[11px] font-medium opacity-90 text-center">
-                🟢 Shift: {getShift()} &bull; Ready for Packing &bull; {assignedJobsCount} Assigned Jobs
-              </div>
-            </>
-          )}
+            {/* Fourth Row: Operational Summary */}
+            <div className="mt-1 bg-green-700/50 rounded-xl p-2.5 flex items-center justify-center text-[11px] font-medium opacity-90 text-center">
+              {isQC 
+                ? <>🟢 Shift: {getShift()} &bull; Ready for Inspection &bull; {assignedJobsCount} Assigned QC Tasks</>
+                : <>🟢 Shift: {getShift()} &bull; Ready for Packing &bull; {assignedJobsCount} Assigned Jobs</>
+              }
+            </div>
+          </>
         </header>
+        )}
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6 scroll-smooth bg-slate-50 dark:bg-gray-900">

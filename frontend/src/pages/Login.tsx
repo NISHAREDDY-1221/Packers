@@ -16,7 +16,7 @@ export const Login: React.FC = () => {
     const userRole = typeof user.role === 'string' ? user.role : (user.role as any)?.name;
     if (userRole === 'ADMIN' || userRole === 'MANAGER') {
       return <Navigate to="/" replace />;
-    } else if (userRole === 'OPERATOR' || userRole === 'QC_INSPECTOR') {
+    } else if (userRole === 'OPERATOR' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
       return <Navigate to="/staff" replace />;
     } else {
       // Invalid session or unknown role

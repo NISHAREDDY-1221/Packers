@@ -4,12 +4,20 @@ import { useAuth } from '../../context/AuthContext';
 import { workOrderService } from '../../api/workOrderService';
 import type { WorkOrder } from '../../api/workOrderService';
 import { Package, AlertCircle, Play, Pause, CheckCircle, Plus, X, ListTodo } from 'lucide-react';
+import { ActiveQCInspection } from './ActiveQCInspection';
 
 export const ActivePacking: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeJob, setActiveJob] = useState<WorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
+  const isQC = userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
+
+  if (isQC) {
+    return <ActiveQCInspection />;
+  }
 
   // Modals state
   const [showAddQuantity, setShowAddQuantity] = useState(false);

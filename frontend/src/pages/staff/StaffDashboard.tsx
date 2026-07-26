@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, CheckCircle, AlertCircle, Clock, ListTodo, AlertTriangle } from 'lucide-react';
+import { Package, CheckCircle, AlertCircle, Clock, ListTodo, AlertTriangle, PackageCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { workOrderService } from '../../api/workOrderService';
 import type { WorkOrder } from '../../api/workOrderService';
@@ -23,20 +23,33 @@ export const StaffDashboard: React.FC = () => {
   }, []);
 
   const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
-  const isQC = userRole === 'QC_INSPECTOR';
+  const isQC = userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
 
   let stats: any[] = [];
+  const today = new Date().toISOString().split('T')[0];
 
   if (isQC) {
+    const pendingInspection = workOrders.filter(wo => ['PACKING_STARTED', 'QC_PENDING'].includes(wo.status)).length;
+    const readyForQC = workOrders.filter(wo => wo.status === 'QC_PENDING').length;
+    const qcInProgress = workOrders.filter(wo => wo.status === 'QC_PENDING').length; // Map appropriately
+    const passedToday = workOrders.filter(wo => 
+      wo.status === 'QC_PASSED' && (wo.completedAt?.startsWith(today) || wo.updatedAt?.startsWith(today))
+    ).length;
+    const failedToday = workOrders.filter(wo => 
+      ((wo.status as any) === 'QC_REWORK' || (wo.status as any) === 'REJECTED') && (wo.completedAt?.startsWith(today) || wo.updatedAt?.startsWith(today))
+    ).length;
+    const issuesReported = 0; // Hardcoded
+
     stats = [
-      { label: 'Pending Tasks', value: 5, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100' },
-      { label: 'Completed Today', value: 12, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' },
-      { label: 'Issues Flagged', value: 1, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100' },
+      { label: 'Pending Inspection', value: pendingInspection || 0, icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-100', path: '/staff/tasks?filter=pending' },
+      { label: 'Ready for QC', value: readyForQC || 0, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100', path: '/staff/tasks?filter=ready' },
+      { label: 'QC In Progress', value: qcInProgress || 0, icon: Package, color: 'text-purple-500', bg: 'bg-purple-100', path: '/staff/active' },
+      { label: 'Passed Today', value: passedToday || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', path: '/staff/history?filter=today' },
+      { label: 'Failed Today', value: failedToday || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', path: '/staff/tasks?filter=delayed' },
+      { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/staff/issues' },
     ];
   } else {
     // Packing Operator metrics
-    const today = new Date().toISOString().split('T')[0];
-    
     const pendingJobs = workOrders.filter(wo => ['DRAFT', 'PENDING', 'APPROVED'].includes(wo.status)).length;
     const readyToStart = workOrders.filter(wo => wo.status === 'MATERIAL_ISSUED').length;
     const packingInProgress = workOrders.filter(wo => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS' as any).length;
@@ -60,48 +73,7 @@ export const StaffDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {isQC ? (
-        // QC Inspector View (Original)
-        <>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Hello, {user?.name?.split(' ')[0]}</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Here's your overview for today.</p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {stats.map((stat, idx) => {
-              const Icon = stat.icon;
-              const isQCFullWidth = idx === 2 ? 'col-span-2 md:col-span-1' : '';
-              
-              return (
-                <div key={idx} className={`${isQCFullWidth} bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center space-x-4`}>
-                  <div className={`p-3 rounded-xl ${stat.bg}`}>
-                    <Icon className={stat.color} size={24} />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stat.value}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{stat.label}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="bg-green-600 rounded-2xl p-5 text-white shadow-md relative overflow-hidden mt-6">
-            <div className="relative z-10">
-              <h2 className="text-lg font-bold mb-1">Ready to start?</h2>
-              <p className="text-sm text-green-100 mb-4 opacity-90">
-                You have pending quality checks waiting.
-              </p>
-              <button className="bg-white dark:bg-gray-800 text-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-transform">
-                View QC Tasks
-              </button>
-            </div>
-            <Package className="absolute -right-4 -bottom-4 text-green-500 opacity-50" size={100} />
-          </div>
-        </>
-      ) : (
-        // Packing Operator View (Unified Simplified View for Mobile & Desktop)
+      <>
         <div className="space-y-5">
           {/* Quick Alert */}
           {(() => {
@@ -162,9 +134,9 @@ export const StaffDashboard: React.FC = () => {
                 return (
                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 md:p-8 text-center border border-gray-100 dark:border-gray-700 shadow-sm">
                     <Package className="mx-auto text-gray-300 mb-2 md:mb-3" size={40} />
-                    <h3 className="text-base md:text-lg font-semibold text-gray-700 dark:text-gray-200">No active packing job.</h3>
+                    <h3 className="text-base md:text-lg font-semibold text-gray-700 dark:text-gray-200">{isQC ? 'No active QC inspection.' : 'No active packing job.'}</h3>
                     <button className="mt-4 bg-green-50 text-green-600 px-6 py-2.5 rounded-xl text-sm font-bold active:bg-green-100 transition-colors">
-                      View Assigned Jobs
+                      {isQC ? 'View Assigned QC Tasks' : 'View Assigned Jobs'}
                     </button>
                   </div>
                 );
@@ -268,9 +240,9 @@ export const StaffDashboard: React.FC = () => {
                 className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-all active:scale-95"
               >
                 <div className="bg-green-50 text-green-600 p-2.5 rounded-xl">
-                  <Package size={24} />
+                  {isQC ? <PackageCheck size={24} /> : <Package size={24} />}
                 </div>
-                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">Resume<br/>Packing</span>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">Resume<br/>{isQC ? 'QC' : 'Packing'}</span>
               </button>
               
               <button 
@@ -280,7 +252,7 @@ export const StaffDashboard: React.FC = () => {
                 <div className="bg-blue-50 text-blue-600 p-2.5 rounded-xl">
                   <ListTodo size={24} />
                 </div>
-                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">My<br/>Jobs</span>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">My<br/>{isQC ? 'QC Tasks' : 'Jobs'}</span>
               </button>
               
               <button 
@@ -296,7 +268,7 @@ export const StaffDashboard: React.FC = () => {
           </div>
 
         </div>
-      )}
+      </>
     </div>
   );
 };
