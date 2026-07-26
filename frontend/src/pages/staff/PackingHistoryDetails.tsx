@@ -55,7 +55,7 @@ export const PackingHistoryDetails: React.FC = () => {
     <div className="max-w-md mx-auto md:max-w-5xl pb-20 px-4 sm:px-6">
       {/* Header */}
       <div className="flex items-center space-x-3 mb-6">
-        <button onClick={() => navigate('/staff/history')} className="p-2 bg-slate-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 rounded-lg border border-slate-200 dark:border-gray-700">
+        <button onClick={() => navigate('/operator/history')} className="p-2 bg-slate-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 rounded-lg border border-slate-200 dark:border-gray-700">
           <ArrowLeft size={20} />
         </button>
         <div>

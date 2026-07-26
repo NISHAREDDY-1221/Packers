@@ -41,12 +41,12 @@ export const StaffDashboard: React.FC = () => {
     const issuesReported = 0; // Hardcoded
 
     stats = [
-      { label: 'Pending Inspection', value: pendingInspection || 0, icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-100', path: '/staff/tasks?filter=pending' },
-      { label: 'Ready for QC', value: readyForQC || 0, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100', path: '/staff/tasks?filter=ready' },
-      { label: 'QC In Progress', value: qcInProgress || 0, icon: Package, color: 'text-purple-500', bg: 'bg-purple-100', path: '/staff/active' },
-      { label: 'Passed Today', value: passedToday || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', path: '/staff/history?filter=today' },
-      { label: 'Failed Today', value: failedToday || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', path: '/staff/tasks?filter=delayed' },
-      { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/staff/issues' },
+      { label: 'Pending Inspection', value: pendingInspection || 0, icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-100', path: '/operator/jobs?filter=pending' },
+      { label: 'Ready for QC', value: readyForQC || 0, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100', path: '/operator/jobs?filter=ready' },
+      { label: 'QC In Progress', value: qcInProgress || 0, icon: Package, color: 'text-purple-500', bg: 'bg-purple-100', path: '/operator/active-packing' },
+      { label: 'Passed Today', value: passedToday || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', path: '/operator/history?filter=today' },
+      { label: 'Failed Today', value: failedToday || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', path: '/operator/jobs?filter=delayed' },
+      { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/operator/report-issue' },
     ];
   } else {
     // Packing Operator metrics
@@ -62,12 +62,12 @@ export const StaffDashboard: React.FC = () => {
     const issuesReported = 0; // Hardcoded until backend API is available
 
     stats = [
-      { label: 'Pending Jobs', value: pendingJobs || 0, icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-100', path: '/staff/tasks?filter=pending' },
-      { label: 'Ready to Start', value: readyToStart || 0, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100', path: '/staff/tasks?filter=ready' },
-      { label: 'Packing In Progress', value: packingInProgress || 0, icon: Package, color: 'text-purple-500', bg: 'bg-purple-100', path: '/staff/active' },
-      { label: 'Completed Today', value: completedToday || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', path: '/staff/history?filter=today' },
-      { label: 'Delayed Jobs', value: delayedJobs || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', path: '/staff/tasks?filter=delayed' },
-      { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/staff/issues' },
+      { label: 'Pending Jobs', value: pendingJobs || 0, icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-100', path: '/operator/jobs?filter=pending' },
+      { label: 'Ready to Start', value: readyToStart || 0, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100', path: '/operator/jobs?filter=ready' },
+      { label: 'Packing In Progress', value: packingInProgress || 0, icon: Package, color: 'text-purple-500', bg: 'bg-purple-100', path: '/operator/active-packing' },
+      { label: 'Completed Today', value: completedToday || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', path: '/operator/history?filter=today' },
+      { label: 'Delayed Jobs', value: delayedJobs || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', path: '/operator/jobs?filter=delayed' },
+      { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/operator/report-issue' },
     ];
   }
 
@@ -236,7 +236,7 @@ export const StaffDashboard: React.FC = () => {
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 uppercase tracking-wider">Quick Actions</h2>
             <div className="grid grid-cols-3 gap-3">
               <button 
-                onClick={() => navigate('/staff/active')}
+                onClick={() => navigate('/operator/active-packing')}
                 className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-all active:scale-95"
               >
                 <div className="bg-green-50 text-green-600 p-2.5 rounded-xl">
@@ -246,7 +246,7 @@ export const StaffDashboard: React.FC = () => {
               </button>
               
               <button 
-                onClick={() => navigate('/staff/tasks')}
+                onClick={() => navigate('/operator/jobs')}
                 className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-all active:scale-95"
               >
                 <div className="bg-blue-50 text-blue-600 p-2.5 rounded-xl">
@@ -256,7 +256,7 @@ export const StaffDashboard: React.FC = () => {
               </button>
               
               <button 
-                onClick={() => navigate('/staff/issues')}
+                onClick={() => navigate('/operator/report-issue')}
                 className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-all active:scale-95"
               >
                 <div className="bg-red-50 text-red-600 p-2.5 rounded-xl">

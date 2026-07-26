@@ -1,23 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { workOrderService } from '../../api/workOrderService';
-import type { WorkOrder } from '../../api/workOrderService';
+import { useAuth } from '../../../context/AuthContext';
+import { packingJobsService } from '../services/packingJobsService';
+import type { PackingJob } from '../../../shared/types';
 import { Package, AlertCircle, Play, Pause, CheckCircle, Plus, X, ListTodo } from 'lucide-react';
-import { ActiveQCInspection } from './ActiveQCInspection';
 
 export const ActivePacking: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeJob, setActiveJob] = useState<WorkOrder | null>(null);
+  const [activeJob, setActiveJob] = useState<PackingJob | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
-  const isQC = userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
-
-  if (isQC) {
-    return <ActiveQCInspection />;
-  }
 
   // Modals state
   const [showAddQuantity, setShowAddQuantity] = useState(false);
@@ -31,7 +23,7 @@ export const ActivePacking: React.FC = () => {
 
   const fetchActiveJob = async () => {
     try {
-      const response = await workOrderService.getWorkOrders();
+      const response = await packingJobsService.getWorkOrders();
       const job = response.data.find((wo) => wo.status === 'PACKING_STARTED' || (wo.status as any) === 'PACKING_IN_PROGRESS');
       setActiveJob(job || null);
     } catch (err) {
@@ -107,7 +99,7 @@ export const ActivePacking: React.FC = () => {
     }
 
     try {
-      await workOrderService.updateQuantity(activeJob.id, {
+      await packingJobsService.updateQuantity(activeJob.id, {
         actualProduced: packedQty + newPacked,
         actualRejected: rejectedQty + newRejected
       });
@@ -122,7 +114,7 @@ export const ActivePacking: React.FC = () => {
 
   const handlePause = async () => {
     try {
-      await workOrderService.pausePacking(activeJob.id, pauseReason);
+      await packingJobsService.pausePacking(activeJob.id, pauseReason);
       setShowPauseModal(false);
       fetchActiveJob();
     } catch (e: any) {
@@ -132,7 +124,7 @@ export const ActivePacking: React.FC = () => {
 
   const handleResume = async () => {
     try {
-      await workOrderService.resumePacking(activeJob.id);
+      await packingJobsService.resumePacking(activeJob.id);
       fetchActiveJob();
     } catch (e: any) {
       alert(e.message || 'Failed to resume');
@@ -141,7 +133,7 @@ export const ActivePacking: React.FC = () => {
 
   const handleComplete = async () => {
     try {
-      await workOrderService.completePacking(activeJob.id);
+      await packingJobsService.completePacking(activeJob.id);
       setShowCompleteModal(false);
       navigate('/operator/jobs'); // Or a success screen
     } catch (e: any) {

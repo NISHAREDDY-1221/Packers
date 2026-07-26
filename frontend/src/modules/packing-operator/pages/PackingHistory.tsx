@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { workOrderService, type WorkOrder } from '../../api/workOrderService';
+import { packingJobsService } from '../services/packingJobsService';
+import type { PackingJob } from '../../../shared/types';
 import { Search, Filter, History, Clock, CheckCircle, AlertTriangle, ArrowRight, X } from 'lucide-react';
 
 export const PackingHistory: React.FC = () => {
   const navigate = useNavigate();
-  const [jobs, setJobs] = useState<WorkOrder[]>([]);
+  const [jobs, setJobs] = useState<PackingJob[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Search & Filter State
@@ -17,12 +18,12 @@ export const PackingHistory: React.FC = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await workOrderService.getWorkOrders();
+        const response = await packingJobsService.getWorkOrders();
         // Keep only jobs that have completedAt (meaning packing is complete)
-        const completedJobs = response.data.filter(wo => wo.completedAt != null);
+        const completedJobs = response.data.filter((wo: any) => wo.completedAt != null);
         
         // Sort latest completed first
-        completedJobs.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
+        completedJobs.sort((a: any, b: any) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
         setJobs(completedJobs);
       } catch (err) {
         console.error('Failed to fetch history', err);

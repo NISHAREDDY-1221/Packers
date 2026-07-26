@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Camera, CheckCircle, FileText, X, Image as ImageIcon, Info } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { issueService } from '../../api/issueService';
-import { workOrderService } from '../../api/workOrderService';
+import { useAuth } from '../../../context/AuthContext';
+import { issueService } from '../../../api/issueService';
+import { packingJobsService } from '../services/packingJobsService';
+
 
 const issueTypes = [
   'MACHINE_ISSUE',
@@ -42,8 +43,8 @@ export const ReportIssue: React.FC = () => {
 
   useEffect(() => {
     // Fetch assigned jobs to populate dropdown
-    workOrderService.getWorkOrders()
-      .then(res => {
+    packingJobsService.getWorkOrders()
+      .then((res: any) => {
         setActiveJobs(res.data.filter((wo: any) => 
           !['COMPLETED', 'CANCELLED', 'QC_PASSED'].includes(wo.status)
         ));

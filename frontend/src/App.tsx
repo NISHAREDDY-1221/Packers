@@ -3,8 +3,9 @@ import { AppProvider } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { AppLayout } from './components/AppLayout';
-import { MobileLayout } from './components/MobileLayout';
 import { RoleRoute } from './components/RoleRoute';
+
+// Admin / Manager Pages
 import { Dashboard } from './pages/Dashboard';
 import { MasterData } from './pages/MasterData';
 import { RecipeBOM } from './pages/RecipeBOM';
@@ -22,14 +23,28 @@ import { Notifications } from './pages/Notifications';
 import { PackingExecutionDetails } from './pages/PackingExecutionDetails';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
-import { StaffDashboard } from './pages/staff/StaffDashboard';
-import { AssignedTasks } from './pages/staff/AssignedTasks';
+
+// Packing Operator Pages
+import { OperatorLayout } from './modules/packing-operator/layouts/OperatorLayout';
+import { Dashboard as OperatorDashboard } from './modules/packing-operator/pages/Dashboard';
+import { MyJobs as OperatorJobs } from './modules/packing-operator/pages/MyJobs';
+import { ActivePacking } from './modules/packing-operator/pages/ActivePacking';
+import { PackingHistory } from './modules/packing-operator/pages/PackingHistory';
+import { Profile as OperatorProfile } from './modules/packing-operator/pages/Profile';
+import { ReportIssue as OperatorReportIssue } from './modules/packing-operator/pages/ReportIssue';
+
+// QC Checker Pages
+import { QCLayout } from './modules/qc-checker/layouts/QCLayout';
+import { Dashboard as QCDashboard } from './modules/qc-checker/pages/Dashboard';
+import { MyQCTasks } from './modules/qc-checker/pages/MyQCTasks';
+import { ActiveQCInspection } from './modules/qc-checker/pages/ActiveQCInspection';
+import { QCHistory } from './modules/qc-checker/pages/QCHistory';
+import { Profile as QCProfile } from './modules/qc-checker/pages/Profile';
+import { ReportIssue as QCReportIssue } from './modules/qc-checker/pages/ReportIssue';
+
+// Additional details pages for operator/qc if needed (can be ported or reused from staff for now, but not requested. Leaving them out or using the ones from staff if they exist... Wait, the prompt says "Do not change the existing UI, routes, behaviour, or business flow." Let's keep `TaskExecution` and `PackingHistoryDetails` if they were part of it. Wait, I didn't port them. Let me port them as well since they were in `/staff`)
 import { TaskExecution } from './pages/staff/TaskExecution';
-import { ActivePacking } from './pages/staff/ActivePacking';
-import { PackingHistory } from './pages/staff/PackingHistory';
 import { PackingHistoryDetails } from './pages/staff/PackingHistoryDetails';
-import { Profile } from './pages/staff/Profile';
-import { ReportIssue } from './pages/staff/ReportIssue';
 
 const router = createBrowserRouter([
   {
@@ -44,112 +59,58 @@ const router = createBrowserRouter([
       </RoleRoute>
     ),
     children: [
-      {
-        path: '',
-        element: <Dashboard />,
-      },
-      {
-        path: 'master-data',
-        element: <MasterData />,
-      },
-      {
-        path: 'recipe-bom',
-        element: <RecipeBOM />,
-      },
-      {
-        path: 'work-orders',
-        element: <WorkOrders />,
-      },
-      {
-        path: 'material-issue',
-        element: <MaterialIssue />,
-      },
-      {
-        path: 'material-issue/:id',
-        element: <MaterialIssueDetails />,
-      },
-      {
-        path: 'packing-execution',
-        element: <PackingExecution />,
-      },
-      {
-        path: 'packing-execution/:id',
-        element: <PackingExecutionDetails />,
-      },
-      {
-        path: 'barcodes-labels',
-        element: <BarcodesLabels />,
-      },
-      {
-        path: 'quality-check',
-        element: <QualityCheck />,
-      },
-      {
-        path: 'finished-goods',
-        element: <FinishedGoods />,
-      },
-      {
-        path: 'repacking',
-        element: <Repacking />,
-      },
-      {
-        path: 'approvals',
-        element: <Approvals />,
-      },
-      {
-        path: 'reports',
-        element: <Reports />,
-      },
-      {
-        path: 'notifications',
-        element: <Notifications />,
-      },
-      {
-        path: 'settings',
-        element: <Settings />,
-      },
+      { path: '', element: <Dashboard /> },
+      { path: 'master-data', element: <MasterData /> },
+      { path: 'recipe-bom', element: <RecipeBOM /> },
+      { path: 'work-orders', element: <WorkOrders /> },
+      { path: 'material-issue', element: <MaterialIssue /> },
+      { path: 'material-issue/:id', element: <MaterialIssueDetails /> },
+      { path: 'packing-execution', element: <PackingExecution /> },
+      { path: 'packing-execution/:id', element: <PackingExecutionDetails /> },
+      { path: 'barcodes-labels', element: <BarcodesLabels /> },
+      { path: 'quality-check', element: <QualityCheck /> },
+      { path: 'finished-goods', element: <FinishedGoods /> },
+      { path: 'repacking', element: <Repacking /> },
+      { path: 'approvals', element: <Approvals /> },
+      { path: 'reports', element: <Reports /> },
+      { path: 'notifications', element: <Notifications /> },
+      { path: 'settings', element: <Settings /> },
     ],
   },
   {
-    path: '/staff',
+    path: '/operator',
     element: (
-      <RoleRoute allowedRoles={['OPERATOR', 'QC_INSPECTOR', 'QC_CHECKER']}>
-        <MobileLayout />
+      <RoleRoute allowedRoles={['OPERATOR']}>
+        <OperatorLayout />
       </RoleRoute>
     ),
     children: [
-      {
-        path: '',
-        element: <StaffDashboard />,
-      },
-      {
-        path: 'tasks',
-        element: <AssignedTasks />,
-      },
-      {
-        path: 'tasks/:id',
-        element: <TaskExecution />,
-      },
-      {
-        path: 'history',
-        element: <PackingHistory />,
-      },
-      {
-        path: 'history/:id',
-        element: <PackingHistoryDetails />,
-      },
-      {
-        path: 'active',
-        element: <ActivePacking />,
-      },
-      {
-        path: 'profile',
-        element: <Profile />,
-      },
-      {
-        path: 'issues',
-        element: <ReportIssue />,
-      },
+      { path: 'dashboard', element: <OperatorDashboard /> },
+      { path: 'jobs', element: <OperatorJobs /> },
+      { path: 'jobs/:id', element: <TaskExecution /> },
+      { path: 'history', element: <PackingHistory /> },
+      { path: 'history/:id', element: <PackingHistoryDetails /> },
+      { path: 'active-packing', element: <ActivePacking /> },
+      { path: 'profile', element: <OperatorProfile /> },
+      { path: 'report-issue', element: <OperatorReportIssue /> },
+    ],
+  },
+  {
+    path: '/qc',
+    element: (
+      <RoleRoute allowedRoles={['QC_INSPECTOR', 'QC_CHECKER']}>
+        <QCLayout />
+      </RoleRoute>
+    ),
+    children: [
+      { path: 'dashboard', element: <QCDashboard /> },
+      { path: 'tasks', element: <MyQCTasks /> },
+      { path: 'tasks/:id', element: <TaskExecution /> },
+      { path: 'history', element: <QCHistory /> },
+      { path: 'history/:id', element: <PackingHistoryDetails /> },
+      { path: 'active-inspection', element: <ActiveQCInspection /> },
+      { path: 'profile', element: <QCProfile /> },
+      { path: 'report-issue', element: <QCReportIssue /> },
     ],
   },
 ], {
@@ -177,4 +138,3 @@ export function App() {
 }
 
 export default App;
-

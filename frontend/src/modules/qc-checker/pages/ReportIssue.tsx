@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Camera, CheckCircle, FileText, X, Image as ImageIcon, Info } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { issueService } from '../../api/issueService';
-import { workOrderService } from '../../api/workOrderService';
+import { useAuth } from '../../../context/AuthContext';
+import { issueService } from '../../../api/issueService';
+import { qcTasksService } from '../services/qcTasksService';
+
 
 const issueTypes = [
   'MACHINE_ISSUE',
@@ -42,8 +43,8 @@ export const ReportIssue: React.FC = () => {
 
   useEffect(() => {
     // Fetch assigned jobs to populate dropdown
-    workOrderService.getWorkOrders()
-      .then(res => {
+    qcTasksService.getWorkOrders()
+      .then((res: any) => {
         setActiveJobs(res.data.filter((wo: any) => 
           !['COMPLETED', 'CANCELLED', 'QC_PASSED'].includes(wo.status)
         ));
@@ -118,14 +119,14 @@ export const ReportIssue: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           {successResponse.woId && (
             <button
-              onClick={() => navigate('/operator/active-packing')}
+              onClick={() => navigate('/qc/active-inspection')}
               className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 font-bold py-3.5 px-6 rounded-xl transition-colors w-full sm:w-auto shadow-sm active:scale-95"
             >
               View Active Packing
             </button>
           )}
           <button
-            onClick={() => navigate('/operator/dashboard')}
+            onClick={() => navigate('/qc/dashboard')}
             className="bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-8 rounded-xl transition-colors w-full sm:w-auto shadow-sm active:scale-95"
           >
             Back to Dashboard

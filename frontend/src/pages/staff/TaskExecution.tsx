@@ -35,7 +35,7 @@ export const TaskExecution: React.FC = () => {
   const handleAction = async (status: WoStatus) => {
     try {
       await workOrderService.updateWorkOrderStatus(id!, status);
-      navigate('/staff/tasks');
+      navigate('/operator/jobs');
     } catch (err) {
       alert('Failed to update task');
     }
@@ -45,7 +45,7 @@ export const TaskExecution: React.FC = () => {
     try {
       const status: WoStatus = qcPass ? 'QC_PASSED' : 'CANCELLED'; // Using CANCELLED as a mock for fail
       await workOrderService.updateWorkOrderStatus(id!, status);
-      navigate('/staff/tasks');
+      navigate('/operator/jobs');
     } catch (err) {
       alert('Failed to submit QC');
     }
@@ -69,7 +69,7 @@ export const TaskExecution: React.FC = () => {
     <div className="space-y-4 font-sans pb-4 max-w-3xl mx-auto w-full">
       {/* Header */}
       <div className="flex items-center space-x-3 mb-6 bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <button onClick={() => navigate('/staff/tasks')} className="p-2 bg-slate-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 rounded-lg">
+        <button onClick={() => navigate('/operator/jobs')} className="p-2 bg-slate-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 rounded-lg">
           <ArrowLeft size={20} />
         </button>
         <div>

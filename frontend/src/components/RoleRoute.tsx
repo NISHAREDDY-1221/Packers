@@ -31,12 +31,14 @@ export const RoleRoute: React.FC<{ children: React.ReactNode; allowedRoles: stri
     // If not authorized, redirect them to a default safe place depending on their role
     if (userRole === 'ADMIN' || userRole === 'MANAGER') {
       return <Navigate to="/" replace />;
+    } else if (userRole === 'OPERATOR') {
+      if (location.pathname === '/operator' || location.pathname.startsWith('/operator/')) return <Navigate to="/login" replace />;
+      return <Navigate to="/operator/dashboard" replace />;
+    } else if (userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
+      if (location.pathname === '/qc' || location.pathname.startsWith('/qc/')) return <Navigate to="/login" replace />;
+      return <Navigate to="/qc/dashboard" replace />;
     } else {
-      // Prevent infinite redirect loop if they are already on /staff
-      if (location.pathname === '/staff' || location.pathname.startsWith('/staff/')) {
-         return <Navigate to="/login" replace />;
-      }
-      return <Navigate to="/staff" replace />;
+      return <Navigate to="/login" replace />;
     }
   }
 

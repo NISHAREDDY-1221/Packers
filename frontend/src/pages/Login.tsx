@@ -16,8 +16,10 @@ export const Login: React.FC = () => {
     const userRole = typeof user.role === 'string' ? user.role : (user.role as any)?.name;
     if (userRole === 'ADMIN' || userRole === 'MANAGER') {
       return <Navigate to="/" replace />;
-    } else if (userRole === 'OPERATOR' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
-      return <Navigate to="/staff" replace />;
+    } else if (userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
+      return <Navigate to="/qc/dashboard" replace />;
+    } else if (userRole === 'OPERATOR') {
+      return <Navigate to="/operator/dashboard" replace />;
     } else {
       // Invalid session or unknown role
       localStorage.removeItem('token');

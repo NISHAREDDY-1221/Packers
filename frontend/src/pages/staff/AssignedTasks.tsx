@@ -84,7 +84,7 @@ export const AssignedTasks: React.FC = () => {
                   {task.batchNumber && <p>Batch: <span className="font-semibold text-gray-700 dark:text-gray-200">{task.batchNumber}</span></p>}
                 </div>
                 <button 
-                  onClick={() => navigate(`/staff/tasks/${task.id}`)}
+                  onClick={() => navigate(`/operator/jobs/${task.id}`)}
                   className="flex items-center text-sm font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg active:bg-green-100 transition-colors"
                 >
                   Action <ChevronRight size={16} className="ml-1" />

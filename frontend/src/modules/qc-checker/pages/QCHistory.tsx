@@ -1,28 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { workOrderService, type WorkOrder } from '../../api/workOrderService';
-import { Search, Filter, History, Clock, CheckCircle, AlertTriangle, ArrowRight, X } from 'lucide-react';
+import { qcTasksService } from '../services/qcTasksService';
+import type { QCInspection } from '../../../shared/types';
+import { Search, Filter, History, Clock, CheckCircle, ArrowRight, X } from 'lucide-react';
 
-export const PackingHistory: React.FC = () => {
+export const QCHistory: React.FC = () => {
   const navigate = useNavigate();
-  const [jobs, setJobs] = useState<WorkOrder[]>([]);
+  const [jobs, setJobs] = useState<QCInspection[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Search & Filter State
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterDate, setFilterDate] = useState('All');
-  const [filterSla, setFilterSla] = useState('All');
 
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await workOrderService.getWorkOrders();
-        // Keep only jobs that have completedAt (meaning packing is complete)
-        const completedJobs = response.data.filter(wo => wo.completedAt != null);
+        const response = await qcTasksService.getWorkOrders();
+        // For QC history, let's show QC_PASSED work orders.
+        const completedJobs = response.data.filter((wo: any) => wo.status === 'QC_PASSED');
         
         // Sort latest completed first
-        completedJobs.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
+        completedJobs.sort((a: any, b: any) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
         setJobs(completedJobs);
       } catch (err) {
         console.error('Failed to fetch history', err);
@@ -44,17 +44,10 @@ export const PackingHistory: React.FC = () => {
     
     if (!matchesSearch) return false;
 
-    // SLA Filter
-    const expected = job.expectedDate ? new Date(job.expectedDate).getTime() : 0;
-    const completed = new Date(job.completedAt!).getTime();
-    const isOnTime = expected === 0 || completed <= expected;
-    if (filterSla === 'On Time' && !isOnTime) return false;
-    if (filterSla === 'Delayed' && isOnTime) return false;
-
     // Date Filter
-    if (filterDate !== 'All') {
+    if (filterDate !== 'All' && job.completedAt) {
       const now = new Date();
-      const jobDate = new Date(job.completedAt!);
+      const jobDate = new Date(job.completedAt);
       if (filterDate === 'Today') {
         if (jobDate.toDateString() !== now.toDateString()) return false;
       } else if (filterDate === 'This Week') {
@@ -81,8 +74,8 @@ export const PackingHistory: React.FC = () => {
     <div className="space-y-6 max-w-md mx-auto md:max-w-6xl pb-20 px-4 sm:px-6">
       {/* Header */}
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Packing History</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View your completed packing jobs.</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">QC History</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View your completed quality inspections.</p>
       </div>
 
       {/* Search & Filter Bar */}
@@ -99,7 +92,7 @@ export const PackingHistory: React.FC = () => {
         </div>
         <button 
           onClick={() => setShowFilters(!showFilters)}
-          className={`p-3 rounded-xl border flex items-center justify-center transition-colors ${showFilters || filterDate !== 'All' || filterSla !== 'All' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 shadow-sm'}`}
+          className={`p-3 rounded-xl border flex items-center justify-center transition-colors ${showFilters || filterDate !== 'All' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 shadow-sm'}`}
         >
           <Filter size={20} />
         </button>
@@ -126,20 +119,6 @@ export const PackingHistory: React.FC = () => {
               ))}
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase">SLA Result</label>
-            <div className="flex flex-wrap gap-2">
-              {['All', 'On Time', 'Delayed'].map(opt => (
-                <button 
-                  key={opt}
-                  onClick={() => setFilterSla(opt)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${filterSla === opt ? 'bg-green-600 text-white border-green-600' : 'bg-gray-50 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100'}`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       )}
 
@@ -147,19 +126,12 @@ export const PackingHistory: React.FC = () => {
       {filteredJobs.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-10 mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           <History className="text-gray-300 mb-4" size={48} />
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">No completed packing jobs yet.</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Completed jobs will appear here after you finish packing.</p>
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">No completed QC inspections yet.</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Completed jobs will appear here after you finish QC.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredJobs.map(job => {
-            const expected = job.expectedDate ? new Date(job.expectedDate).getTime() : 0;
-            const completed = new Date(job.completedAt!).getTime();
-            const started = job.startedAt ? new Date(job.startedAt).getTime() : completed;
-            const isOnTime = expected === 0 || completed <= expected;
-            const durationMins = Math.round((completed - started) / 60000);
-            const durationText = durationMins > 60 ? `${Math.floor(durationMins/60)}h ${durationMins%60}m` : `${durationMins}m`;
-
             return (
               <div key={job.id} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-start mb-3">
@@ -168,35 +140,27 @@ export const PackingHistory: React.FC = () => {
                     <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{job.product?.name || 'Product'}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">Batch: {job.batchNumber || 'N/A'}</p>
                   </div>
-                  <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center border ${isOnTime ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
-                    {isOnTime ? <CheckCircle size={12} className="mr-1" /> : <AlertTriangle size={12} className="mr-1" />}
-                    {isOnTime ? 'On Time' : 'Delayed'}
+                  <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center border bg-green-50 text-green-700 border-green-100`}>
+                    <CheckCircle size={12} className="mr-1" />
+                    Passed
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mb-4 bg-slate-50 dark:bg-gray-900 p-3 rounded-xl border border-slate-100 dark:border-gray-700">
                   <div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase">Packed</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase">Inspected</p>
                     <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{job.actualProduced || 0}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase">Rejected</p>
-                    <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{job.actualRejected || 0}</p>
                   </div>
                   <div className="col-span-2 border-t border-slate-200 dark:border-gray-700 mt-1 pt-2 flex justify-between">
                     <div>
                       <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase flex items-center"><Clock size={10} className="mr-1"/> Completed On</p>
                       <p className="text-xs font-bold text-gray-800 dark:text-gray-100">{new Date(job.completedAt!).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase">Duration</p>
-                      <p className="text-xs font-bold text-gray-800 dark:text-gray-100">{durationText}</p>
-                    </div>
                   </div>
                 </div>
 
                 <button 
-                  onClick={() => navigate(`/operator/history/${job.id}`)}
+                  onClick={() => navigate(`/qc/history/${job.id}`)}
                   className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-bold py-2.5 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center text-sm"
                 >
                   View Details

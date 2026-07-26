@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { workOrderService } from '../../api/workOrderService';
-import type { WorkOrder } from '../../api/workOrderService';
+import { useAuth } from '../../../context/AuthContext';
+import { qcTasksService } from '../services/qcTasksService';
+import type { QCInspection } from '../../../shared/types';
 import { Package, AlertCircle, CheckCircle, ListTodo, Camera, X, Image as ImageIcon, Check, XCircle } from 'lucide-react';
-import apiClient from '../../api/axios';
+import apiClient from '../../../api/axios';
 
 interface QcChecklist {
   id: string;
@@ -20,7 +20,7 @@ interface ChecklistState {
 export const ActiveQCInspection: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeJob, setActiveJob] = useState<WorkOrder | null>(null);
+  const [activeJob, setActiveJob] = useState<QCInspection | null>(null);
   const [loading, setLoading] = useState(true);
 
   // QC Specific state
@@ -34,7 +34,7 @@ export const ActiveQCInspection: React.FC = () => {
 
   const fetchActiveJob = async () => {
     try {
-      const response = await workOrderService.getWorkOrders();
+      const response = await qcTasksService.getWorkOrders();
       // QC Inspector's active job is usually in QC_PENDING
       const job = response.data.find((wo) => wo.status === 'QC_PENDING');
       setActiveJob(job || null);
@@ -81,7 +81,7 @@ export const ActiveQCInspection: React.FC = () => {
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">No active QC inspection.</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">Start an inspection from My QC Tasks to begin.</p>
         <button 
-          onClick={() => navigate('/operator/jobs')}
+          onClick={() => navigate('/qc/tasks')}
           className="bg-green-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-green-700 active:scale-95 transition-all flex items-center shadow-sm"
         >
           <ListTodo size={20} className="mr-2" />
@@ -193,11 +193,11 @@ export const ActiveQCInspection: React.FC = () => {
 
       // Backend also needs to update status to QC_PASSED or PACKING_STARTED. 
       // If the `/quality-checks` doesn't do it automatically, we do it here:
-      await workOrderService.updateWorkOrderStatus(activeJob.id, failedItems > 0 ? 'PACKING_STARTED' : 'QC_PASSED');
+      await qcTasksService.updateWorkOrderStatus(activeJob.id, failedItems > 0 ? 'PACKING_STARTED' : 'QC_PASSED');
 
       setShowCompleteModal(false);
       alert('QC Inspection completed successfully.');
-      navigate('/operator/jobs');
+      navigate('/qc/tasks');
     } catch (e: any) {
       alert(e.message || 'Failed to complete inspection');
     }
@@ -420,7 +420,7 @@ export const ActiveQCInspection: React.FC = () => {
               </button>
 
               <button 
-                onClick={() => navigate('/operator/report-issue', { state: { woId: activeJob.id, woText: `${activeJob.woNumber} - ${activeJob.product?.name}` } })}
+                onClick={() => navigate('/qc/report-issue', { state: { woId: activeJob.id, woText: `${activeJob.woNumber} - ${activeJob.product?.name}` } })}
                 className="w-full flex justify-center items-center p-3 rounded-xl font-bold bg-slate-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200 border border-slate-200 dark:border-gray-700 hover:bg-slate-100 transition-colors"
               >
                 <AlertCircle size={18} className="mr-2" />
