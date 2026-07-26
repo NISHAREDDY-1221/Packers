@@ -31,6 +31,8 @@ export interface WorkOrder {
   completedAt?: string;
   createdAt: string;
   updatedAt: string;
+  isPaused?: boolean;
+  pauseReason?: string;
 
   // Relational data
   product?: Product;
@@ -81,6 +83,31 @@ export const workOrderService = {
 
   async startPacking(id: string): Promise<WorkOrder> {
     const res = await apiClient.post<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/start-packing`);
+    return res.data.data;
+  },
+
+  async updateQuantity(id: string, data: { actualProduced?: number; actualRejected?: number }): Promise<WorkOrder> {
+    const res = await apiClient.patch<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/update-quantity`, data);
+    return res.data.data;
+  },
+
+  async pausePacking(id: string, reason: string): Promise<WorkOrder> {
+    const res = await apiClient.post<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/pause`, { reason });
+    return res.data.data;
+  },
+
+  async resumePacking(id: string): Promise<WorkOrder> {
+    const res = await apiClient.post<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/resume`);
+    return res.data.data;
+  },
+
+  async completePacking(id: string): Promise<WorkOrder> {
+    const res = await apiClient.post<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/complete`);
+    return res.data.data;
+  },
+
+  async getWorkOrderAuditLogs(id: string): Promise<any[]> {
+    const res = await apiClient.get<{ success: boolean; data: any[] }>(`/work-orders/${id}/audit-logs`);
     return res.data.data;
   }
 };

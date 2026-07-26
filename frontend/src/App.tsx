@@ -25,6 +25,11 @@ import { Login } from './pages/Login';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { AssignedTasks } from './pages/staff/AssignedTasks';
 import { TaskExecution } from './pages/staff/TaskExecution';
+import { ActivePacking } from './pages/staff/ActivePacking';
+import { PackingHistory } from './pages/staff/PackingHistory';
+import { PackingHistoryDetails } from './pages/staff/PackingHistoryDetails';
+import { Profile } from './pages/staff/Profile';
+import { ReportIssue } from './pages/staff/ReportIssue';
 
 const router = createBrowserRouter([
   {
@@ -108,7 +113,7 @@ const router = createBrowserRouter([
   {
     path: '/staff',
     element: (
-      <RoleRoute allowedRoles={['OPERATOR', 'QC_INSPECTOR']}>
+      <RoleRoute allowedRoles={['OPERATOR', 'QC_INSPECTOR', 'QC_CHECKER']}>
         <MobileLayout />
       </RoleRoute>
     ),
@@ -127,11 +132,23 @@ const router = createBrowserRouter([
       },
       {
         path: 'history',
-        element: <div className="p-4">History Coming Soon</div>, // TODO
+        element: <PackingHistory />,
+      },
+      {
+        path: 'history/:id',
+        element: <PackingHistoryDetails />,
+      },
+      {
+        path: 'active',
+        element: <ActivePacking />,
       },
       {
         path: 'profile',
-        element: <div className="p-4">Profile Coming Soon</div>, // TODO
+        element: <Profile />,
+      },
+      {
+        path: 'issues',
+        element: <ReportIssue />,
       },
     ],
   },

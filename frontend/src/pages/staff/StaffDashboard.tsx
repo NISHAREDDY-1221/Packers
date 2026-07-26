@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Package, CheckCircle, AlertCircle, Clock, ListTodo, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { workOrderService } from '../../api/workOrderService';
@@ -6,6 +7,7 @@ import type { WorkOrder } from '../../api/workOrderService';
 
 export const StaffDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
 
   useEffect(() => {
@@ -35,9 +37,9 @@ export const StaffDashboard: React.FC = () => {
     // Packing Operator metrics
     const today = new Date().toISOString().split('T')[0];
     
-    const assignedJobs = workOrders.length;
+    const pendingJobs = workOrders.filter(wo => ['DRAFT', 'PENDING', 'APPROVED'].includes(wo.status)).length;
     const readyToStart = workOrders.filter(wo => wo.status === 'MATERIAL_ISSUED').length;
-    const packingInProgress = workOrders.filter(wo => wo.status === 'PACKING_STARTED').length;
+    const packingInProgress = workOrders.filter(wo => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS' as any).length;
     const completedToday = workOrders.filter(wo => 
       wo.status === 'COMPLETED' && (wo.completedAt?.startsWith(today) || wo.updatedAt?.startsWith(today))
     ).length;
@@ -47,12 +49,12 @@ export const StaffDashboard: React.FC = () => {
     const issuesReported = 0; // Hardcoded until backend API is available
 
     stats = [
-      { label: 'Assigned Jobs', value: assignedJobs, icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-100' },
-      { label: 'Ready to Start', value: readyToStart, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100' },
-      { label: 'Packing In Progress', value: packingInProgress, icon: Package, color: 'text-purple-500', bg: 'bg-purple-100' },
-      { label: 'Completed Today', value: completedToday, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' },
-      { label: 'Delayed Jobs', value: delayedJobs, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100' },
-      { label: 'Issues Reported', value: issuesReported, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100' },
+      { label: 'Pending Jobs', value: pendingJobs || 0, icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-100', path: '/staff/tasks?filter=pending' },
+      { label: 'Ready to Start', value: readyToStart || 0, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-100', path: '/staff/tasks?filter=ready' },
+      { label: 'Packing In Progress', value: packingInProgress || 0, icon: Package, color: 'text-purple-500', bg: 'bg-purple-100', path: '/staff/active' },
+      { label: 'Completed Today', value: completedToday || 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', path: '/staff/history?filter=today' },
+      { label: 'Delayed Jobs', value: delayedJobs || 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', path: '/staff/tasks?filter=delayed' },
+      { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/staff/issues' },
     ];
   }
 
@@ -62,8 +64,8 @@ export const StaffDashboard: React.FC = () => {
         // QC Inspector View (Original)
         <>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Hello, {user?.name?.split(' ')[0]}</h1>
-            <p className="text-sm text-gray-500 mt-1">Here's your overview for today.</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Hello, {user?.name?.split(' ')[0]}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Here's your overview for today.</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -72,13 +74,13 @@ export const StaffDashboard: React.FC = () => {
               const isQCFullWidth = idx === 2 ? 'col-span-2 md:col-span-1' : '';
               
               return (
-                <div key={idx} className={`${isQCFullWidth} bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center space-x-4`}>
+                <div key={idx} className={`${isQCFullWidth} bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center space-x-4`}>
                   <div className={`p-3 rounded-xl ${stat.bg}`}>
                     <Icon className={stat.color} size={24} />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
-                    <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
+                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stat.value}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{stat.label}</p>
                   </div>
                 </div>
               );
@@ -91,7 +93,7 @@ export const StaffDashboard: React.FC = () => {
               <p className="text-sm text-green-100 mb-4 opacity-90">
                 You have pending quality checks waiting.
               </p>
-              <button className="bg-white text-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-transform">
+              <button className="bg-white dark:bg-gray-800 text-green-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-transform">
                 View QC Tasks
               </button>
             </div>
@@ -132,14 +134,18 @@ export const StaffDashboard: React.FC = () => {
             {stats.map((stat, idx) => {
               const Icon = stat.icon;
               return (
-                <div key={idx} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[90px]">
+                <div 
+                  key={idx} 
+                  onClick={() => stat.path && navigate(stat.path)}
+                  className={`bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between min-h-[90px] ${stat.path ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+                >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-medium text-gray-500 leading-tight pr-2">{stat.label}</span>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-tight pr-2">{stat.label}</span>
                     <div className={`p-1.5 rounded-lg ${stat.bg} shrink-0`}>
                       <Icon className={stat.color} size={16} />
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stat.value}</p>
                 </div>
               );
             })}
@@ -147,16 +153,16 @@ export const StaffDashboard: React.FC = () => {
 
           {/* Current Active Job Unified View */}
           <div className="pt-2">
-            <h2 className="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider">Current Active Job</h2>
+            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 uppercase tracking-wider">Current Active Job</h2>
             {(() => {
               const activeJobs = workOrders.filter(wo => wo.status === 'PACKING_STARTED' || wo.status === 'MATERIAL_ISSUED');
               const activeJob = activeJobs.find(wo => wo.status === 'PACKING_STARTED') || activeJobs.find(wo => wo.status === 'MATERIAL_ISSUED');
 
               if (!activeJob) {
                 return (
-                  <div className="bg-white rounded-2xl p-6 md:p-8 text-center border border-gray-100 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 md:p-8 text-center border border-gray-100 dark:border-gray-700 shadow-sm">
                     <Package className="mx-auto text-gray-300 mb-2 md:mb-3" size={40} />
-                    <h3 className="text-base md:text-lg font-semibold text-gray-700">No active packing job.</h3>
+                    <h3 className="text-base md:text-lg font-semibold text-gray-700 dark:text-gray-200">No active packing job.</h3>
                     <button className="mt-4 bg-green-50 text-green-600 px-6 py-2.5 rounded-xl text-sm font-bold active:bg-green-100 transition-colors">
                       View Assigned Jobs
                     </button>
@@ -187,7 +193,7 @@ export const StaffDashboard: React.FC = () => {
               }
 
               return (
-                <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-gray-100 relative overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 md:p-5 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
                   {isHighPriority && (
                     <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] md:text-[10px] font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-bl-lg">
                       HIGH PRIORITY
@@ -197,28 +203,28 @@ export const StaffDashboard: React.FC = () => {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg md:text-xl font-bold text-gray-800 leading-none">{activeJob.woNumber}</h3>
+                        <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 leading-none">{activeJob.woNumber}</h3>
                         <span className={`text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded-full ${activeJob.status === 'PACKING_STARTED' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                           {activeJob.status.replace('_', ' ')}
                         </span>
                       </div>
-                      <p className="text-sm font-bold text-gray-800 mb-0.5">{activeJob.product?.name || 'Unknown Product'}</p>
-                      <p className="text-xs text-gray-500 mb-4">Size: Standard Pack | Batch: {activeJob.batchNumber || 'N/A'}</p>
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-0.5">{activeJob.product?.name || 'Unknown Product'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Size: Standard Pack | Batch: {activeJob.batchNumber || 'N/A'}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mb-4 bg-slate-50 p-2.5 md:p-4 rounded-xl border border-slate-100">
+                  <div className="grid grid-cols-3 gap-2 mb-4 bg-slate-50 dark:bg-gray-900 p-2.5 md:p-4 rounded-xl border border-slate-100 dark:border-gray-700">
                     <div>
-                      <p className="text-[10px] md:text-xs text-gray-500 mb-0.5">Packed</p>
+                      <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mb-0.5">Packed</p>
                       <p className="font-bold text-green-600 text-sm md:text-base">{packedQty} <span className="text-xs text-gray-400 font-normal">/ {activeJob.requiredQty}</span></p>
                     </div>
                     <div>
-                      <p className="text-[10px] md:text-xs text-gray-500 mb-0.5">Remaining</p>
+                      <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mb-0.5">Remaining</p>
                       <p className="font-bold text-orange-500 text-sm md:text-base">{remainingQty}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] md:text-xs text-gray-500 mb-0.5">SLA</p>
-                      <p className={`font-bold text-sm md:text-base flex items-center ${slaRisk ? 'text-red-600' : 'text-gray-800'}`}>
+                      <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mb-0.5">SLA</p>
+                      <p className={`font-bold text-sm md:text-base flex items-center ${slaRisk ? 'text-red-600' : 'text-gray-800 dark:text-gray-100'}`}>
                         <Clock size={12} className="mr-1 hidden md:block" /> {slaText}
                       </p>
                     </div>
@@ -226,7 +232,7 @@ export const StaffDashboard: React.FC = () => {
 
                   <div className="mb-5 md:mb-6">
                     <div className="flex justify-between items-end mb-1">
-                      <span className="text-[10px] md:text-xs font-semibold text-gray-600 uppercase md:normal-case">Progress</span>
+                      <span className="text-[10px] md:text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase md:normal-case">Progress</span>
                       <span className="text-xs md:text-sm font-bold text-green-600">{progress}%</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-2 md:h-2.5">
@@ -244,7 +250,7 @@ export const StaffDashboard: React.FC = () => {
                         Resume Packing
                       </button>
                     )}
-                    <button className="flex-none bg-white text-gray-700 border border-gray-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm active:bg-gray-50 transition-colors">
+                    <button className="flex-none bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm active:bg-gray-50 transition-colors">
                       Details
                     </button>
                   </div>
@@ -252,6 +258,43 @@ export const StaffDashboard: React.FC = () => {
               );
             })()}
           </div>
+
+          {/* Quick Actions */}
+          <div className="pt-2">
+            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 uppercase tracking-wider">Quick Actions</h2>
+            <div className="grid grid-cols-3 gap-3">
+              <button 
+                onClick={() => navigate('/staff/active')}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-all active:scale-95"
+              >
+                <div className="bg-green-50 text-green-600 p-2.5 rounded-xl">
+                  <Package size={24} />
+                </div>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">Resume<br/>Packing</span>
+              </button>
+              
+              <button 
+                onClick={() => navigate('/staff/tasks')}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-all active:scale-95"
+              >
+                <div className="bg-blue-50 text-blue-600 p-2.5 rounded-xl">
+                  <ListTodo size={24} />
+                </div>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">My<br/>Jobs</span>
+              </button>
+              
+              <button 
+                onClick={() => navigate('/staff/issues')}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-all active:scale-95"
+              >
+                <div className="bg-red-50 text-red-600 p-2.5 rounded-xl">
+                  <AlertTriangle size={24} />
+                </div>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">Report<br/>Issue</span>
+              </button>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
