@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { workOrderService } from '../api/workOrderService';
 import type { WorkOrder } from '../api/workOrderService';
+import { masterDataService } from '../api/masterDataService';
+import type { Warehouse } from '../api/masterDataService';
 
 import {
   Package, CheckCircle, AlertTriangle, X,
@@ -24,6 +26,12 @@ export const MaterialIssueDetails: React.FC = () => {
   const [scannedBarcode, setScannedBarcode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [issueSuccess, setIssueSuccess] = useState<string | null>(null);
+  
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+
+  useEffect(() => {
+    masterDataService.getWarehouses().then(setWarehouses).catch(console.error);
+  }, []);
 
   const fetchWO = async () => {
     try {
@@ -45,32 +53,56 @@ export const MaterialIssueDetails: React.FC = () => {
     if (id) fetchWO();
   }, [id]);
 
-  const materialsToIssue = useMemo(() => {
-    if (!selectedWO || !selectedWO.recipe) return [];
+  interface MaterialItem {
+    id: string;
+    item: string;
+    type: string;
+    reqQty: number;
+    stockQty: number;
+    issueQty: number;
+  }
+
+  const [materialsToIssue, setMaterialsToIssue] = useState<MaterialItem[]>([]);
+
+  useEffect(() => {
+    if (!selectedWO || !selectedWO.recipe) return;
     
-    // For demo purposes, we auto-populate a default batch and location if available
     if (batchNo === '') setBatchNo(`BATCH-${selectedWO.woNumber}-1`);
-    if (location === '') setLocation('WH-A-RACK-12');
+    if (location === '') setLocation('');
 
     const reqQty = selectedWO.requiredQty;
     
-    return [
+    setMaterialsToIssue([
       ...(selectedWO.recipe.items?.filter(i => !i.isPackaging) || []).map(item => ({
         id: item.inputProductId,
         item: item.inputProduct?.name || item.inputProductId,
         type: 'Raw Material',
-        reqQty: item.requiredQty * reqQty,
-        stockQty: (item.requiredQty * reqQty) + 50, // mock stock
+        reqQty: item.requiredQty,
+        stockQty: 0,
+        issueQty: 0,
       })),
       ...(selectedWO.recipe.items?.filter(i => i.isPackaging) || []).map(pkg => ({
         id: pkg.inputProductId,
         item: pkg.inputProduct?.name || pkg.inputProductId,
         type: 'Packaging',
-        reqQty: pkg.requiredQty * reqQty,
-        stockQty: (pkg.requiredQty * reqQty) + 200, // mock stock
+        reqQty: pkg.requiredQty,
+        stockQty: 0,
+        issueQty: 0,
       }))
-    ];
+    ]);
   }, [selectedWO]);
+
+  const handleMaterialChange = (id: string, field: keyof MaterialItem, value: string) => {
+    setMaterialsToIssue(prev => prev.map(m => {
+      if (m.id === id) {
+        return {
+          ...m,
+          [field]: (field === 'reqQty' || field === 'stockQty' || field === 'issueQty') ? Number(value) : value
+        };
+      }
+      return m;
+    }));
+  };
 
   const allAvailable = materialsToIssue.every(m => m.stockQty >= m.reqQty);
 
@@ -84,8 +116,12 @@ export const MaterialIssueDetails: React.FC = () => {
         batchNo,
         location,
         materials: materialsToIssue.map(m => ({
-          item: m.item,
-          issuedQty: m.reqQty
+          itemCode: m.item,
+          type: m.type,
+          reqQty: m.reqQty,
+          stockQty: m.stockQty,
+          issuedQty: m.issueQty,
+          status: m.stockQty < m.reqQty ? 'Shortage' : 'Available'
         }))
       });
       
@@ -261,9 +297,10 @@ export const MaterialIssueDetails: React.FC = () => {
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 dark:border-gray-700 rounded-lg text-sm bg-slate-50 dark:bg-gray-900 dark:text-white"
               >
-                <option value="">Select Location</option>
-                <option value="WH-A-RACK-12">WH-A-RACK-12</option>
-                <option value="WH-B-RACK-05">WH-B-RACK-05</option>
+                <option value="">Select Warehouse...</option>
+                {warehouses.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -285,15 +322,46 @@ export const MaterialIssueDetails: React.FC = () => {
                   const hasShortage = mat.stockQty < mat.reqQty;
                   return (
                     <tr key={mat.id} className="hover:bg-slate-50/50 dark:hover:bg-gray-800/50">
-                      <td className="px-4 py-3 font-bold text-slate-800 dark:text-gray-200">{mat.item}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-gray-400">{mat.type}</td>
-                      <td className="px-4 py-3 font-mono font-medium">{mat.reqQty}</td>
-                      <td className="px-4 py-3 font-mono">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${hasShortage ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {mat.stockQty}
-                        </span>
+                      <td className="px-4 py-3">
+                        <input
+                          type="text"
+                          value={mat.item || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'item', e.target.value)}
+                          className="w-full px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
+                        />
                       </td>
-                      <td className="px-4 py-3 font-mono text-slate-800 dark:text-gray-200 font-bold">{mat.reqQty}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="text"
+                          value={mat.type || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'type', e.target.value)}
+                          className="w-28 px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-mono font-medium">
+                        <input
+                          type="number"
+                          value={mat.reqQty || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'reqQty', e.target.value)}
+                          className="w-24 px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-mono">
+                        <input
+                          type="number"
+                          value={mat.stockQty || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'stockQty', e.target.value)}
+                          className={`w-24 px-2 py-1 rounded border text-xs font-bold ${hasShortage ? 'border-red-300 bg-red-50 text-red-700' : 'border-emerald-300 bg-emerald-50 text-emerald-700'} focus:outline-none focus:ring-1 focus:ring-[#00891D]`}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-mono text-slate-800 dark:text-gray-200 font-bold">
+                        <input
+                          type="number"
+                          value={mat.issueQty || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'issueQty', e.target.value)}
+                          className="w-24 px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         {hasShortage ? (
                            <span className="flex items-center gap-1 text-red-600 text-xs font-bold"><X size={12}/> Shortage</span>

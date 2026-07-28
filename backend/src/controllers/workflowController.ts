@@ -20,7 +20,7 @@ export const getQcChecklists = catchAsync(async (req: Request, res: Response) =>
     { id: '5', label: 'Product Condition', required: true },
     { id: '6', label: 'Expiry Date Verification', required: true },
   ];
-  sendResponse(res, 200, 'QC Checklists retrieved', { data: checklists });
+  sendResponse(res, 200, 'QC Checklists retrieved', checklists);
 });
 
 export const submitQualityCheck = catchAsync(async (req: Request, res: Response) => {

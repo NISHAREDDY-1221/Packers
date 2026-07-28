@@ -48,7 +48,13 @@ export class WorkOrderService {
     
     // RBAC Scoping
     if (user?.role === 'OPERATOR') {
-      whereClause = { ...whereClause, operatorId: user.id };
+      whereClause = { 
+        ...whereClause, 
+        OR: [
+          { operatorId: user.id },
+          { supervisorId: user.id }
+        ]
+      };
     } else if (user?.role === 'QC_INSPECTOR') {
       // Typically QC inspectors only care about QC pending, but for now we scope to explicitly assigned or QC_PENDING
       whereClause = { ...whereClause, status: 'QC_PENDING' };
@@ -117,6 +123,24 @@ export class WorkOrderService {
           status: 'PENDING',
         }
       });
+    } else if ((status === 'APPROVED' || status === 'REJECTED') && workOrder.status === 'PENDING') {
+      const pendingApproval = await prisma.approvalRequest.findFirst({
+        where: { relatedEntityId: updatedWO.id, type: 'WORK_ORDER', status: 'PENDING' }
+      });
+      if (pendingApproval) {
+        await prisma.approvalRequest.update({
+          where: { id: pendingApproval.id },
+          data: { status }
+        });
+        await prisma.approvalHistory.create({
+          data: {
+            approvalRequestId: pendingApproval.id,
+            action: status === 'APPROVED' ? 'Approved' : 'Rejected',
+            actionById: userId,
+            comments: 'Status updated directly from Work Order',
+          }
+        });
+      }
     }
 
     return updatedWO;
@@ -204,10 +228,6 @@ export class WorkOrderService {
 
     const produced = data.actualProduced ?? workOrder.actualProduced ?? 0;
     const rejected = data.actualRejected ?? workOrder.actualRejected ?? 0;
-
-    if (produced + rejected > workOrder.requiredQty) {
-      throw new AppError(400, 'Total quantities cannot exceed required quantity');
-    }
 
     const updatedWO = await prisma.workOrder.update({
       where: { id },

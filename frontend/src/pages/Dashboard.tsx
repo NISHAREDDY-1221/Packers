@@ -48,7 +48,7 @@ export const Dashboard: React.FC = () => {
         {/* Primary Row - 5 Columns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* 1. Today's Packing */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-xs font-semibold text-slate-500">Today's Packing</span>
@@ -58,14 +58,11 @@ export const Dashboard: React.FC = () => {
                 <Package size={20} />
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 2. Today's Repacking */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-xs font-semibold text-slate-500">Today's Repacking</span>
@@ -75,14 +72,11 @@ export const Dashboard: React.FC = () => {
                 <RefreshCw size={20} />
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 3. Pending Work Orders */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-xs font-semibold text-slate-500">Pending Work Orders</span>
@@ -92,14 +86,11 @@ export const Dashboard: React.FC = () => {
                 <Layers size={20} />
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 4. Completed Work Orders */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-xs font-semibold text-slate-500">Completed Work Orders</span>
@@ -109,14 +100,11 @@ export const Dashboard: React.FC = () => {
                 <CheckCircle size={20} />
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold mt-2">
-              <TrendingUp size={10} />
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 5. Rejected QC */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-h-[120px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
             <div className="flex justify-between items-start">
               <div>
                 <span className="text-xs font-semibold text-slate-500">Rejected QC</span>
@@ -126,100 +114,82 @@ export const Dashboard: React.FC = () => {
                 <ShieldCheck size={20} />
               </div>
             </div>
-            <div className="text-[10px] text-green-600 font-semibold mt-2">
-              <span>-</span>
-            </div>
+
           </div>
         </div>
 
         {/* Secondary Row - 8 Columns */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
           {/* 6. Packing Efficiency */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Packing Efficiency</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0%</h4>
             </div>
-            <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2">
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 7. Packing Cost */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Packing Cost</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">₹0.00 <span className="text-[10px] text-slate-400 font-medium">/u</span></h4>
             </div>
-            <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2">
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 8. Wastage % */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Wastage %</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0%</h4>
             </div>
-            <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 9. Today's Finished Goods */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Today's FG</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">u</span></h4>
             </div>
-            <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 10. Barcode Generated */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Barcode Gen</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">tags</span></h4>
             </div>
-            <div className="text-[9px] text-slate-400 font-semibold mt-2 truncate">
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 11. Near Expiry (NEW) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Near Expiry</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">batches</span></h4>
             </div>
-            <div className="flex items-center gap-1 text-[9px] text-slate-400 font-semibold mt-2 truncate">
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 12. Employee Productivity (NEW) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Emp Productivity</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0 <span className="text-[10px] text-slate-400 font-medium">u/hr</span></h4>
             </div>
-            <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate">
-              <span>-</span>
-            </div>
+
           </div>
 
           {/* 13. Machine Utilization (NEW) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between min-h-[100px]">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
             <div>
               <span className="text-[10px] font-semibold text-slate-500 block truncate">Machine Util</span>
               <h4 className="text-lg font-bold text-slate-800 mt-1">0%</h4>
             </div>
-            <div className="flex items-center gap-0.5 text-[9px] text-slate-400 font-semibold mt-2 truncate">
-              <span>-</span>
-            </div>
+
           </div>
         </div>
       </div>

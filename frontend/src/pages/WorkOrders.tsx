@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { masterDataService } from '../api/masterDataService';
 import type { Recipe } from '../api/masterDataService';
+import { authService } from '../api/authService';
+import type { User } from '../api/authService';
 
 const KANBAN_COLUMNS: WoStatus[] = [
   'DRAFT',
@@ -70,6 +72,11 @@ export const WorkOrders: React.FC = () => {
     }
   };
 
+  const [apiOperators, setApiOperators] = useState<User[]>([]);
+  React.useEffect(() => {
+    authService.getOperators().then(setApiOperators).catch(console.error);
+  }, []);
+
   // View mode state
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
 
@@ -79,7 +86,6 @@ export const WorkOrders: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterSupervisor, setFilterSupervisor] = useState('All');
-  const [filterTeam, setFilterTeam] = useState('All');
   const [filterDate, setFilterDate] = useState('');
 
   // Selected KPI Filter
@@ -100,14 +106,12 @@ export const WorkOrders: React.FC = () => {
   const [formRecipeId, setFormRecipeId] = useState('');
   const [formQty, setFormQty] = useState(100);
   const [formPriority, setFormPriority] = useState<WoPriority>('MEDIUM');
-  const [formAssignedTeam, setFormAssignedTeam] = useState('Packing Team Alpha');
-  const [formSupervisor, setFormSupervisor] = useState('Suresh Kumar');
+  const [formSupervisor, setFormSupervisor] = useState('');
   const [formExpectedCompletion, setFormExpectedCompletion] = useState('2026-07-20');
 
   // Edit Form states
   const [editQty, setEditQty] = useState(100);
   const [editPriority, setEditPriority] = useState<WoPriority>('MEDIUM');
-  const [editAssignedTeam, setEditAssignedTeam] = useState('');
   const [editSupervisor, setEditSupervisor] = useState('');
   const [editExpectedCompletion, setEditExpectedCompletion] = useState('');
 
@@ -126,7 +130,6 @@ export const WorkOrders: React.FC = () => {
   // Derived filter dropdown lists
   const categories = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.product?.category?.name || 'Unknown'))), [workOrders]);
   const supervisors = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.supervisor?.name || wo.supervisorId))), [workOrders]);
-  const teams = useMemo(() => ['Packing Team Alpha', 'Packing Team Beta', 'Quality Assurance'], []);
 
   // Derived summaries for KPI Cards
   const summary = useMemo(() => {
@@ -155,9 +158,9 @@ export const WorkOrders: React.FC = () => {
       const matchesPriority = filterPriority === 'All' || wo.priority === filterPriority;
       const matchesCategory = filterCategory === 'All' || (wo.product?.category?.name || 'Misc') === filterCategory;
       const matchesSupervisor = filterSupervisor === 'All' || (wo.supervisor?.name || '') === filterSupervisor;
-      const matchesTeam = filterTeam === 'All' || ('Team Alpha') === filterTeam;
-      const woDatePrefix = wo.expectedDate ? wo.expectedDate.substring(0, 10) : '';
-      const matchesDate = !filterDate || woDatePrefix === filterDate;
+      const woExpectedDatePrefix = wo.expectedDate ? wo.expectedDate.substring(0, 10) : '';
+      const woCreatedDatePrefix = wo.createdAt ? wo.createdAt.substring(0, 10) : '';
+      const matchesDate = !filterDate || woExpectedDatePrefix === filterDate || woCreatedDatePrefix === filterDate;
 
       // 3. KPI filter override
       let matchesKpi = true;
@@ -176,9 +179,9 @@ export const WorkOrders: React.FC = () => {
       }
 
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory &&
-             matchesSupervisor && matchesTeam && matchesDate && matchesKpi;
+             matchesSupervisor && matchesDate && matchesKpi;
     });
-  }, [workOrders, search, filterStatus, filterPriority, filterCategory, filterSupervisor, filterTeam, filterDate, kpiFilter]);
+  }, [workOrders, search, filterStatus, filterPriority, filterCategory, filterSupervisor, filterDate, kpiFilter]);
 
   // Pagination logic
   const paginatedWOs = useMemo(() => {
@@ -229,7 +232,7 @@ export const WorkOrders: React.FC = () => {
         requiredQty: Number(formQty),
         priority: formPriority as WoPriority,
         expectedDate: formExpectedCompletion ? new Date(formExpectedCompletion).toISOString() : undefined,
-        supervisorId: '00000000-0000-0000-0000-000000000000'
+        supervisorId: formSupervisor
       });
       setIsCreateOpen(false);
       showToast('Work order created successfully.');
@@ -247,8 +250,7 @@ export const WorkOrders: React.FC = () => {
     setIsEditOpen(wo);
     setEditQty(wo.requiredQty);
     setEditPriority(wo.priority);
-    setEditAssignedTeam(('Team Alpha'));
-    setEditSupervisor((wo.supervisor?.name || ''));
+    setEditSupervisor((wo.supervisor?.id || wo.supervisorId || ''));
     setEditExpectedCompletion(wo.expectedDate ? new Date(wo.expectedDate).toISOString().substring(0, 10) : '');
   };
 
@@ -428,7 +430,7 @@ export const WorkOrders: React.FC = () => {
         </div>
 
         {/* Filter inputs */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status</label>
             <select
@@ -469,26 +471,14 @@ export const WorkOrders: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Supervisor</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Assigned To</label>
             <select
               value={filterSupervisor}
               onChange={(e) => setFilterSupervisor(e.target.value)}
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
             >
-              <option value="All">All Supervisors</option>
+              <option value="All">All Assigned</option>
               {supervisors.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Assigned Team</label>
-            <select
-              value={filterTeam}
-              onChange={(e) => setFilterTeam(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            >
-              <option value="All">All Teams</option>
-              {teams.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
@@ -504,7 +494,7 @@ export const WorkOrders: React.FC = () => {
         </div>
 
         {/* Clear Filters indicator */}
-        {(search || filterStatus !== 'All' || filterPriority !== 'All' || filterCategory !== 'All' || filterSupervisor !== 'All' || filterTeam !== 'All' || filterDate || kpiFilter !== 'all') && (
+        {(search || filterStatus !== 'All' || filterPriority !== 'All' || filterCategory !== 'All' || filterSupervisor !== 'All' || filterDate || kpiFilter !== 'all') && (
           <div className="flex justify-between items-center text-[11px] text-gray-500 pt-1.5 border-t border-gray-100 font-medium">
             <span>Showing {filteredWOs.length} of {workOrders.length} orders</span>
             <button
@@ -514,7 +504,6 @@ export const WorkOrders: React.FC = () => {
                 setFilterPriority('All');
                 setFilterCategory('All');
                 setFilterSupervisor('All');
-                setFilterTeam('All');
                 setFilterDate('');
                 setKpiFilter('all');
               }}
@@ -555,8 +544,7 @@ export const WorkOrders: React.FC = () => {
                   <th className="p-3 font-semibold text-gray-500 uppercase">Product</th>
                   <th className="p-3 font-semibold text-gray-500 uppercase">Recipe/BOM</th>
                   <th className="p-3 font-semibold text-gray-505 uppercase text-right">Required Quantity</th>
-                  <th className="p-3 font-semibold text-gray-505 uppercase">Assigned Team</th>
-                  <th className="p-3 font-semibold text-gray-505 uppercase">Supervisor</th>
+                  <th className="p-3 font-semibold text-gray-505 uppercase">Assigned To</th>
                   <th className="p-3 font-semibold text-gray-500 uppercase">Priority</th>
                   <th className="p-3 font-semibold text-gray-505 uppercase">Status</th>
                   <th className="p-3 font-semibold text-gray-550 uppercase">Expected Completion</th>
@@ -573,7 +561,6 @@ export const WorkOrders: React.FC = () => {
                     <td className="p-3 font-semibold text-gray-900 truncate max-w-[200px]">{(wo.product?.name || '')}</td>
                     <td className="p-3 text-gray-600 font-medium">{(wo.recipe?.code || wo.recipeId)}</td>
                     <td className="p-3 text-right font-bold text-gray-900">{wo.requiredQty}</td>
-                    <td className="p-3 text-gray-600 font-medium">{('Team Alpha')}</td>
                     <td className="p-3 text-gray-600 font-medium">{(wo.supervisor?.name || '')}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${getPriorityStyle(wo.priority)}`}>
@@ -958,23 +945,19 @@ export const WorkOrders: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Assigned Team</label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={formAssignedTeam}
-                    onChange={(e) => setFormAssignedTeam(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Supervisor</label>
-                  <input
-                    type="text"
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Assigned To *</label>
+                  <select
+                    required
                     className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
                     value={formSupervisor}
                     onChange={(e) => setFormSupervisor(e.target.value)}
-                  />
+                  >
+                    <option value="">-- Select Operator --</option>
+                    {apiOperators.map(op => (
+                      <option key={op.id} value={op.id}>{op.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1062,23 +1045,19 @@ export const WorkOrders: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Assigned Team</label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={editAssignedTeam}
-                    onChange={(e) => setEditAssignedTeam(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Supervisor</label>
-                  <input
-                    type="text"
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Assigned To *</label>
+                  <select
+                    required
                     className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
                     value={editSupervisor}
                     onChange={(e) => setEditSupervisor(e.target.value)}
-                  />
+                  >
+                    <option value="">-- Select Operator --</option>
+                    {apiOperators.map(op => (
+                      <option key={op.id} value={op.id}>{op.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

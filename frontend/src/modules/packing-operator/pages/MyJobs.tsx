@@ -39,7 +39,7 @@ export const MyJobs: React.FC = () => {
 
   const handleStartPacking = async (id: string) => {
     try {
-      await packingJobsService.updateWorkOrderStatus(id, 'PACKING_STARTED');
+      await packingJobsService.startPacking(id);
       navigate('/operator/active-packing');
     } catch (error) {
       console.error('Error starting packing', error);

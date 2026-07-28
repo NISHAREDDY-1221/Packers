@@ -102,9 +102,6 @@ export const ActivePacking: React.FC = () => {
     if (newPacked < 0 || newRejected < 0) return alert('Cannot add negative quantities');
     
     const totalNew = packedQty + newPacked + rejectedQty + newRejected;
-    if (totalNew > requiredQty) {
-      return alert(`Total quantity cannot exceed required quantity (${requiredQty})`);
-    }
 
     try {
       await workOrderService.updateQuantity(activeJob.id, {

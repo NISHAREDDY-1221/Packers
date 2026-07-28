@@ -58,7 +58,7 @@ export const PackingExecution: React.FC = () => {
         if (s === 'QC_PENDING') return 'QC Pending';
         if (s === 'QC_PASSED') return 'QC Passed';
         if (s === 'COMPLETED') return 'Packing Completed';
-        return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return s.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       };
       
       const getSupervisorName = (supervisor: any) => {
@@ -135,11 +135,7 @@ export const PackingExecution: React.FC = () => {
       render: (wo: any) => <div className="text-center text-xs line-clamp-1">{wo.productName}</div>
     },
     {
-      key: 'assignedTeam', label: 'ASSIGNED TEAM',
-      render: () => <div className="text-center text-xs text-gray-500">Packing A</div>
-    },
-    {
-      key: 'supervisorName', label: 'OPERATOR', sortable: true,
+      key: 'supervisorName', label: 'ASSIGNED TO', sortable: true,
       render: (wo: any) => <div className="text-center text-xs">{wo.supervisorName}</div>
     },
 

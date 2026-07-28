@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { workOrderService } from '../services/workOrderService';
-import { barcodeService } from '../services/barcodeService';
-import type { PrintJob } from '../services/barcodeService';
+import type { WorkOrder } from '../context/AppContext';
 import { Printer, RefreshCw, Barcode, QrCode, ClipboardList, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const PRINTERS = [
@@ -13,200 +11,40 @@ const PRINTERS = [
   'Generic Thermal Print Head'
 ];
 
-// Code 128 Barcode drawing function on Canvas
-const drawBarcode128 = (canvas: HTMLCanvasElement | null, text: string) => {
-  if (!canvas || !text) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+interface PrintJob {
+  id: string;
+  woNo: string;
+  sku: string;
+  batchNo: string;
+  printedQty: number;
+  printer: string;
+  timestamp: string;
+  printedBy: string;
+  status: 'Printed' | 'Reprinted';
+  reprintReason?: string;
+}
 
-  // Code 128 pattern table
-  const PATTERNS = [
-    [2, 1, 2, 2, 2, 2],
-    [2, 2, 2, 1, 2, 2],
-    [2, 2, 2, 2, 2, 1],
-    [1, 2, 1, 2, 2, 3], // 0-3
-    [1, 2, 1, 3, 2, 2],
-    [1, 3, 1, 2, 2, 2],
-    [1, 2, 2, 2, 1, 3],
-    [1, 2, 2, 3, 1, 2], // 4-7
-    [1, 3, 2, 2, 1, 2],
-    [2, 2, 1, 2, 1, 3],
-    [2, 2, 1, 3, 1, 2],
-    [2, 3, 1, 2, 1, 2], // 8-11
-    [1, 1, 2, 2, 3, 2],
-    [1, 2, 2, 1, 3, 2],
-    [1, 2, 2, 2, 3, 1],
-    [1, 1, 3, 2, 2, 2], // 12-15
-    [1, 2, 3, 1, 2, 2],
-    [1, 2, 3, 2, 2, 1],
-    [2, 2, 3, 2, 1, 1],
-    [2, 2, 1, 1, 3, 2], // 16-19
-    [2, 2, 1, 2, 3, 1],
-    [2, 1, 3, 2, 1, 2],
-    [2, 2, 3, 1, 1, 2],
-    [3, 1, 2, 1, 3, 1], // 20-23
-    [3, 1, 1, 2, 2, 2],
-    [3, 2, 1, 1, 2, 2],
-    [3, 2, 1, 2, 2, 1],
-    [3, 1, 2, 2, 1, 2], // 24-27
-    [3, 2, 2, 1, 1, 2],
-    [3, 2, 2, 2, 1, 1],
-    [2, 1, 2, 1, 2, 3],
-    [2, 1, 2, 3, 2, 1], // 32-35
-    [2, 3, 2, 1, 2, 1],
-    [1, 1, 1, 3, 2, 3],
-    [1, 3, 1, 1, 2, 3],
-    [1, 3, 1, 3, 2, 1], // 36-39
-    [1, 1, 2, 3, 1, 3],
-    [1, 3, 2, 1, 1, 3],
-    [1, 3, 2, 3, 1, 1],
-    [2, 1, 1, 3, 1, 3], // 40-43
-    [2, 3, 1, 1, 1, 3],
-    [2, 3, 1, 3, 1, 1],
-    [1, 1, 2, 1, 3, 3],
-    [1, 1, 2, 3, 3, 1], // 44-47
-    [1, 3, 2, 1, 3, 1],
-    [1, 1, 3, 1, 2, 3],
-    [1, 1, 3, 3, 2, 1],
-    [1, 3, 3, 1, 2, 1], // 48-51
-    [3, 1, 3, 1, 2, 1],
-    [2, 1, 1, 3, 3, 1],
-    [2, 3, 1, 1, 3, 1],
-    [2, 1, 3, 1, 1, 3], // 52-55
-    [2, 1, 3, 3, 1, 1],
-    [2, 1, 3, 1, 3, 1],
-    [3, 1, 1, 1, 2, 3],
-    [3, 1, 1, 3, 2, 1], // 56-59
-    [3, 3, 1, 1, 2, 1],
-    [3, 1, 2, 1, 1, 3],
-    [3, 1, 2, 3, 1, 1],
-    [3, 3, 2, 1, 1, 1], // 60-63
-    [3, 1, 4, 1, 1, 1],
-    [2, 2, 1, 4, 1, 1],
-    [4, 3, 1, 1, 1, 1],
-    [1, 1, 1, 2, 2, 4], // 64-67
-    [1, 1, 1, 4, 2, 2],
-    [1, 2, 1, 1, 2, 4],
-    [1, 2, 1, 4, 2, 1],
-    [1, 4, 1, 1, 2, 2], // 68-71
-    [1, 4, 1, 2, 2, 1],
-    [1, 1, 2, 2, 1, 4],
-    [1, 1, 2, 4, 1, 2],
-    [1, 2, 2, 1, 1, 4], // 72-75
-    [1, 2, 2, 4, 1, 1],
-    [1, 4, 2, 1, 1, 2],
-    [1, 4, 2, 2, 1, 1],
-    [2, 4, 1, 2, 1, 1], // 76-79
-    [2, 2, 1, 1, 1, 4],
-    [4, 1, 3, 1, 1, 1],
-    [2, 4, 1, 1, 1, 2],
-    [1, 3, 4, 1, 1, 1], // 80-83
-    [1, 1, 1, 2, 4, 2],
-    [1, 2, 1, 1, 4, 2],
-    [1, 2, 1, 2, 4, 1],
-    [1, 1, 4, 2, 1, 2], // 84-87
-    [1, 2, 4, 1, 1, 2],
-    [1, 2, 4, 2, 1, 1],
-    [4, 1, 1, 2, 1, 2],
-    [4, 2, 1, 1, 1, 2], // 88-91
-    [4, 2, 1, 2, 1, 1],
-    [2, 1, 2, 1, 4, 1],
-    [2, 1, 4, 1, 2, 1],
-    [4, 1, 2, 1, 2, 1], // 92-95
-    [1, 1, 1, 1, 4, 3],
-    [1, 1, 1, 3, 4, 1],
-    [1, 3, 1, 1, 4, 1],
-    [1, 1, 4, 1, 1, 3], // 96-99
-    [1, 1, 4, 3, 1, 1],
-    [4, 1, 1, 1, 1, 3],
-    [4, 1, 1, 3, 1, 1],
-    [1, 1, 3, 1, 4, 1], // 100-103
-    [1, 1, 4, 1, 3, 1],
-    [3, 1, 1, 1, 4, 1],
-    [4, 1, 1, 1, 3, 1],
-    [2, 1, 1, 4, 1, 2], // 104-107
-    [2, 1, 1, 2, 1, 4],
-    [2, 1, 1, 2, 3, 2],
-    [2, 3, 3, 1, 1, 1, 2],
-  ];
-
-  const getCharValue = (char: string) => {
-    const code = char.charCodeAt(0);
-    if (code >= 32 && code <= 126) return code - 32;
-    return 0;
-  };
-
-  const startValue = 104;
-  let checksum = startValue;
-  const codes = [startValue];
-
-  for (let i = 0; i < text.length; i++) {
-    const val = getCharValue(text[i]);
-    codes.push(val);
-    checksum += val * (i + 1);
-  }
-
-  const stopValue = 106;
-  codes.push(checksum % 103);
-  codes.push(stopValue);
-
-  let bars: number[] = [];
-  codes.forEach((c) => {
-    bars = bars.concat(PATTERNS[c]);
-  });
-  bars = bars.concat(PATTERNS[106]);
-
-  const scale = 2.4;
-  const padding = 10;
-  const barcodeWidth = bars.reduce((acc, curr) => acc + curr, 0) * scale;
-
-  canvas.width = barcodeWidth + padding * 2;
-  canvas.height = 80;
-
-  let x = padding;
-  let isBar = true;
-
-  bars.forEach((width) => {
-    const w = width * scale;
-    if (isBar) {
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(x, 4, w, 72);
-    }
-    x += w;
-    isBar = !isBar;
-  });
-};
 export const BarcodesLabels: React.FC = () => {
-  const previewCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const { workOrders, recipes, updateWorkOrderStatus } = useApp();
 
-  const [selectableWOs, setSelectableWOs] = useState<any[]>([]);
-  const [selectedWO, setSelectedWO] = useState<any | null>(null);
-  const [history, setHistory] = useState<PrintJob[]>([]);
+  // Find work orders that have completed packing
+  const readyWorkOrders = useMemo(() => {
+    return workOrders.filter(w =>
+      w.status === 'Completed'
+    );
+  }, [workOrders]);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const selectableWOs = readyWorkOrders;
 
-  // Load active work orders and history from backend
+  // Selected Work Order State
+  const [selectedWO, setSelectedWO] = useState<WorkOrder | null>(null);
+
+  // Sync initial selection
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [allWos, hist] = await Promise.all([
-          workOrderService.getWorkOrders({ sort: '-updatedAt' }),
-          barcodeService.getPrintHistory()
-        ]);
-        const wos = (allWos || []).filter(wo => ['PACKING_STARTED', 'QC_PENDING', 'COMPLETED'].includes(wo.status));
-        console.log('wos:', wos, 'hist:', hist);
-        setSelectableWOs(wos || []);
-        if (wos && wos.length > 0) setSelectedWO(wos[0]);
-        setHistory(Array.isArray(hist) ? hist : []);
-      } catch (err) {
-        console.error('Failed to load barcode data', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    if (selectableWOs.length > 0 && !selectedWO) {
+      setSelectedWO(selectableWOs[0]);
+    }
+  }, [selectableWOs, selectedWO]);
 
   // Printer Status State
   const [printerStatus, setPrinterStatus] = useState<'Online' | 'Offline'>('Online');
@@ -228,20 +66,21 @@ export const BarcodesLabels: React.FC = () => {
   // Sync inputs when selected work order changes
   useEffect(() => {
     if (selectedWO) {
-      setSku(selectedWO.product?.sku || 'SKU-SM500');
-      setBatchNo(selectedWO.batchNumber || `BAT-${selectedWO.woNumber}`);
-      setLotNo(`LOT-${selectedWO.woNumber}`);
-      setMrp(selectedWO.recipe?.mrp || 60);
-      setPrintQty(selectedWO.requiredQty);
+      const recipe = recipes.find(r => r.id === selectedWO.recipeId);
+      setSku(recipe?.outputSku || 'SKU-SM500');
+      setBatchNo(selectedWO.batchNumber || `BAT-${selectedWO.woNo}`);
+      setLotNo(`LOT-${selectedWO.woNo}`);
+      setMrp(recipe?.mrp || 60);
+      setPrintQty(selectedWO.requiredQuantity);
       
       // Default dates
       const today = new Date().toISOString().split('T')[0];
       setMfgDate(today);
       const exp = new Date();
-      exp.setDate(exp.getDate() + (selectedWO.recipe?.shelfLife || 180));
+      exp.setDate(exp.getDate() + (recipe?.shelfLife || 180));
       setExpiryDate(exp.toISOString().split('T')[0]);
     }
-  }, [selectedWO]);
+  }, [selectedWO, recipes]);
 
   // Real-time printer status validation error sync
   useEffect(() => {
@@ -257,7 +96,7 @@ export const BarcodesLabels: React.FC = () => {
   const [labelsPrinted, setLabelsPrinted] = useState(0);
 
   // History state
-
+  const [history, setHistory] = useState<PrintJob[]>([]);
 
   // Validation / Warning alerts
   const [validationError, setValidationError] = useState('');
@@ -297,86 +136,97 @@ export const BarcodesLabels: React.FC = () => {
     // Trigger visual preview refresh
     setLabelsRequired(printQty);
   };
+
   // Handle Generate and Print
-  const handlePrint = async (e: React.FormEvent) => {
+  const handlePrint = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError('');
     setSuccessBanner(null);
 
+    // 1. Printer Connected Validation
     if (printerStatus === 'Offline') {
       setValidationError('Printer is Offline. Please check printer connection.');
       return;
     }
+    // 2. Batch Number Available
     if (!batchNo) {
       setValidationError('Batch Number is not available.');
       return;
     }
+    // 3. MRP Configured
     if (mrp <= 0) {
       setValidationError('MRP must be configured (> 0).');
       return;
     }
-    if (!mfgDate || !expiryDate) {
-      setValidationError('MFG and EXP dates are required.');
+    // 4. Manufacturing Date Available
+    if (!mfgDate) {
+      setValidationError('Manufacturing Date is required.');
+      return;
+    }
+    // 5. Expiry Date Available
+    if (!expiryDate) {
+      setValidationError('Expiry Date is required.');
       return;
     }
 
-    try {
-      if (!selectedWO) return;
-      // 1. Call backend to persist the print job
-      const newJob = await barcodeService.printLabels(selectedWO.id, batchNo, barcodeType, printQty);
+    // Success printing path
+    const jobId = `PRT-${Math.floor(100 + Math.random() * 900)}`;
+    const timestamp = new Date().toLocaleString();
 
-      // 2. Trigger HTML5 visual print window
-      printLabels(newJob, labelTemplate, barcodeType);
+    const newJob: PrintJob = {
+      id: jobId,
+      woNo: selectedWO?.woNo || 'N/A',
+      sku,
+      batchNo,
+      printedQty: printQty,
+      printer: selectedPrinter,
+      timestamp,
+      printedBy: selectedWO?.supervisor || 'Admin Manager',
+      status: 'Printed'
+    };
 
-      // 3. Update local state
-      setHistory([newJob, ...history]);
-      setLabelsPrinted(prev => prev + printQty);
-      setLabelsRequired(printQty);
+    setHistory([newJob, ...history]);
+    setLabelsPrinted(prev => prev + printQty);
+    setLabelsRequired(printQty);
 
-      setSuccessBanner({
-        totalPrinted: printQty,
-        timestamp: newJob.timestamp,
-        printer: selectedPrinter,
-        jobId: newJob.id
-      });
-    } catch (err) {
-      console.error('Print failed', err);
-      setValidationError('Failed to execute print job on the server.');
+    setSuccessBanner({
+      totalPrinted: printQty,
+      timestamp,
+      printer: selectedPrinter,
+      jobId
+    });
+
+    // Update Work Order Status in Context to 'Labels Printed'
+    if (selectedWO) {
+      updateWorkOrderStatus(selectedWO.id, 'Labels Printed');
     }
   };
+
   // Handle Reprint Action
-  const handleReprint = async (job: PrintJob) => {
+  const handleReprint = (job: PrintJob) => {
     const reason = prompt('Please enter the reprint reason:');
-    if (reason === null) return; 
+    if (reason === null) return; // cancelled
     if (!reason.trim()) {
       alert('Reprint reason is required.');
       return;
     }
 
-    try {
-      const res = await barcodeService.reprintLabels(job.id, reason);
-      
-      if (res.requiresApproval) {
-        alert(res.message);
-      } else if (res.job) {
-        // Trigger HTML5 visual print window
-        printLabels(res.job, labelTemplate, barcodeType);
+    const newJob: PrintJob = {
+      ...job,
+      id: `PRT-${Math.floor(100 + Math.random() * 900)}`,
+      timestamp: new Date().toLocaleString(),
+      status: 'Reprinted',
+      reprintReason: reason
+    };
 
-        setHistory([res.job, ...history]);
-        setSuccessBanner({
-          totalPrinted: res.job.printedQty,
-          timestamp: res.job.timestamp,
-          printer: selectedPrinter,
-          jobId: res.job.id
-        });
-      }
-    } catch (err) {
-      console.error('Reprint failed', err);
-      alert('Failed to execute reprint job.');
-    }
+    setHistory([newJob, ...history]);
+    setSuccessBanner({
+      totalPrinted: job.printedQty,
+      timestamp: newJob.timestamp,
+      printer: job.printer,
+      jobId: newJob.id
+    });
   };
-
-
 
   return (
     <div className="space-y-6 text-left">
@@ -398,7 +248,7 @@ export const BarcodesLabels: React.FC = () => {
           >
             {selectableWOs.map(w => (
               <option key={w.id} value={w.id}>
-                {w.woNumber} - {w.product?.name} ({w.status})
+                {w.woNo} - {w.productName} ({w.status})
               </option>
             ))}
           </select>
@@ -653,7 +503,7 @@ export const BarcodesLabels: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-slate-450 dark:text-gray-500">Product:</span>
-                  <span className="font-bold text-right max-w-[150px] truncate">{selectedWO?.product?.name || 'No Product Selected'}</span>
+                  <span className="font-bold text-right max-w-[150px] truncate">{selectedWO?.productName || 'No Product Selected'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-450 dark:text-gray-500">SKU:</span>
@@ -736,7 +586,7 @@ export const BarcodesLabels: React.FC = () => {
           </h3>
 
           <div className="space-y-3 max-h-[460px] overflow-y-auto sidebar-scrollbar pr-1">
-            {(Array.isArray(history) ? history : []).map((job) => (
+            {history.map((job) => (
               <div key={job.id} className="p-3 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-750/30 text-xs space-y-1.5 transition-colors">
                 <div className="flex justify-between items-center">
                   <span className="font-mono font-bold text-slate-500 dark:text-gray-400">{job.id}</span>

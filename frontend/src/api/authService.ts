@@ -26,5 +26,9 @@ export const authService = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await apiClient.post<LoginResponse>('/auth/login', credentials);
     return response.data;
+  },
+  async getOperators(): Promise<User[]> {
+    const response = await apiClient.get<any>('/auth/operators');
+    return response.data.data;
   }
 };

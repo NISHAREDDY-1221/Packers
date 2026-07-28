@@ -32,6 +32,7 @@ model User {
 
   requestedApprovals ApprovalRequest[] @relation("RequestedApprovals")
   approvalActions    ApprovalHistory[] @relation("ApprovalActions")
+  labelPrintJobs     LabelPrintJob[]
 }
 
 model Role {
@@ -181,6 +182,7 @@ model WorkOrder {
   finishedGoods    FinishedGoods[]
   repackingLogs    RepackingLog[]
   reportedIssues   Issue[]
+  labelPrintJobs   LabelPrintJob[]
 }
 
 enum WoStatus {
@@ -392,3 +394,17 @@ enum IssueType {
   OTHER
 }
 
+model LabelPrintJob {
+  id            String   @id @default(uuid())
+  workOrderId   String
+  workOrder     WorkOrder @relation(fields: [workOrderId], references: [id])
+  batchNumber   String
+  barcodeType   String
+  printedQty    Int
+  printedById   String
+  printedBy     User      @relation(fields: [printedById], references: [id])
+  status        String    @default("Printed") // Printed, Reprinted
+  reprintReason String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}

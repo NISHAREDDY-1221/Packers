@@ -199,7 +199,8 @@ export const ActiveQCInspection: React.FC = () => {
       alert('QC Inspection completed successfully.');
       navigate('/qc/tasks');
     } catch (e: any) {
-      alert(e.message || 'Failed to complete inspection');
+      const errorMsg = e.response?.data?.data ? JSON.stringify(e.response.data.data) : (e.message || 'Failed to complete inspection');
+      alert('Error: ' + errorMsg);
     }
   };
 

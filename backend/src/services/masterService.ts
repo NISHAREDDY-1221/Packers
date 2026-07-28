@@ -7,8 +7,9 @@ export class CategoryService {
     return prisma.category.create({ data });
   }
 
-  static async update(id: string, data: { name?: string; description?: string }) {
-    return prisma.category.update({ where: { id }, data });
+  static async update(id: string, data: any) {
+    const { id: _id, _count, createdAt, updatedAt, products, ...updateData } = data;
+    return prisma.category.update({ where: { id }, data: updateData });
   }
 
   static async toggleStatus(id: string) {
@@ -52,8 +53,9 @@ export class UomService {
     return prisma.unitOfMeasure.create({ data });
   }
 
-  static async update(id: string, data: { name?: string; abbreviation?: string }) {
-    return prisma.unitOfMeasure.update({ where: { id }, data });
+  static async update(id: string, data: any) {
+    const { id: _id, _count, createdAt, updatedAt, products, ...updateData } = data;
+    return prisma.unitOfMeasure.update({ where: { id }, data: updateData });
   }
 
   static async toggleStatus(id: string) {
@@ -97,8 +99,9 @@ export class ProductService {
     return prisma.product.create({ data });
   }
 
-  static async update(id: string, data: { sku?: string; name?: string; categoryId?: string; uomId?: string; type?: any }) {
-    return prisma.product.update({ where: { id }, data });
+  static async update(id: string, data: any) {
+    const { id: _id, _count, createdAt, updatedAt, category, uom, ...updateData } = data;
+    return prisma.product.update({ where: { id }, data: updateData });
   }
 
   static async toggleStatus(id: string) {
@@ -153,8 +156,9 @@ export class WarehouseService {
     return prisma.warehouse.create({ data });
   }
 
-  static async update(id: string, data: { name?: string; location?: string }) {
-    return prisma.warehouse.update({ where: { id }, data });
+  static async update(id: string, data: any) {
+    const { id: _id, _count, createdAt, updatedAt, storageLocations, ...updateData } = data;
+    return prisma.warehouse.update({ where: { id }, data: updateData });
   }
 
   static async toggleStatus(id: string) {

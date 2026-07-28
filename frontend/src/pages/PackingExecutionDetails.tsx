@@ -258,53 +258,27 @@ export const PackingExecutionDetails: React.FC = () => {
 
   // Materials Consumption List
   const materialsList = useMemo(() => {
-    if (!selectedWO) return [];
-    const recipe = recipes.find((r) => r.id === (activeRecipe?.name || activeRecipe?.packingName || selectedWO.recipeId));
-    if (!recipe) return [];
+    if (!selectedWO || !selectedWO.recipe || !selectedWO.recipe.items) return [];
 
-    const issue = materialIssues.find((m) => m.woId === selectedWO.id);
+    return selectedWO.recipe.items.map((item: any) => {
+      const reqQty = selectedWO.requiredQty || 0;
+      const actualQty = selectedWO.actualProduced || 0;
+      const baseQty = item.quantity || 1;
+      
+      const issued = baseQty * reqQty; 
+      const consumed = baseQty * actualQty;
+      const remaining = Math.max(0, issued - consumed);
 
-    return [
-      ...recipe.bomItems.map((item) => {
-        const reqQty = selectedWO.requiredQty || 0;
-        const actualQty = selectedWO.actualProduced || 0;
-        const baseQty = item.requiredQuantity || 0;
-        
-        const issueItem = issue?.materials.find(m => m.item === item.inputItem);
-        const issued = issueItem?.issued || (baseQty * reqQty); 
-        const consumed = baseQty * actualQty;
-        const remaining = Math.max(0, issued - consumed);
-
-        return {
-          material: item.inputItem,
-          issued: issued,
-          consumed: consumed,
-          remaining: remaining,
-          unit: (item as any).unit || "kg",
-          batch: issueItem?.batchNo || `BAT-MAT-${selectedWO.woNumber}`,
-        };
-      }),
-      ...recipe.packagingMaterials.map((pkg) => {
-        const reqQty = selectedWO.requiredQty || 0;
-        const actualQty = selectedWO.actualProduced || 0;
-        const baseQty = pkg.quantity || 1;
-        
-        const issueItem = issue?.materials.find(m => m.item === pkg.material);
-        const issued = issueItem?.issued || (baseQty * reqQty);
-        const consumed = baseQty * actualQty;
-        const remaining = Math.max(0, issued - consumed);
-
-        return {
-          material: pkg.material,
-          issued: issued,
-          consumed: consumed,
-          remaining: remaining,
-          unit: "units",
-          batch: issueItem?.batchNo || `BAT-PKG-${selectedWO.woNumber}`,
-        };
-      }),
-    ];
-  }, [selectedWO, recipes, materialIssues]);
+      return {
+        material: item.inputProduct?.name || item.inputId,
+        issued: issued,
+        consumed: consumed,
+        remaining: remaining,
+        unit: item.unit || "kg",
+        batch: `BAT-${selectedWO.woNumber}`,
+      };
+    });
+  }, [selectedWO]);
 
   const wasteSummary = useMemo(() => {
     let weightLoss = 0;
@@ -467,7 +441,7 @@ export const PackingExecutionDetails: React.FC = () => {
                 </div>
 
                 {/* Header Grid Details */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 text-xs">
                   <div>
                     <span className="block font-semibold text-slate-400 dark:text-gray-500">
                       Work Order Number
@@ -489,33 +463,17 @@ export const PackingExecutionDetails: React.FC = () => {
                       Recipe/BOM
                     </span>
                     <span className="font-bold text-slate-700 dark:text-gray-300">
-                      {recipes.find(r => r.id === (activeRecipe?.name || activeRecipe?.packingName || selectedWO.recipeId))?.packingName || (activeRecipe?.name || activeRecipe?.packingName || selectedWO.recipeId)}
+                      {selectedWO.recipe?.name || selectedWO.recipeId}
                     </span>
                   </div>
+                  
                   <div>
-                    <span className="block font-semibold text-slate-400 dark:text-gray-500">
-                      Assigned Team
-                    </span>
-                    <span className="font-bold text-slate-700 dark:text-gray-300">
-                      {selectedWO.assignedTeam}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block font-semibold text-slate-400 dark:text-gray-500">
-                      Assigned Operator
-                    </span>
+                    <span className="block font-semibold text-slate-400 dark:text-gray-500"> Assigned To </span>
                     <span className="font-bold text-slate-700 dark:text-gray-300">
                       {selectedWO.supervisor || "Operator"}
                     </span>
                   </div>
-                  <div>
-                    <span className="block font-semibold text-slate-400 dark:text-gray-500">
-                      Supervisor
-                    </span>
-                    <span className="font-bold text-slate-700 dark:text-gray-300">
-                      {selectedWO.supervisor}
-                    </span>
-                  </div>
+                  
                   <div>
                     <span className="block font-semibold text-slate-400 dark:text-gray-500">
                       Machine
@@ -953,22 +911,8 @@ export const PackingExecutionDetails: React.FC = () => {
                     Work Order Details
                   </h4>
                   <div className="border border-slate-200 dark:border-gray-700 rounded-xl divide-y divide-slate-100 dark:divide-gray-700 overflow-hidden bg-white dark:bg-gray-800">
-                    <div className="flex justify-between p-3.5">
-                      <span className="text-slate-500 dark:text-gray-400">
-                        Assigned Team
-                      </span>
-                      <span className="font-bold text-slate-800 dark:text-gray-200">
-                        {selectedWO.assignedTeam}
-                      </span>
-                    </div>
-                    <div className="flex justify-between p-3.5">
-                      <span className="text-slate-500 dark:text-gray-400">
-                        Supervisor
-                      </span>
-                      <span className="font-bold text-slate-800 dark:text-gray-200">
-                        {selectedWO.supervisor}
-                      </span>
-                    </div>
+                    
+                    
                     <div className="flex justify-between p-3.5">
                       <span className="text-slate-500 dark:text-gray-400">
                         Expected Completion
@@ -1026,7 +970,7 @@ export const PackingExecutionDetails: React.FC = () => {
                             Expected Loss:
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-200">
-                            {activeRecipe.bomItems[0]?.expectedLoss || 1.0}%
+                            {activeRecipe.items?.[0]?.expectedLoss || 1.0}%
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -1034,7 +978,7 @@ export const PackingExecutionDetails: React.FC = () => {
                             Tolerance Limit:
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-200">
-                            Â±{activeRecipe.bomItems[0]?.tolerance || 0.5}%
+                            Â±{activeRecipe.items?.[0]?.tolerance || 0.5}%
                           </span>
                         </div>
                         <div className="flex justify-between">

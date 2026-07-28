@@ -33,16 +33,35 @@ export const MaterialIssue: React.FC = () => {
 
   useEffect(() => { fetchWO(); }, []);
 
-  // Filter to pending issues (APPROVED or MATERIAL_ISSUED)
+  // Filter to pending issues (APPROVED only, as MATERIAL_ISSUED goes to Packing)
   const pendingIssues = useMemo(() => {
-    return workOrders.filter(w => w.status === 'APPROVED' || w.status === 'MATERIAL_ISSUED');
+    return workOrders.filter(w => w.status === 'APPROVED');
   }, [workOrders]);
 
   // KPIs
   const totalRequests = pendingIssues.length;
   const pendingCount = pendingIssues.filter(w => w.status === 'APPROVED').length;
-  const issuedToday = pendingIssues.filter(w => w.status === 'MATERIAL_ISSUED').length; // placeholder metric
-  const delayed = 0; // placeholder metric
+  
+  const todayStart = new Date();
+  todayStart.setHours(0,0,0,0);
+  
+  const issuedToday = workOrders.filter(w => {
+    if (['MATERIAL_ISSUED', 'PACKING_STARTED', 'QC_PENDING', 'QC_PASSED', 'COMPLETED'].includes(w.status)) {
+      const updated = new Date(w.updatedAt);
+      return updated >= todayStart;
+    }
+    return false;
+  }).length;
+
+  const delayed = workOrders.filter(w => {
+    if (w.status === 'APPROVED' || w.status === 'PENDING') {
+      if (w.expectedDate) {
+        const expected = new Date(w.expectedDate);
+        return expected < todayStart;
+      }
+    }
+    return false;
+  }).length;
 
   // Apply filters and search
   const filteredData = useMemo(() => {

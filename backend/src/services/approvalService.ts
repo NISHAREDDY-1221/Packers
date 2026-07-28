@@ -40,15 +40,43 @@ export class ApprovalService {
       },
     });
     
+    const woIds = approvals.filter((a: any) => a.type === 'WORK_ORDER').map((a: any) => a.relatedEntityId);
+    let workOrders: any[] = [];
+    if (woIds.length > 0) {
+      workOrders = await prisma.workOrder.findMany({
+        where: { id: { in: woIds } },
+        include: { product: true, operator: true, supervisor: true }
+      });
+    }
+
     // Map data to match frontend requirements
-    return approvals.map((app: any) => ({
-      ...app,
-      requestedBy: app.requestedBy.name,
-      history: app.history.map((h: any) => ({
-        ...h,
-        actionBy: h.actionBy.name,
-      }))
-    }));
+    return approvals.map((app: any) => {
+      let finalEntityName = app.relatedEntityName;
+      let actualRequestedBy = app.requestedBy.name;
+
+      if (app.type === 'WORK_ORDER') {
+        const wo = workOrders.find(w => w.id === app.relatedEntityId);
+        if (wo && wo.product) {
+          finalEntityName = `${app.relatedEntityName} (${wo.product.name})`;
+        }
+        if (wo && wo.operator) {
+          actualRequestedBy = wo.operator.name;
+        } else if (wo && wo.supervisor) {
+          actualRequestedBy = wo.supervisor.name;
+        }
+      }
+
+      return {
+        ...app,
+        relatedEntityName: finalEntityName,
+        requestedDate: app.createdAt,
+        requestedBy: actualRequestedBy,
+        history: app.history.map((h: any) => ({
+          ...h,
+          actionBy: h.actionBy.name,
+        }))
+      };
+    });
   }
 
   static async processApproval(id: string, action: 'APPROVE' | 'REJECT', userId: string, comments?: string) {
@@ -89,9 +117,29 @@ export class ApprovalService {
         orderBy: { actionDate: 'asc' }
       });
 
+      let finalEntityName = updatedApproval.relatedEntityName;
+      let actualRequestedBy = updatedApproval.requestedBy.name;
+
+      if (updatedApproval.type === 'WORK_ORDER') {
+        const wo = await tx.workOrder.findUnique({
+          where: { id: updatedApproval.relatedEntityId },
+          include: { product: true, operator: true, supervisor: true }
+        });
+        if (wo && wo.product) {
+          finalEntityName = `${updatedApproval.relatedEntityName} (${wo.product.name})`;
+        }
+        if (wo && wo.operator) {
+          actualRequestedBy = wo.operator.name;
+        } else if (wo && wo.supervisor) {
+          actualRequestedBy = wo.supervisor.name;
+        }
+      }
+
       return {
         ...updatedApproval,
-        requestedBy: updatedApproval.requestedBy.name,
+        relatedEntityName: finalEntityName,
+        requestedDate: updatedApproval.createdAt,
+        requestedBy: actualRequestedBy,
         history: history.map((h: any) => ({ ...h, actionBy: h.actionBy.name }))
       };
     });
