@@ -1,1 +1,0 @@
-﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); prisma.recipeItem.findFirst({ include: { inputProduct: true } }).then(item => console.log(JSON.stringify(item, null, 2))).catch(e => console.error(e)).finally(() => prisma.$disconnect());

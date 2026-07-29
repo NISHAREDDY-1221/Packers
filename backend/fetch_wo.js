@@ -1,1 +1,0 @@
-﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); prisma.workOrder.findUnique({ where: { woNumber: 'WO-670447' }, include: { recipe: { include: { items: true } } } }).then(wo => console.log(JSON.stringify(wo, null, 2))).catch(e => console.error(e)).finally(() => prisma.$disconnect());
