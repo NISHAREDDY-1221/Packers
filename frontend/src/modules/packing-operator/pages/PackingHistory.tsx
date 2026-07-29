@@ -46,9 +46,9 @@ export const PackingHistory: React.FC = () => {
     if (!matchesSearch) return false;
 
     // SLA Filter
-    const expected = job.expectedDate ? new Date(job.expectedDate).getTime() : 0;
-    const completed = new Date(job.completedAt!).getTime();
-    const isOnTime = expected === 0 || completed <= expected;
+    const expected = job.expectedDate ? job.expectedDate.substring(0, 10) : '';
+    const completed = job.completedAt ? job.completedAt.substring(0, 10) : '';
+    const isOnTime = !expected || completed <= expected;
     if (filterSla === 'On Time' && !isOnTime) return false;
     if (filterSla === 'Delayed' && isOnTime) return false;
 
@@ -154,10 +154,12 @@ export const PackingHistory: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredJobs.map(job => {
-            const expected = job.expectedDate ? new Date(job.expectedDate).getTime() : 0;
+            const expectedDate = job.expectedDate ? job.expectedDate.substring(0, 10) : '';
+            const completedDateStr = job.completedAt ? job.completedAt.substring(0, 10) : '';
+            const isDelayed = expectedDate && completedDateStr > expectedDate;
+            const started = job.startedAt ? new Date(job.startedAt).getTime() : new Date(job.completedAt!).getTime();
             const completed = new Date(job.completedAt!).getTime();
-            const started = job.startedAt ? new Date(job.startedAt).getTime() : completed;
-            const isOnTime = expected === 0 || completed <= expected;
+            const isOnTime = !isDelayed;
             const durationMins = Math.round((completed - started) / 60000);
             const durationText = durationMins > 60 ? `${Math.floor(durationMins/60)}h ${durationMins%60}m` : `${durationMins}m`;
 

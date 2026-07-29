@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { masterDataService } from '../api/masterDataService';
 import type { Recipe } from '../api/masterDataService';
+import { authService } from '../api/authService';
+import type { User } from '../api/authService';
 
 const KANBAN_COLUMNS: WoStatus[] = [
   'DRAFT',
@@ -17,7 +19,13 @@ const KANBAN_COLUMNS: WoStatus[] = [
   'APPROVED',
   'MATERIAL_ISSUED',
   'PACKING_STARTED',
+  'PACKING_COMPLETED',
+  'LABELS_PRINTED',
   'QC_PENDING',
+  'QC_PASSED',
+  'QC_FAILED',
+  'REPACKING',
+  'FINISHED_GOODS',
   'COMPLETED',
   'CANCELLED'
 ];
@@ -43,9 +51,24 @@ export const WorkOrders: React.FC = () => {
     }
   };
 
+  const [apiOperators, setApiOperators] = useState<User[]>([]);
+
   React.useEffect(() => {
     fetchWorkOrders();
+    fetchOperators();
   }, []);
+
+  const fetchOperators = async () => {
+    try {
+      const ops = await authService.getOperators();
+      setApiOperators(ops);
+      if (ops.length > 0) {
+        setFormOperatorName(ops[0].id);
+      }
+    } catch(e) {
+      console.error(e);
+    }
+  };
 
   
   // API Recipes state
@@ -79,7 +102,6 @@ export const WorkOrders: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterSupervisor, setFilterSupervisor] = useState('All');
-  const [filterTeam, setFilterTeam] = useState('All');
   const [filterDate, setFilterDate] = useState('');
 
   // Selected KPI Filter
@@ -100,14 +122,12 @@ export const WorkOrders: React.FC = () => {
   const [formRecipeId, setFormRecipeId] = useState('');
   const [formQty, setFormQty] = useState(100);
   const [formPriority, setFormPriority] = useState<WoPriority>('MEDIUM');
-  const [formAssignedTeam, setFormAssignedTeam] = useState('Packing Team Alpha');
-  const [formSupervisor, setFormSupervisor] = useState('Suresh Kumar');
-  const [formExpectedCompletion, setFormExpectedCompletion] = useState('2026-07-20');
+  const [formOperatorName, setFormOperatorName] = useState<string>('');
+  const [formExpectedCompletion, setFormExpectedCompletion] = useState('');
 
   // Edit Form states
   const [editQty, setEditQty] = useState(100);
   const [editPriority, setEditPriority] = useState<WoPriority>('MEDIUM');
-  const [editAssignedTeam, setEditAssignedTeam] = useState('');
   const [editSupervisor, setEditSupervisor] = useState('');
   const [editExpectedCompletion, setEditExpectedCompletion] = useState('');
 
@@ -125,8 +145,7 @@ export const WorkOrders: React.FC = () => {
 
   // Derived filter dropdown lists
   const categories = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.product?.category?.name || 'Unknown'))), [workOrders]);
-  const supervisors = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.supervisor?.name || wo.supervisorId))), [workOrders]);
-  const teams = useMemo(() => ['Packing Team Alpha', 'Packing Team Beta', 'Quality Assurance'], []);
+  const supervisors = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.operator?.name || wo.supervisor?.name || wo.supervisorId))), [workOrders]);
 
   // Derived summaries for KPI Cards
   const summary = useMemo(() => {
@@ -154,8 +173,7 @@ export const WorkOrders: React.FC = () => {
       const matchesStatus = filterStatus === 'All' || wo.status === filterStatus;
       const matchesPriority = filterPriority === 'All' || wo.priority === filterPriority;
       const matchesCategory = filterCategory === 'All' || (wo.product?.category?.name || 'Misc') === filterCategory;
-      const matchesSupervisor = filterSupervisor === 'All' || (wo.supervisor?.name || '') === filterSupervisor;
-      const matchesTeam = filterTeam === 'All' || ('Team Alpha') === filterTeam;
+      const matchesSupervisor = filterSupervisor === 'All' || (wo.operator?.name || wo.supervisor?.name || '') === filterSupervisor;
       const woDatePrefix = wo.expectedDate ? wo.expectedDate.substring(0, 10) : '';
       const matchesDate = !filterDate || woDatePrefix === filterDate;
 
@@ -176,9 +194,9 @@ export const WorkOrders: React.FC = () => {
       }
 
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory &&
-             matchesSupervisor && matchesTeam && matchesDate && matchesKpi;
+             matchesSupervisor && matchesDate && matchesKpi;
     });
-  }, [workOrders, search, filterStatus, filterPriority, filterCategory, filterSupervisor, filterTeam, filterDate, kpiFilter]);
+  }, [workOrders, search, filterStatus, filterPriority, filterCategory, filterSupervisor, filterDate, kpiFilter]);
 
   // Pagination logic
   const paginatedWOs = useMemo(() => {
@@ -229,7 +247,7 @@ export const WorkOrders: React.FC = () => {
         requiredQty: Number(formQty),
         priority: formPriority as WoPriority,
         expectedDate: formExpectedCompletion ? new Date(formExpectedCompletion).toISOString() : undefined,
-        supervisorId: '00000000-0000-0000-0000-000000000000'
+        operatorId: formOperatorName
       });
       setIsCreateOpen(false);
       showToast('Work order created successfully.');
@@ -247,8 +265,7 @@ export const WorkOrders: React.FC = () => {
     setIsEditOpen(wo);
     setEditQty(wo.requiredQty);
     setEditPriority(wo.priority);
-    setEditAssignedTeam(('Team Alpha'));
-    setEditSupervisor((wo.supervisor?.name || ''));
+    setEditSupervisor((wo.operator?.name || wo.supervisor?.name || ''));
     setEditExpectedCompletion(wo.expectedDate ? new Date(wo.expectedDate).toISOString().substring(0, 10) : '');
   };
 
@@ -469,26 +486,14 @@ export const WorkOrders: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Supervisor</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Operator</label>
             <select
               value={filterSupervisor}
               onChange={(e) => setFilterSupervisor(e.target.value)}
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
             >
-              <option value="All">All Supervisors</option>
+              <option value="All">All Operators</option>
               {supervisors.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Assigned Team</label>
-            <select
-              value={filterTeam}
-              onChange={(e) => setFilterTeam(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            >
-              <option value="All">All Teams</option>
-              {teams.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
@@ -504,7 +509,7 @@ export const WorkOrders: React.FC = () => {
         </div>
 
         {/* Clear Filters indicator */}
-        {(search || filterStatus !== 'All' || filterPriority !== 'All' || filterCategory !== 'All' || filterSupervisor !== 'All' || filterTeam !== 'All' || filterDate || kpiFilter !== 'all') && (
+        {(search || filterStatus !== 'All' || filterPriority !== 'All' || filterCategory !== 'All' || filterSupervisor !== 'All' || filterDate || kpiFilter !== 'all') && (
           <div className="flex justify-between items-center text-[11px] text-gray-500 pt-1.5 border-t border-gray-100 font-medium">
             <span>Showing {filteredWOs.length} of {workOrders.length} orders</span>
             <button
@@ -514,7 +519,6 @@ export const WorkOrders: React.FC = () => {
                 setFilterPriority('All');
                 setFilterCategory('All');
                 setFilterSupervisor('All');
-                setFilterTeam('All');
                 setFilterDate('');
                 setKpiFilter('all');
               }}
@@ -555,8 +559,7 @@ export const WorkOrders: React.FC = () => {
                   <th className="p-3 font-semibold text-gray-500 uppercase">Product</th>
                   <th className="p-3 font-semibold text-gray-500 uppercase">Recipe/BOM</th>
                   <th className="p-3 font-semibold text-gray-505 uppercase text-right">Required Quantity</th>
-                  <th className="p-3 font-semibold text-gray-505 uppercase">Assigned Team</th>
-                  <th className="p-3 font-semibold text-gray-505 uppercase">Supervisor</th>
+                  <th className="p-3 font-semibold text-gray-505 uppercase">Operator</th>
                   <th className="p-3 font-semibold text-gray-500 uppercase">Priority</th>
                   <th className="p-3 font-semibold text-gray-505 uppercase">Status</th>
                   <th className="p-3 font-semibold text-gray-550 uppercase">Expected Completion</th>
@@ -573,8 +576,7 @@ export const WorkOrders: React.FC = () => {
                     <td className="p-3 font-semibold text-gray-900 truncate max-w-[200px]">{(wo.product?.name || '')}</td>
                     <td className="p-3 text-gray-600 font-medium">{(wo.recipe?.code || wo.recipeId)}</td>
                     <td className="p-3 text-right font-bold text-gray-900">{wo.requiredQty}</td>
-                    <td className="p-3 text-gray-600 font-medium">{('Team Alpha')}</td>
-                    <td className="p-3 text-gray-600 font-medium">{(wo.supervisor?.name || '')}</td>
+                    <td className="p-3 text-gray-600 font-medium">{(wo.operator?.name || '')}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${getPriorityStyle(wo.priority)}`}>
                         {wo.priority}
@@ -684,12 +686,8 @@ export const WorkOrders: React.FC = () => {
                             <span className="font-bold text-gray-800">{wo.requiredQty}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Assigned:</span>
-                            <span className="font-semibold text-gray-700 truncate max-w-[100px]">{('Team Alpha')}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Supervisor:</span>
-                            <span className="font-semibold text-gray-700 truncate max-w-[100px]">{(wo.supervisor?.name || '')}</span>
+                            <span>Operator:</span>
+                            <span className="font-semibold text-gray-700 truncate max-w-[100px]">{(wo.operator?.name || 'Unassigned')}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Due Date:</span>
@@ -746,12 +744,8 @@ export const WorkOrders: React.FC = () => {
                   <span className="font-bold text-gray-900">{selectedWO.requiredQty} Units</span>
                 </div>
                 <div className="flex justify-between p-2.5">
-                  <span className="text-gray-505 font-medium">Assigned Team</span>
-                  <span className="font-semibold text-gray-900">{('Team Alpha')}</span>
-                </div>
-                <div className="flex justify-between p-2.5">
-                  <span className="text-gray-505 font-medium">Supervisor</span>
-                  <span className="font-semibold text-gray-900">{selectedWO.supervisor?.name || ''}</span>
+                  <span className="text-gray-505 font-medium">Operator</span>
+                  <span className="font-semibold text-gray-900">{selectedWO.operator?.name || 'Unassigned'}</span>
                 </div>
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Priority</span>
@@ -957,24 +951,19 @@ export const WorkOrders: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Assigned Team</label>
-                  <input
-                    type="text"
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Operator</label>
+                  <select
                     className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={formAssignedTeam}
-                    onChange={(e) => setFormAssignedTeam(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Supervisor</label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={formSupervisor}
-                    onChange={(e) => setFormSupervisor(e.target.value)}
-                  />
+                    value={formOperatorName}
+                    onChange={(e) => setFormOperatorName(e.target.value)}
+                  >
+                    <option value="">Select an operator...</option>
+                    {apiOperators.map(op => (
+                      <option key={op.id} value={op.id}>{op.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1061,24 +1050,19 @@ export const WorkOrders: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Assigned Team</label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
-                    value={editAssignedTeam}
-                    onChange={(e) => setEditAssignedTeam(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Supervisor</label>
-                  <input
-                    type="text"
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Operator</label>
+                  <select
                     className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none"
                     value={editSupervisor}
                     onChange={(e) => setEditSupervisor(e.target.value)}
-                  />
+                  >
+                    <option value="">Select an operator...</option>
+                    {apiOperators.map(op => (
+                      <option key={op.id} value={op.id}>{op.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

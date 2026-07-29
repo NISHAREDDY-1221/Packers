@@ -28,7 +28,7 @@ export const Repacking: React.FC = () => {
 
   const pendingRepackQCs = failedQCs.filter(qc => {
     const wo = workOrders.find(w => w.id === qc.woId);
-    if (!wo || wo.status === 'Completed') return false;
+    if (!wo || wo.status !== 'QC Pending') return false;
     const batchNo = qc.batchNo || wo.batchNumber || `BATCH-2026-${wo.woNo.split('-').pop()}`;
     return !repackings.some(rp => rp.sourceBatchNo === batchNo);
   });

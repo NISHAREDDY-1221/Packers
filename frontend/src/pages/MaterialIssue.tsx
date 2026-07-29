@@ -17,7 +17,7 @@ export const MaterialIssue: React.FC = () => {
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('APPROVED');
 
   const fetchWO = async () => {
     try {

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Package, Clock, Filter, AlertTriangle, Play } from 'lucide-react';
+import { Package, Clock, Filter, AlertTriangle, Play, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { packingJobsService } from '../services/packingJobsService';
 import type { PackingJob } from '../../../shared/types';
 
 export const MyJobs: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'pending' | 'ready' | 'in-progress'>('ready');
+  const [activeTab, setActiveTab] = useState<'pending' | 'ready' | 'in-progress' | 'labels'>('ready');
   const [tasks, setTasks] = useState<PackingJob[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,9 +28,10 @@ export const MyJobs: React.FC = () => {
 
   const getFilteredTasks = () => {
     switch(activeTab) {
-      case 'pending': return tasks.filter(t => t.status === 'PENDING');
+      case 'pending': return tasks.filter(t => ['APPROVED'].includes(t.status));
       case 'ready': return tasks.filter(t => t.status === 'MATERIAL_ISSUED');
       case 'in-progress': return tasks.filter(t => t.status === 'PACKING_STARTED');
+      case 'labels': return tasks.filter(t => ['LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS'].includes(t.status));
       default: return tasks;
     }
   };
@@ -49,6 +50,37 @@ export const MyJobs: React.FC = () => {
 
   const handleResumePacking = () => {
     navigate('/operator/active-packing');
+  };
+
+  const handleStartLabeling = async (id: string) => {
+    try {
+      await packingJobsService.updateWorkOrderStatus(id, 'LABEL_APPLICATION_IN_PROGRESS');
+      fetchTasks();
+    } catch (error) {
+      console.error('Error starting labeling', error);
+      alert('Failed to start labeling. Please try again.');
+    }
+  };
+
+  const handleCompleteLabeling = async (id: string) => {
+    const applied = prompt('Enter the number of labels successfully applied:');
+    if (applied === null) return;
+    const num = parseInt(applied, 10);
+    if (isNaN(num) || num < 0) {
+      alert('Please enter a valid positive number.');
+      return;
+    }
+    try {
+      // Need to use packingJobsService or workOrderService to update extra fields
+      // packingJobsService currently probably only takes status, but we can try
+      // Or we can just use apiClient directly if needed. 
+      // Let's assume packingJobsService.updateWorkOrderStatus accepts extra.
+      await packingJobsService.updateWorkOrderStatus(id, 'LABELS_APPLIED', { labelsApplied: num } as any);
+      fetchTasks();
+    } catch (error) {
+      console.error('Error completing labeling', error);
+      alert('Failed to complete labeling.');
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -121,7 +153,22 @@ export const MyJobs: React.FC = () => {
           <span className={`ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] rounded-full ${
             activeTab === 'pending' ? 'bg-gray-300 text-gray-800' : 'bg-gray-200 text-gray-600'
           }`}>
-            {tasks.filter(t => t.status === 'PENDING').length}
+            {tasks.filter(t => ['APPROVED'].includes(t.status)).length}
+          </span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('labels')}
+          className={`flex-1 md:flex-none px-6 py-2.5 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${
+            activeTab === 'labels' 
+              ? 'bg-indigo-50 text-indigo-700 shadow-sm' 
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          Label Application
+          <span className={`ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] rounded-full ${
+            activeTab === 'labels' ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-200 text-gray-600'
+          }`}>
+            {tasks.filter(t => ['LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS'].includes(t.status)).length}
           </span>
         </button>
       </div>
@@ -206,6 +253,22 @@ export const MyJobs: React.FC = () => {
                       <AlertTriangle size={16} className="text-gray-400 mb-1" />
                       <span className="text-[10px] font-bold text-gray-500 uppercase">Awaiting Material</span>
                     </div>
+                  )}
+                  {task.status === 'LABEL_APPLICATION_ASSIGNED' && (
+                    <button 
+                      onClick={() => handleStartLabeling(task.id)}
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-4 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                    >
+                      Start Labeling
+                    </button>
+                  )}
+                  {task.status === 'LABEL_APPLICATION_IN_PROGRESS' && (
+                    <button 
+                      onClick={() => handleCompleteLabeling(task.id)}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2.5 px-4 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                    >
+                      <CheckCircle size={16} className="mr-1.5" /> Complete Labels
+                    </button>
                   )}
                 </div>
               </div>

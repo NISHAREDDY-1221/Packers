@@ -43,8 +43,12 @@ export const PackingHistoryDetails: React.FC = () => {
   }
 
   const expected = job.expectedDate ? new Date(job.expectedDate).getTime() : 0;
-  const completed = job.completedAt ? new Date(job.completedAt).getTime() : 0;
-  const started = job.startedAt ? new Date(job.startedAt).getTime() : completed;
+  const completed = job.completedAt ? new Date(job.completedAt).getTime() : new Date().getTime();
+  
+  // Fallback if startedAt is missing: use the earliest log's date, or createdAt
+  const fallbackStart = logs.length > 0 ? new Date(logs[logs.length - 1].createdAt).getTime() : new Date(job.createdAt).getTime();
+  const started = job.startedAt ? new Date(job.startedAt).getTime() : fallbackStart;
+  
   const isOnTime = expected === 0 || completed <= expected;
   const durationMins = Math.round((completed - started) / 60000);
   const durationText = durationMins > 60 ? `${Math.floor(durationMins/60)}h ${durationMins%60}m` : `${durationMins}m`;
@@ -123,7 +127,7 @@ export const PackingHistoryDetails: React.FC = () => {
         <div className="space-y-3">
           <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
             <span className="text-gray-500 dark:text-gray-400">Started</span>
-            <span className="font-bold text-gray-800 dark:text-gray-100">{job.startedAt ? new Date(job.startedAt).toLocaleString() : 'N/A'}</span>
+            <span className="font-bold text-gray-800 dark:text-gray-100">{new Date(started).toLocaleString()}</span>
           </div>
           <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
             <span className="text-gray-500 dark:text-gray-400">Completed</span>

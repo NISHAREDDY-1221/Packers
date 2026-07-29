@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { workOrderService } from '../api/workOrderService';
 
 export interface RecipeConfig {
   id: string;
@@ -43,13 +44,17 @@ export interface WorkOrder {
   expectedCompletion: string;
   assignedTeam: string;
   supervisor: string;
-  status: 'Draft' | 'Pending' | 'Approved' | 'Material Issued' | 'Packing Started' | 'QC Pending' | 'QC Passed' | 'Completed' | 'Cancelled' | 'Labels Printed' | 'QC Printed';
+  operatorId?: string;
+  operator?: { id: string; name: string };
+  status: 'Draft' | 'Pending' | 'Approved' | 'Material Issued' | 'Packing Started' | 'QC Pending' | 'QC Passed' | 'Completed' | 'Cancelled' | 'Labels Printed' | 'QC Printed' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'MATERIAL_ISSUED' | 'PACKING_STARTED' | 'PACKING_COMPLETED' | 'LABEL_APPLICATION_ASSIGNED' | 'LABEL_APPLICATION_IN_PROGRESS' | 'LABELS_APPLIED' | 'QC_PENDING' | 'QC_PASSED' | 'COMPLETED' | 'CANCELLED' | 'LABELS_PRINTED';
   progress?: number;
   createdAt?: string;
   updatedAt?: string;
   startedAt?: string;
   actualProduced?: number;
   actualRejected?: number;
+  labelsPrinted?: number;
+  labelsApplied?: number;
   packingTimeSeconds?: number;
   machine?: string;
   shift?: string;
@@ -190,6 +195,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [repackings, setRepackings] = useState<RepackingRecord[]>([]);
 
 
+
+  useEffect(() => {
+    const fetchApiData = async () => {
+      try {
+        const res = await workOrderService.getWorkOrders();
+        if (res.data) {
+          const apiWOs = res.data.map((wo: any) => ({
+            id: wo.id,
+            woNo: wo.woNumber,
+            date: wo.createdAt ? new Date(wo.createdAt).toISOString().split('T')[0] : '',
+            requestedBy: 'System',
+            priority: wo.priority ? wo.priority.charAt(0) + wo.priority.slice(1).toLowerCase() : 'Medium',
+            category: wo.product?.category?.name || 'Unknown',
+            productName: wo.product?.name || '',
+            recipeId: wo.recipeId || '',
+            requiredQuantity: wo.requiredQty || 0,
+            expectedCompletion: wo.expectedDate ? new Date(wo.expectedDate).toISOString().split('T')[0] : '',
+            assignedTeam: 'Packing',
+            supervisor: wo.operator?.name || wo.supervisor?.name || 'Unassigned',
+            status: wo.status,
+            progress: wo.actualProduced ? (wo.actualProduced / wo.requiredQty) * 100 : 0,
+            actualProduced: wo.actualProduced || 0,
+            batchNumber: wo.batchNumber || ''
+          })) as WorkOrder[];
+          
+          setWorkOrders(prev => {
+            const mockOnly = prev.filter(p => !p.id.includes('-')); // keep old mocks that don't have UUIDs maybe?
+            return [...apiWOs, ...mockOnly];
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch API work orders in AppContext', err);
+      }
+    };
+    fetchApiData();
+  }, []);
 
   const addRecipe = (recipe: RecipeConfig) => {
     setRecipes((prev) => [recipe, ...prev]);

@@ -83,7 +83,7 @@ export const Reports: React.FC = () => {
                     <th className="p-3">Batch Number</th>
                     <th className="p-3 text-center">Posted Qty</th>
                     <th className="p-3">Destination</th>
-                    <th className="p-3">Supervisor</th>
+                    <th className="p-3">Operator</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -540,13 +540,13 @@ export const Reports: React.FC = () => {
 
           {/* 8. Supervisor */}
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Supervisor</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">Operator</label>
             <select
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none"
               value={filterSupervisor}
               onChange={(e) => setFilterSupervisor(e.target.value)}
             >
-              <option value="All">All Supervisors</option>
+              <option value="All">All Operators</option>
               <option value="Suresh Kumar">Suresh Kumar</option>
               <option value="Meena Sharma">Meena Sharma</option>
               <option value="Rajesh Varma">Rajesh Varma</option>

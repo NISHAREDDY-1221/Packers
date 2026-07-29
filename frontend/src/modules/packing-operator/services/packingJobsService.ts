@@ -6,8 +6,8 @@ export const packingJobsService = {
   async getWorkOrders(params?: Record<string, any>): Promise<{ data: PackingJob[]; total: number; page: number }> {
     return workOrderService.getWorkOrders(params) as unknown as Promise<{ data: PackingJob[]; total: number; page: number }>;
   },
-  async updateWorkOrderStatus(id: string, status: OperatorWoStatus): Promise<PackingJob> {
-    return workOrderService.updateWorkOrderStatus(id, status as any) as unknown as Promise<PackingJob>;
+  async updateWorkOrderStatus(id: string, status: OperatorWoStatus, extra?: any): Promise<PackingJob> {
+    return workOrderService.updateWorkOrderStatus(id, status as any, extra) as unknown as Promise<PackingJob>;
   },
   async issueMaterials(id: string, payload: any): Promise<any> {
     return workOrderService.issueMaterials(id, payload);

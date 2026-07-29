@@ -82,7 +82,7 @@ export const QualityCheck: React.FC = () => {
   const [formResult, setFormResult] = useState<IQC['result']>('Pass');
   const [formSignature, setFormSignature] = useState('');
 
-  const pendingQC_WOs = workOrders.filter(w => w.status === 'QC Pending' || w.status === 'Labels Printed');
+  const pendingQC_WOs = workOrders.filter(w => w.status === 'QC Pending' || w.status === 'QC_PENDING' || w.status === 'LABELS_APPLIED');
 
   const todayDate = new Date().toISOString().split('T')[0];
   const todaysQCs = qualityChecks.filter(qc => qc.date === todayDate);

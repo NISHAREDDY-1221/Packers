@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import type { WorkOrder } from '../context/AppContext';
-import { Printer, RefreshCw, Barcode, QrCode, ClipboardList, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Printer, RefreshCw, Barcode, QrCode, ClipboardList, CheckCircle, AlertTriangle, UserCheck } from 'lucide-react';
+import { authService } from '../api/authService';
+import type { User } from '../api/authService';
+import { workOrderService } from '../api/workOrderService';
 
 const PRINTERS = [
   'Zebra ZD420 (Thermal)',
@@ -22,6 +25,7 @@ interface PrintJob {
   printedBy: string;
   status: 'Printed' | 'Reprinted';
   reprintReason?: string;
+  assignedOperator?: string;
 }
 
 export const BarcodesLabels: React.FC = () => {
@@ -30,7 +34,7 @@ export const BarcodesLabels: React.FC = () => {
   // Find work orders that have completed packing
   const readyWorkOrders = useMemo(() => {
     return workOrders.filter(w =>
-      w.status === 'Completed'
+      w.status === 'Completed' || w.status === 'QC Passed' || w.status === 'PACKING_COMPLETED' || w.status === 'QC_PASSED' || w.status === 'QC_PENDING' || w.status === 'LABELS_PRINTED' || w.status === 'COMPLETED' || w.status === 'LABEL_APPLICATION_ASSIGNED' || w.status === 'LABEL_APPLICATION_IN_PROGRESS' || w.status === 'LABELS_APPLIED'
     );
   }, [workOrders]);
 
@@ -39,15 +43,37 @@ export const BarcodesLabels: React.FC = () => {
   // Selected Work Order State
   const [selectedWO, setSelectedWO] = useState<WorkOrder | null>(null);
 
-  // Sync initial selection
+  // Sync initial selection and updates
   useEffect(() => {
     if (selectableWOs.length > 0 && !selectedWO) {
       setSelectedWO(selectableWOs[0]);
+    } else if (selectedWO) {
+      const updated = workOrders.find(w => w.id === selectedWO.id);
+      if (updated && updated.status !== selectedWO.status) {
+        setSelectedWO(updated);
+      }
     }
-  }, [selectableWOs, selectedWO]);
+  }, [selectableWOs, selectedWO, workOrders]);
 
   // Printer Status State
   const [printerStatus, setPrinterStatus] = useState<'Online' | 'Offline'>('Online');
+
+  // Label Assignment
+  const [operators, setOperators] = useState<User[]>([]);
+  const [assignedOperatorId, setAssignedOperatorId] = useState<string>('');
+
+  useEffect(() => {
+    const fetchOperators = async () => {
+      try {
+        const ops = await authService.getOperators();
+        setOperators(ops);
+        if (ops.length > 0) setAssignedOperatorId(ops[0].id);
+      } catch (err) {
+        console.error('Failed to fetch operators', err);
+      }
+    };
+    fetchOperators();
+  }, []);
 
   // Configuration Panel Fields
   const [selectedPrinter, setSelectedPrinter] = useState(PRINTERS[0]);
@@ -92,7 +118,7 @@ export const BarcodesLabels: React.FC = () => {
   }, [printerStatus]);
 
   // Print tracking state
-  const [labelsRequired, setLabelsRequired] = useState(0);
+  const labelsRequired = selectedWO ? (selectedWO.actualProduced ?? selectedWO.requiredQuantity ?? 0) : 0;
   const [labelsPrinted, setLabelsPrinted] = useState(0);
 
   // History state
@@ -134,7 +160,6 @@ export const BarcodesLabels: React.FC = () => {
     if (!expiryDate) return setValidationError('Expiry Date is required.');
     
     // Trigger visual preview refresh
-    setLabelsRequired(printQty);
   };
 
   // Handle Generate and Print
@@ -173,6 +198,8 @@ export const BarcodesLabels: React.FC = () => {
     const jobId = `PRT-${Math.floor(100 + Math.random() * 900)}`;
     const timestamp = new Date().toLocaleString();
 
+    const operator = operators.find(o => o.id === assignedOperatorId);
+    
     const newJob: PrintJob = {
       id: jobId,
       woNo: selectedWO?.woNo || 'N/A',
@@ -182,12 +209,12 @@ export const BarcodesLabels: React.FC = () => {
       printer: selectedPrinter,
       timestamp,
       printedBy: selectedWO?.supervisor || 'Admin Manager',
-      status: 'Printed'
+      status: 'Printed',
+      assignedOperator: operator ? operator.name : 'Unknown'
     };
 
     setHistory([newJob, ...history]);
     setLabelsPrinted(prev => prev + printQty);
-    setLabelsRequired(printQty);
 
     setSuccessBanner({
       totalPrinted: printQty,
@@ -196,9 +223,19 @@ export const BarcodesLabels: React.FC = () => {
       jobId
     });
 
-    // Update Work Order Status in Context to 'Labels Printed'
     if (selectedWO) {
-      updateWorkOrderStatus(selectedWO.id, 'Labels Printed');
+      if (!selectedWO.id.startsWith('WO-')) {
+        // Backend WO
+        workOrderService.updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId })
+          .then(() => {
+            updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
+          }).catch(err => {
+            console.error('Failed to update work order via API', err);
+            updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
+          });
+      } else {
+        updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
+      }
     }
   };
 
@@ -255,7 +292,7 @@ export const BarcodesLabels: React.FC = () => {
         </div>
 
         {selectedWO && (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 bg-slate-50 dark:bg-gray-750 p-4 rounded-lg text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 bg-slate-50 dark:bg-gray-750 p-4 rounded-lg text-xs">
             <div>
               <span className="block font-semibold text-slate-400 dark:text-gray-500">Work Order Number</span>
               <span className="font-bold text-slate-800 dark:text-gray-200">{selectedWO.woNo}</span>
@@ -280,6 +317,17 @@ export const BarcodesLabels: React.FC = () => {
               <span className="block font-semibold text-slate-400 dark:text-gray-500">Packing Status</span>
               <span className={`inline-block px-2 py-0.5 rounded-full font-bold border ${getStatusColor(selectedWO.status)}`}>
                 {selectedWO.status}
+              </span>
+            </div>
+            <div>
+              <span className="block font-semibold text-slate-400 dark:text-gray-500">Workflow Status</span>
+              <span className="inline-block px-2 py-0.5 rounded-full font-bold border bg-indigo-50 border-indigo-200 text-indigo-700">
+                {
+                  selectedWO.status === 'LABELS_APPLIED' ? 'Labels Applied' :
+                  selectedWO.status === 'LABEL_APPLICATION_IN_PROGRESS' ? 'Application In Progress' :
+                  selectedWO.status === 'LABEL_APPLICATION_ASSIGNED' ? 'Application Assigned' :
+                  selectedWO.status === 'LABELS_PRINTED' ? 'Labels Printed' : 'Pending Printing'
+                }
               </span>
             </div>
           </div>
@@ -319,6 +367,30 @@ export const BarcodesLabels: React.FC = () => {
           </h3>
 
           <div className="space-y-4">
+
+            {/* Label Assignment */}
+            <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 p-3 rounded-lg space-y-3">
+              <h4 className="font-bold text-indigo-800 dark:text-indigo-400 text-xs flex items-center gap-1.5 border-b border-indigo-100 dark:border-indigo-900/50 pb-2">
+                <UserCheck size={14} />
+                <span>Label Application Assignment</span>
+              </h4>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Assign To Operator *</label>
+                  <select
+                    className="w-full p-2 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs bg-white dark:bg-gray-800 text-slate-800 dark:text-gray-200 focus:ring-1 focus:ring-indigo-500"
+                    value={assignedOperatorId}
+                    onChange={(e) => setAssignedOperatorId(e.target.value)}
+                  >
+                    <option value="" disabled>Select Operator...</option>
+                    {operators.map(op => (
+                      <option key={op.id} value={op.id}>{op.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
             
             {/* Target Printer selection */}
             <div className="grid grid-cols-2 gap-3 items-end">
@@ -576,6 +648,45 @@ export const BarcodesLabels: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Label Application Progress Card */}
+          <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 p-4 rounded-xl text-xs space-y-2 mt-4">
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-indigo-800 dark:text-indigo-400 block uppercase text-[10px] tracking-wider">Application Progress</span>
+              <span className="text-[9px] text-indigo-500 font-medium">Auto-updating</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 text-center pt-1 mb-2">
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border border-indigo-50 dark:border-indigo-900/50">
+                <span className="text-[10px] text-slate-500 block font-semibold">Assigned Operator</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-gray-200 truncate block">
+                  {operators.find(o => o.id === assignedOperatorId)?.name || 'Not Assigned'}
+                </span>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-2 rounded border border-indigo-50 dark:border-indigo-900/50">
+                <span className="text-[10px] text-slate-500 block font-semibold">Current Status</span>
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 block">
+                  {selectedWO?.status === 'LABELS_APPLIED' ? 'Complete' :
+                   selectedWO?.status === 'LABEL_APPLICATION_IN_PROGRESS' ? 'In Progress' : 'Pending'}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-indigo-100 dark:border-indigo-900/50 mt-2">
+              <div>
+                <span className="text-[10px] text-slate-500 block font-semibold">Printed</span>
+                <span className="text-sm font-bold text-slate-800 dark:text-gray-200">{labelsPrinted}</span>
+              </div>
+              <div className="border-x border-indigo-100 dark:border-indigo-900/50">
+                <span className="text-[10px] text-slate-500 block font-semibold">Applied</span>
+                <span className="text-sm font-bold text-green-600 dark:text-green-400">{selectedWO?.labelsApplied || 0}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-semibold">Remaining</span>
+                <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{Math.max(0, labelsPrinted - (selectedWO?.labelsApplied || 0))}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Expanded Reprint History */}
@@ -602,6 +713,7 @@ export const BarcodesLabels: React.FC = () => {
                   <div><span className="text-slate-400">Batch:</span> <span className="font-mono">{job.batchNo}</span></div>
                   <div><span className="text-slate-400">Printed:</span> <span className="font-bold">{job.printedQty} labels</span></div>
                   <div><span className="text-slate-400">By:</span> <span className="font-medium">{job.printedBy}</span></div>
+                  <div className="col-span-2 mt-1"><span className="text-slate-400">Assigned To:</span> <span className="font-bold text-indigo-700 dark:text-indigo-400">{job.assignedOperator || 'Unknown'}</span></div>
                 </div>
                 
                 {job.reprintReason && (

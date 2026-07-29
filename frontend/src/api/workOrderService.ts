@@ -1,16 +1,7 @@
 import apiClient from './axios';
 import type { Product, Recipe } from './masterDataService';
 
-export type WoStatus =
-  | 'DRAFT'
-  | 'PENDING'
-  | 'APPROVED'
-  | 'MATERIAL_ISSUED'
-  | 'PACKING_STARTED'
-  | 'QC_PENDING'
-  | 'QC_PASSED'
-  | 'COMPLETED'
-  | 'CANCELLED';
+export type WoStatus = 'DRAFT' | 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'MATERIAL_ISSUED' | 'PACKING_STARTED' | 'PACKING_IN_PROGRESS' | 'PACKING_COMPLETED' | 'LABELS_GENERATED' | 'LABELS_PRINTED' | 'LABEL_APPLICATION_ASSIGNED' | 'LABEL_APPLICATION_IN_PROGRESS' | 'LABELS_APPLIED' | 'QC_PENDING' | 'QC_IN_PROGRESS' | 'QC_PASSED' | 'QC_FAILED' | 'REPACKING' | 'FINISHED_GOODS' | 'COMPLETED' | 'CANCELLED';
 
 export type WoPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
@@ -26,6 +17,9 @@ export interface WorkOrder {
   actualRejected?: number;
   batchNumber?: string;
   supervisorId: string;
+  operatorId?: string;
+  labelsPrinted?: number;
+  labelsApplied?: number;
   expectedDate?: string;
   startedAt?: string;
   completedAt?: string;
@@ -38,6 +32,7 @@ export interface WorkOrder {
   product?: Product;
   recipe?: Recipe;
   supervisor?: { id: string; name: string };
+  operator?: { id: string; name: string };
 }
 
 export interface MaterialIssueRecord {
@@ -66,13 +61,13 @@ export const workOrderService = {
     return { data: [], total: 0, page: 1 };
   },
 
-  async createWorkOrder(data: { productId: string; recipeId: string; requiredQty: number; priority: WoPriority; expectedDate?: string; supervisorId?: string }): Promise<WorkOrder> {
+  async createWorkOrder(data: { productId: string; recipeId: string; requiredQty: number; priority: WoPriority; expectedDate?: string; operatorId?: string }): Promise<WorkOrder> {
     const res = await apiClient.post<{ success: boolean; data: WorkOrder }>('/work-orders', data);
     return res.data.data;
   },
 
-  async updateWorkOrderStatus(id: string, status: WoStatus): Promise<WorkOrder> {
-    const res = await apiClient.patch<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/status`, { status });
+  async updateWorkOrderStatus(id: string, status: WoStatus, extra?: any): Promise<WorkOrder> {
+    const res = await apiClient.patch<{ success: boolean; data: WorkOrder }>(`/work-orders/${id}/status`, { status, extra });
     return res.data.data;
   },
 

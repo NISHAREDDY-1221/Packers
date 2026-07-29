@@ -108,7 +108,7 @@ export const ActivePacking: React.FC = () => {
       setShowAddQuantity(false);
       fetchActiveJob(); // Refresh
     } catch (e: any) {
-      alert(e.message || 'Failed to update quantity');
+      alert(e.response?.data?.message || e.message || 'Failed to update quantity');
     }
   };
 
@@ -118,7 +118,7 @@ export const ActivePacking: React.FC = () => {
       setShowPauseModal(false);
       fetchActiveJob();
     } catch (e: any) {
-      alert(e.message || 'Failed to pause');
+      alert(e.response?.data?.message || e.message || 'Failed to pause');
     }
   };
 
@@ -127,7 +127,7 @@ export const ActivePacking: React.FC = () => {
       await packingJobsService.resumePacking(activeJob.id);
       fetchActiveJob();
     } catch (e: any) {
-      alert(e.message || 'Failed to resume');
+      alert(e.response?.data?.message || e.message || 'Failed to resume');
     }
   };
 
@@ -137,7 +137,7 @@ export const ActivePacking: React.FC = () => {
       setShowCompleteModal(false);
       navigate('/operator/jobs'); // Or a success screen
     } catch (e: any) {
-      alert(e.message || 'Failed to complete packing');
+      alert(e.response?.data?.message || e.message || 'Failed to complete packing');
     }
   };
 

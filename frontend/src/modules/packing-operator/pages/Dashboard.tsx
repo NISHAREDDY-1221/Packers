@@ -23,14 +23,16 @@ export const Dashboard: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   // Packing Operator metrics
-  const pendingJobs = workOrders.filter((wo: any) => ['DRAFT', 'PENDING', 'APPROVED'].includes(wo.status)).length;
+  const completedStatuses = ['PACKING_COMPLETED', 'LABELS_GENERATED', 'LABELS_PRINTED', 'QC_PENDING', 'QC_IN_PROGRESS', 'QC_PASSED', 'QC_FAILED', 'FINISHED_GOODS', 'COMPLETED'];
+  
+  const pendingJobs = workOrders.filter((wo: any) => ['APPROVED'].includes(wo.status)).length;
   const readyToStart = workOrders.filter((wo: any) => wo.status === 'MATERIAL_ISSUED').length;
-  const packingInProgress = workOrders.filter((wo: any) => wo.status === 'PACKING_STARTED').length;
+  const packingInProgress = workOrders.filter((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS').length;
   const completedToday = workOrders.filter((wo: any) => 
-    wo.status === 'COMPLETED' && (wo.completedAt?.startsWith(today) || wo.updatedAt?.startsWith(today))
+    completedStatuses.includes(wo.status) && (wo.completedAt?.startsWith(today) || wo.updatedAt?.startsWith(today))
   ).length;
   const delayedJobs = workOrders.filter((wo: any) => 
-    wo.expectedDate && wo.expectedDate < today && wo.status !== 'COMPLETED'
+    wo.expectedDate && wo.expectedDate < today && !completedStatuses.includes(wo.status)
   ).length;
   const issuesReported = 0; // Hardcoded until backend API is available
 
@@ -46,7 +48,7 @@ export const Dashboard: React.FC = () => {
   const activeJobs = workOrders.filter((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'MATERIAL_ISSUED');
   const activeJob = activeJobs.find((wo: any) => wo.status === 'PACKING_STARTED') || activeJobs.find((wo: any) => wo.status === 'MATERIAL_ISSUED');
 
-  const slaRiskJobs = workOrders.filter((wo: any) => wo.expectedDate && wo.expectedDate <= today && wo.status !== 'COMPLETED');
+  const slaRiskJobs = workOrders.filter((wo: any) => wo.expectedDate && wo.expectedDate <= today && !completedStatuses.includes(wo.status));
 
   return (
     <div className="space-y-6">

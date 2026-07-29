@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useMemo } from "react";
-import type { WorkOrder } from "../context/AppContext";
+import { useApp, type WorkOrder } from "../context/AppContext";
 import {
   AlertCircle,
   CheckCircle,
@@ -24,6 +24,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 export const PackingExecutionDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { recipes, materialIssues } = useApp();
   
   const [activeWO, setActiveWO] = useState<WorkOrder | null>(null);
 
@@ -34,7 +35,7 @@ export const PackingExecutionDetails: React.FC = () => {
           if (!s) return 'Draft';
           if (s === 'QC_PENDING') return 'QC Pending';
           if (s === 'QC_PASSED') return 'QC Passed';
-          return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          return s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
         };
         const getSupervisorName = (supervisor: any) => {
           if (!supervisor) return 'Unassigned';

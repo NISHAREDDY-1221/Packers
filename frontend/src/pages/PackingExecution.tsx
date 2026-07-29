@@ -58,7 +58,7 @@ export const PackingExecution: React.FC = () => {
         if (s === 'QC_PENDING') return 'QC Pending';
         if (s === 'QC_PASSED') return 'QC Passed';
         if (s === 'COMPLETED') return 'Packing Completed';
-        return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
       };
       
       const getSupervisorName = (supervisor: any) => {
@@ -85,7 +85,7 @@ export const PackingExecution: React.FC = () => {
   };
 
   const filteredOrders = useMemo(() => {
-    const allowedStatuses = ['Material Issued', 'Packing Started', 'Packing In Progress', 'Packing Completed'];
+    const allowedStatuses = ['Material Issued', 'Packing Started', 'Packing In Progress'];
     return apiWorkOrders.filter(wo => {
       if (!allowedStatuses.includes(wo.statusLabel)) return false;
       if (statusFilter && wo.statusLabel !== statusFilter) return false;
