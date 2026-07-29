@@ -8,7 +8,8 @@ export class CategoryService {
   }
 
   static async update(id: string, data: { name?: string; description?: string }) {
-    return prisma.category.update({ where: { id }, data });
+    const { name, description } = data;
+    return prisma.category.update({ where: { id }, data: { name, description } });
   }
 
   static async toggleStatus(id: string) {
@@ -53,7 +54,8 @@ export class UomService {
   }
 
   static async update(id: string, data: { name?: string; abbreviation?: string }) {
-    return prisma.unitOfMeasure.update({ where: { id }, data });
+    const { name, abbreviation } = data;
+    return prisma.unitOfMeasure.update({ where: { id }, data: { name, abbreviation } });
   }
 
   static async toggleStatus(id: string) {
@@ -98,7 +100,8 @@ export class ProductService {
   }
 
   static async update(id: string, data: { sku?: string; name?: string; categoryId?: string; uomId?: string; type?: any }) {
-    return prisma.product.update({ where: { id }, data });
+    const { sku, name, categoryId, uomId, type } = data;
+    return prisma.product.update({ where: { id }, data: { sku, name, categoryId, uomId, type } });
   }
 
   static async toggleStatus(id: string) {
@@ -154,7 +157,8 @@ export class WarehouseService {
   }
 
   static async update(id: string, data: { name?: string; location?: string }) {
-    return prisma.warehouse.update({ where: { id }, data });
+    const { name, location } = data;
+    return prisma.warehouse.update({ where: { id }, data: { name, location } });
   }
 
   static async toggleStatus(id: string) {

@@ -89,5 +89,6 @@ const router = Router();
  */
 router.post('/register', validate(registerSchema), register);
 router.post('/login', validate(loginSchema), login);
+router.get('/operators', require('../controllers/authController').getOperators);
 
 export default router;

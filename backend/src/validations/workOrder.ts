@@ -7,12 +7,21 @@ export const createWorkOrderSchema = z.object({
     requiredQty: z.number().positive(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
     expectedDate: z.string().datetime().optional(),
+    operatorName: z.string().optional(),
   }),
 });
 
 export const updateWorkOrderStatusSchema = z.object({
   body: z.object({
-    status: z.enum(['PENDING', 'APPROVED', 'CANCELLED']),
+    status: z.enum([
+      'DRAFT', 'PENDING', 'PENDING_APPROVAL', 'APPROVED', 'MATERIAL_ISSUED',
+      'PACKING_STARTED', 'PACKING_IN_PROGRESS', 'PACKING_COMPLETED',
+      'LABELS_GENERATED', 'LABELS_PRINTED',
+      'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED',
+      'QC_PENDING', 'QC_IN_PROGRESS',
+      'QC_PASSED', 'QC_FAILED', 'REPACKING', 'FINISHED_GOODS', 'COMPLETED', 'CANCELLED'
+    ]),
+    extra: z.any().optional(),
   }),
 });
 

@@ -164,6 +164,9 @@ model WorkOrder {
   isPaused         Boolean     @default(false)
   pauseReason      String?
   
+  labelsPrinted    Float       @default(0)
+  labelsApplied    Float       @default(0)
+  
   operatorId       String?
   operator         User?       @relation("OperatorAssigned", fields: [operatorId], references: [id])
 
@@ -186,11 +189,23 @@ model WorkOrder {
 enum WoStatus {
   DRAFT
   PENDING
+  PENDING_APPROVAL
   APPROVED
   MATERIAL_ISSUED
   PACKING_STARTED
+  PACKING_IN_PROGRESS
+  PACKING_COMPLETED
+  LABELS_GENERATED
+  LABELS_PRINTED
+  LABEL_APPLICATION_ASSIGNED
+  LABEL_APPLICATION_IN_PROGRESS
+  LABELS_APPLIED
   QC_PENDING
+  QC_IN_PROGRESS
   QC_PASSED
+  QC_FAILED
+  REPACKING
+  FINISHED_GOODS
   COMPLETED
   CANCELLED
 }

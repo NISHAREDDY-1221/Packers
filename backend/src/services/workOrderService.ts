@@ -2,7 +2,7 @@ import { prisma } from '../utils/prisma';
 import { AppError } from '../middlewares/error';
 
 export class WorkOrderService {
-  static async createWorkOrder(data: { productId: string; recipeId: string; requiredQty: number; priority: any; expectedDate?: Date; supervisorId: string }) {
+  static async createWorkOrder(data: { productId: string; recipeId: string; requiredQty: number; priority: any; expectedDate?: Date; supervisorId: string; operatorId?: string }) {
     // Validate recipe and product match
     const recipe = await prisma.recipe.findUnique({ where: { id: data.recipeId } });
     if (!recipe) throw new AppError(404, 'Recipe not found');
@@ -17,8 +17,9 @@ export class WorkOrderService {
         recipeId: data.recipeId,
         requiredQty: data.requiredQty,
         priority: data.priority,
-        expectedDate: data.expectedDate,
+        expectedDate: data.expectedDate ? new Date(data.expectedDate) : null,
         supervisorId: data.supervisorId,
+        operatorId: data.operatorId || null,
         status: 'DRAFT',
       },
     });
@@ -50,8 +51,7 @@ export class WorkOrderService {
     if (user?.role === 'OPERATOR') {
       whereClause = { ...whereClause, operatorId: user.id };
     } else if (user?.role === 'QC_INSPECTOR') {
-      // Typically QC inspectors only care about QC pending, but for now we scope to explicitly assigned or QC_PENDING
-      whereClause = { ...whereClause, status: 'QC_PENDING' };
+      whereClause = { ...whereClause, status: { in: ['QC_PENDING', 'LABELS_PRINTED', 'QC_IN_PROGRESS'] } };
     }
 
     apiFeatures.query = { 
@@ -68,7 +68,8 @@ export class WorkOrderService {
             }
           }
         }, 
-        supervisor: true 
+        supervisor: true,
+        operator: true
       } 
     };
 
@@ -80,18 +81,23 @@ export class WorkOrderService {
     return { data: workOrders, total, page: apiFeatures.queryString.page || 1 };
   }
 
-  static async updateWorkOrderStatus(id: string, status: any, userId: string) {
+  static async updateWorkOrderStatus(id: string, status: any, userId: string, extra: any = {}) {
     const workOrder = await prisma.workOrder.findUnique({ where: { id } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
     // Enforce basic state machine validation for simple transitions
-    if (status === 'APPROVED' && workOrder.status !== 'PENDING' && workOrder.status !== 'DRAFT') {
-      throw new AppError(400, 'Can only approve DRAFT or PENDING work orders');
+    if (status === 'APPROVED' && !['PENDING', 'PENDING_APPROVAL', 'DRAFT'].includes(workOrder.status)) {
+      throw new AppError(400, 'Can only approve DRAFT or PENDING_APPROVAL work orders');
     }
+
+    const updateData: any = { status };
+    if (extra.operatorId) updateData.operatorId = extra.operatorId;
+    if (extra.labelsPrinted !== undefined) updateData.labelsPrinted = extra.labelsPrinted;
+    if (extra.labelsApplied !== undefined) updateData.labelsApplied = extra.labelsApplied;
 
     const updatedWO = await prisma.workOrder.update({
       where: { id },
-      data: { status },
+      data: updateData,
     });
 
     await prisma.auditLog.create({
@@ -105,7 +111,7 @@ export class WorkOrderService {
       }
     });
 
-    if (status === 'PENDING' && workOrder.status !== 'PENDING') {
+    if ((status === 'PENDING' || status === 'PENDING_APPROVAL') && workOrder.status !== 'PENDING' && workOrder.status !== 'PENDING_APPROVAL') {
       await prisma.approvalRequest.create({
         data: {
           type: 'WORK_ORDER',
@@ -198,8 +204,14 @@ export class WorkOrderService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
     
-    if (workOrder.status !== 'PACKING_STARTED' && workOrder.status !== 'QC_PENDING') {
+    if (!['PACKING_STARTED', 'PACKING_IN_PROGRESS', 'QC_PENDING', 'QC_IN_PROGRESS', 'LABELS_PRINTED'].includes(workOrder.status)) {
       throw new AppError(400, 'Cannot update quantities for this work order status');
+    }
+    
+    // Automatically transition to PACKING_IN_PROGRESS if it was PACKING_STARTED
+    let newStatus = workOrder.status;
+    if (newStatus === 'PACKING_STARTED' && (data.actualProduced || data.actualRejected)) {
+      newStatus = 'PACKING_IN_PROGRESS';
     }
 
     const produced = data.actualProduced ?? workOrder.actualProduced ?? 0;
@@ -214,6 +226,7 @@ export class WorkOrderService {
       data: {
         actualProduced: produced,
         actualRejected: rejected,
+        status: newStatus,
       }
     });
 
@@ -235,7 +248,7 @@ export class WorkOrderService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (workOrder.status !== 'PACKING_STARTED') {
+    if (workOrder.status !== 'PACKING_STARTED' && workOrder.status !== 'PACKING_IN_PROGRESS') {
       throw new AppError(400, 'Cannot pause packing for this work order status');
     }
 
@@ -297,7 +310,7 @@ export class WorkOrderService {
     const updatedWO = await prisma.workOrder.update({
       where: { id },
       data: {
-        status: 'QC_PENDING',
+        status: 'PACKING_COMPLETED',
         completedAt: new Date(),
         isPaused: false,
         pauseReason: null

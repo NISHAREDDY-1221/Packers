@@ -28,8 +28,8 @@ export class WorkflowService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (workOrder.status !== 'PACKING_STARTED' && workOrder.status !== 'QC_PENDING') {
-      throw new AppError(400, 'Quality Check can only be performed on Work Orders that have started packing');
+    if (!['PACKING_COMPLETED', 'LABELS_GENERATED', 'LABELS_PRINTED', 'QC_PENDING', 'QC_IN_PROGRESS'].includes(workOrder.status)) {
+      throw new AppError(400, 'Quality Check can only be performed on Work Orders that have reached the QC stage');
     }
 
     const qcNumber = `QC-${Date.now().toString().slice(-6)}`;
@@ -49,7 +49,7 @@ export class WorkflowService {
         }
       });
 
-      const newStatus = (data.result === 'PASS' || data.result === 'PARTIAL_PASS') ? 'QC_PASSED' : 'QC_PENDING';
+      const newStatus = (data.result === 'PASS' || data.result === 'PARTIAL_PASS') ? 'QC_PASSED' : 'QC_FAILED';
       
       const updatedWO = await tx.workOrder.update({
         where: { id: data.woId },
@@ -96,7 +96,7 @@ export class WorkflowService {
       const updatedWO = await tx.workOrder.update({
         where: { id: data.woId },
         data: { 
-          status: 'COMPLETED',
+          status: 'FINISHED_GOODS',
           completedAt: new Date(),
           actualProduced: data.postedQty,
           batchNumber: data.batchNumber, // Assign final batch number
@@ -149,28 +149,16 @@ export class WorkflowService {
         }
       });
 
-      // Mark original WO as completed but with actual rejected/waste values
-      await tx.workOrder.update({
+      // Update original WO status and do not duplicate
+      const nextStatus = data.targetRecipeId ? 'PACKING_COMPLETED' : 'LABELS_PRINTED';
+      
+      const updatedWO = await tx.workOrder.update({
         where: { id: data.sourceWoId },
         data: { 
-          status: 'COMPLETED',
-          completedAt: new Date(),
-          actualProduced: 0,
-          actualRejected: data.wasteQty + data.recoverableQty,
-        },
-      });
-
-      // Generate New Work Order for the Recovered Quantity to go through the cycle again
-      const newWO = await tx.workOrder.create({
-        data: {
-          woNumber: `WO-${Date.now().toString().slice(-6)}`,
-          productId: sourceWO.productId,
+          status: nextStatus,
           recipeId: data.targetRecipeId || sourceWO.recipeId,
-          requiredQty: data.recoverableQty,
-          priority: 'URGENT',
-          status: 'DRAFT',
-          supervisorId: data.userId,
-        }
+          actualRejected: (sourceWO.actualRejected || 0) + data.wasteQty, // Accumulate waste
+        },
       });
 
       await tx.auditLog.create({
@@ -183,7 +171,7 @@ export class WorkflowService {
         }
       });
 
-      return { repackLog, newWO };
+      return { repackLog, newWO: updatedWO };
     });
   }
 }

@@ -4,11 +4,11 @@ import { sendResponse } from '../utils/response';
 import { WorkOrderService } from '../services/workOrderService';
 
 export const createWorkOrder = catchAsync(async (req: Request, res: Response) => {
-  const { productId, recipeId, requiredQty, priority, expectedDate } = req.body;
+  const { productId, recipeId, requiredQty, priority, expectedDate, operatorId } = req.body;
   const supervisorId = req.user!.id;
 
   const workOrder = await WorkOrderService.createWorkOrder({
-    productId, recipeId, requiredQty, priority, expectedDate, supervisorId
+    productId, recipeId, requiredQty, priority, expectedDate, supervisorId, operatorId
   });
 
   sendResponse(res, 201, 'Work Order created', workOrder);
@@ -21,10 +21,10 @@ export const getWorkOrders = catchAsync(async (req: Request, res: Response) => {
 
 export const updateWorkOrderStatus = catchAsync(async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { status } = req.body;
+  const { status, extra } = req.body;
   const userId = req.user!.id;
 
-  const updatedWO = await WorkOrderService.updateWorkOrderStatus(id, status, userId);
+  const updatedWO = await WorkOrderService.updateWorkOrderStatus(id, status, userId, extra);
   sendResponse(res, 200, 'Work Order status updated', updatedWO);
 });
 

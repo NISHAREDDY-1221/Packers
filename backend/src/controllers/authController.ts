@@ -75,3 +75,11 @@ export const login = catchAsync(async (req: Request, res: Response) => {
     },
   });
 });
+
+export const getOperators = catchAsync(async (req: Request, res: Response) => {
+  const operators = await prisma.user.findMany({
+    where: { role: { name: 'OPERATOR' } },
+    select: { id: true, name: true, email: true }
+  });
+  sendResponse(res, 200, 'Operators retrieved', operators);
+});
