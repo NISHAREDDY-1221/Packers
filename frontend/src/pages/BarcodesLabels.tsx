@@ -267,40 +267,33 @@ export const BarcodesLabels: React.FC = () => {
     const productName = selectedWO?.product?.name || selectedWO?.productName || "Product Name";
 
     const cardBody = `
-      <div class="label-card" style="width: ${width}; height: ${height}; display: flex; flex-direction: column; justify-content: space-between; padding: 6px 10px; font-family: sans-serif; overflow: hidden; page-break-inside: avoid; break-inside: avoid; page-break-after: always; break-after: page;">
-        <div class="card-header" style="font-size: 10px; font-weight: 805; text-transform: uppercase; color: #00891D; text-align: center; border-b: 1px solid #e5e7eb; padding-bottom: 2px;">
-          VillagKart Retail
+      <div class="label-card" style="width: 100mm; height: 50mm; display:flex; flex-direction:column; justify-content:space-between; padding:10px 14px; font-family:'Segoe UI',Arial,sans-serif; background:#fff; overflow:hidden; page-break-after:always; break-after:page; border:none; box-sizing:border-box;">
+        <div style="text-align:center; font-size:18px; font-weight:900; color:#00891D; letter-spacing:1px; text-transform:uppercase; border-bottom:1px solid #e5e7eb; padding-bottom:6px; margin-bottom:0;">
+          VILLAGKART RETAIL
         </div>
-        <div class="product-name" style="font-size: 9px; font-weight: 700; color: #111827; margin-top: 4px; text-align: center;">
+        <div style="text-align:center; font-size:13px; font-weight:700; color:#111827; margin-bottom:0; margin-top:4px;">
           ${productName}
         </div>
-        <div class="meta-info" style="font-size: 7.5px; color: #4b5563; margin-top: 4px; line-height: 1.2;">
-          <div style="display: flex; justify-content: space-between;">
+        <div style="font-size:10px; color:#111827; line-height:1.4; padding:0 8%; flex-grow:1; display:flex; flex-direction:column; justify-content:center; margin:2px 0;">
+          <div style="display:flex; justify-content:space-between;">
             <span>SKU: <b>${job.sku}</b></span>
             <span>Batch: <b>${job.batchNo}</b></span>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-top: 2px;">
-            <span>Lot: <b>${lotNo || "N/A"}</b></span>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Lot: <b>${lotNo || 'N/A'}</b></span>
             <span>MRP: <b>₹${mrp || 0}.00</b></span>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-top: 2px; font-size: 7px;">
+          <div style="display:flex; justify-content:space-between;">
             <span>MFG: ${mfgDate}</span>
             <span>EXP: ${expiryDate}</span>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 6px; border-t: 1px dashed #e5e7eb; padding-top: 4px;">
+        <div style="border-top:1px solid #e5e7eb; padding-top:6px; margin-top:auto;">
           ${
-            type !== "QR Code"
-              ? `
-            <img src="${barcodeDataUrl}" style="width: 100%; height: 28px; image-rendering: pixelated;" alt="barcode" />
-            <div style="font-size: 7px; font-family: monospace; margin-top: 1px; color: #111827;">${type}: ${job.batchNo}</div>
-          `
-              : `
-            <img src="${qrCodeUrl}" style="width: 36px; height: 36px;" alt="QR Code" />
-            <div style="font-size: 7px; font-family: monospace; margin-top: 1px; color: #111827;">QR Code</div>
-          `
+            type !== 'QR Code'
+              ? `<img src="${barcodeDataUrl}" style="width:100%; height:22px; image-rendering:pixelated; display:block;" alt="barcode" />`
+              : `<div style="display:flex;justify-content:center;"><img src="${qrCodeUrl}" style="width:25px;height:25px;" alt="QR" /></div>`
           }
-          <div style="height:4mm;"></div>
         </div>
       </div>
     `;
@@ -332,22 +325,16 @@ export const BarcodesLabels: React.FC = () => {
           <meta charset="UTF-8" />
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
-            @page {
-              size: ${width} ${height};
-              margin: 0;
-            }
+            @page { size: 100mm 50mm; margin: 0; }
             body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+              font-family: 'Segoe UI', Arial, sans-serif;
               background: #fff;
-              padding: 0;
-              margin: 0;
+              width: 100mm;
             }
             .label-grid {
               display: block;
             }
-            @media print {
-              body { background: #fff; }
-            }
+            @media print { body { background: #fff; } }
           </style>
         </head>
         <body>
@@ -797,75 +784,47 @@ export const BarcodesLabels: React.FC = () => {
               <span>Label Preview Template</span>
             </h3>
 
-            {/* Enhanced Thermal Retail Label Preview */}
-            <div className="border-2 border-dashed border-slate-300 dark:border-gray-600 rounded-lg p-5 font-mono text-xs text-slate-800 dark:text-gray-150 bg-white dark:bg-gray-900 space-y-4 max-w-sm mx-auto shadow-xs">
-              <div className="text-center border-b border-slate-200 dark:border-gray-750 pb-2 flex flex-col items-center">
-                <span className="font-bold text-sm tracking-wider uppercase text-[#00891D]">VillagKart Retail</span>
-                <span className="text-[8px] block text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">Rural Hub Packaging Unit</span>
+            {/* Label preview matching the reference design */}
+            <div style={{ background: '#fff', border: '1.5px solid #d1d5db', borderRadius: 12, padding: '14px 18px', maxWidth: 380, margin: '0 auto', fontFamily: "'Segoe UI', Arial, sans-serif", display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 220 }}>
+              {/* Brand Header */}
+              <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 900, color: '#00891D', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1.5px solid #e5e7eb', paddingBottom: 8, marginBottom: 0 }}>
+                VILLAGKART RETAIL
               </div>
 
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">Product:</span>
-                  <span className="font-bold text-right max-w-[150px] truncate">{selectedWO?.product?.name || 'No Product Selected'}</span>
+              {/* Product Name */}
+              <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 0, marginTop: 6 }}>
+                {selectedWO?.product?.name || 'Select a Work Order'}
+              </div>
+
+              {/* 2-column info grid */}
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: '#111827', padding: '0 8%', flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', margin: '4px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>SKU: <b>{sku || '—'}</b></span>
+                  <span>Batch: <b style={{ fontFamily: 'monospace', fontSize: 11 }}>{batchNo || '—'}</b></span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">SKU:</span>
-                  <span className="font-bold">{sku || 'N/A'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Lot: <b style={{ fontFamily: 'monospace' }}>{lotNo || '—'}</b></span>
+                  <span>MRP: <b>₹{mrp || 0}.00</b></span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">BATCH:</span>
-                  <span className="font-bold">{batchNo || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">LOT:</span>
-                  <span className="font-bold">{lotNo || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">FORMAT:</span>
-                  <span className="font-bold">{barcodeType}</span>
-                </div>
-                <div className="flex justify-between border-t border-dashed border-slate-200 dark:border-gray-750 pt-1.5 mt-1.5">
-                  <span className="text-slate-450 dark:text-gray-500">MRP:</span>
-                  <span className="font-bold text-[#00891D]">₹{mrp || 0}.00 <span className="text-[9px] font-normal text-slate-400 dark:text-gray-500">(Incl. Taxes)</span></span>
-                </div>
-                <div className="flex justify-between text-[9px] pt-1 text-slate-500 dark:text-gray-400">
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#374151' }}>
                   <span>MFG: {mfgDate || 'YYYY-MM-DD'}</span>
                   <span>EXP: {expiryDate || 'YYYY-MM-DD'}</span>
                 </div>
               </div>
 
-              {/* Dynamic Barcode graphic */}
-              <div className="flex flex-col items-center justify-center pt-2 border-t border-slate-200 dark:border-gray-750">
+              {/* Barcode / QR */}
+              <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 'auto', paddingTop: 8 }}>
                 {barcodeType !== 'QR Code' ? (
-                  <>
-                    <canvas
-                      ref={previewCanvasRef}
-                      className="w-full h-12 bg-white p-1 border rounded-xs"
-                    />
-                    <span className="text-[9px] text-slate-400 mt-1 font-mono tracking-widest uppercase">{barcodeType}: {batchNo || '9031123456789'}</span>
-                  </>
+                  <canvas
+                    ref={previewCanvasRef}
+                    style={{ width: '100%', height: 72, display: 'block', imageRendering: 'pixelated' }}
+                  />
                 ) : (
-                  <div className="flex flex-col items-center gap-1">
-                    <img
-                      src={qrCodeUrl}
-                      className="w-16 h-16 border p-1 bg-white rounded"
-                      alt="QR Code"
-                    />
-                    <span className="text-[9px] text-slate-400 font-mono">QR Label Format</span>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <img src={qrCodeUrl} style={{ width: 80, height: 80 }} alt="QR" />
                   </div>
                 )}
               </div>
-
-              {barcodeType !== 'QR Code' && (
-                <div className="flex justify-center pt-1">
-                  <img
-                      src={qrCodeUrl}
-                      className="w-10 h-10 border p-0.5 bg-white rounded"
-                      alt="QR Code"
-                    />
-                </div>
-              )}
             </div>
           </div>
 
