@@ -194,10 +194,13 @@ export const BarcodesLabels: React.FC = () => {
           workOrderService.getWorkOrders({ sort: '-updatedAt' }),
           barcodeService.getPrintHistory()
         ]);
-        const wos = (allWos || []).filter(wo => ['PACKING_STARTED', 'QC_PENDING', 'COMPLETED'].includes(wo.status));
+        const wosList = allWos?.data || allWos;
+        const wosArray = Array.isArray(wosList) ? wosList : [];
+        const wos = wosArray.filter((wo: any) => ['QC_PASSED'].includes(wo.status));
+        
         console.log('wos:', wos, 'hist:', hist);
-        setSelectableWOs(wos || []);
-        if (wos && wos.length > 0) setSelectedWO(wos[0]);
+        setSelectableWOs(wos);
+        if (wos.length > 0) setSelectedWO(wos[0]);
         setHistory(Array.isArray(hist) ? hist : []);
       } catch (err) {
         console.error('Failed to load barcode data', err);
@@ -225,6 +228,15 @@ export const BarcodesLabels: React.FC = () => {
   const [expiryDate, setExpiryDate] = useState('');
   const [printQty, setPrintQty] = useState(1);
 
+  // Generate QR Code URL dynamically based on batchNo
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(batchNo || sku || '9031123456789')}`;
+
+  // Mock global print trigger
+  const printLabels = (job: any, template: string, type: string) => {
+    console.log('Triggering physical print...', { job, template, type });
+    // In a real app this would trigger an electron print or window.print
+  };
+
   // Sync inputs when selected work order changes
   useEffect(() => {
     if (selectedWO) {
@@ -242,6 +254,13 @@ export const BarcodesLabels: React.FC = () => {
       setExpiryDate(exp.toISOString().split('T')[0]);
     }
   }, [selectedWO]);
+
+  // Draw barcode on canvas
+  useEffect(() => {
+    if (barcodeType !== 'QR Code' && previewCanvasRef.current) {
+      drawBarcode128(previewCanvasRef.current, batchNo || sku || '9031123456789');
+    }
+  }, [batchNo, sku, barcodeType]);
 
   // Real-time printer status validation error sync
   useEffect(() => {
@@ -268,7 +287,7 @@ export const BarcodesLabels: React.FC = () => {
     jobId: string;
   } | null>(null);
 
-  const getStatusColor = (status: WorkOrder['status']) => {
+  const getStatusColor = (status: any) => {
     switch (status) {
       case 'Draft': return 'bg-slate-100 text-slate-750 dark:bg-slate-800 dark:text-slate-300';
       case 'Pending': return 'bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-900/30';
@@ -398,7 +417,7 @@ export const BarcodesLabels: React.FC = () => {
           >
             {selectableWOs.map(w => (
               <option key={w.id} value={w.id}>
-                {w.woNumber} - {w.product?.name} ({w.status})
+                {w.woNumber || w.woNo} - {w.product?.name || w.productName} ({w.status})
               </option>
             ))}
           </select>
@@ -408,15 +427,15 @@ export const BarcodesLabels: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-6 gap-4 bg-slate-50 dark:bg-gray-750 p-4 rounded-lg text-xs">
             <div>
               <span className="block font-semibold text-slate-400 dark:text-gray-500">Work Order Number</span>
-              <span className="font-bold text-slate-800 dark:text-gray-200">{selectedWO.woNo}</span>
+              <span className="font-bold text-slate-800 dark:text-gray-200">{selectedWO.woNumber || selectedWO.woNo}</span>
             </div>
             <div>
               <span className="block font-semibold text-slate-400 dark:text-gray-500">Product Name</span>
-              <span className="font-bold text-slate-800 dark:text-gray-200">{selectedWO.productName}</span>
+              <span className="font-bold text-slate-800 dark:text-gray-200">{selectedWO.product?.name || selectedWO.productName}</span>
             </div>
             <div>
               <span className="block font-semibold text-slate-400 dark:text-gray-500">Recipe/BOM</span>
-              <span className="font-bold text-slate-805 dark:text-gray-200">{selectedWO.recipeId}</span>
+              <span className="font-bold text-slate-805 dark:text-gray-200">{selectedWO.recipe?.name || selectedWO.recipeId}</span>
             </div>
             <div>
               <span className="block font-semibold text-slate-400 dark:text-gray-500">Batch Number</span>
@@ -685,16 +704,19 @@ export const BarcodesLabels: React.FC = () => {
               <div className="flex flex-col items-center justify-center pt-2 border-t border-slate-200 dark:border-gray-750">
                 {barcodeType !== 'QR Code' ? (
                   <>
-                    <div className="w-full h-10 bg-slate-900 dark:bg-gray-800 flex gap-0.5 px-3 py-1 items-stretch rounded-xs">
-                      {Array.from({ length: 48 }).map((_, i) => (
-                        <div key={i} className={`flex-1 bg-white ${i % 3 === 0 || i % 7 === 0 ? 'opacity-0' : 'opacity-100'}`}></div>
-                      ))}
-                    </div>
+                    <canvas
+                      ref={previewCanvasRef}
+                      className="w-full h-12 bg-white p-1 border rounded-xs"
+                    />
                     <span className="text-[9px] text-slate-400 mt-1 font-mono tracking-widest uppercase">{barcodeType}: {batchNo || '9031123456789'}</span>
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-1">
-                    <QrCode size={48} className="text-slate-900 dark:text-gray-200 border border-slate-200 dark:border-gray-750 p-1 bg-white rounded" />
+                    <img
+                      src={qrCodeUrl}
+                      className="w-16 h-16 border p-1 bg-white rounded"
+                      alt="QR Code"
+                    />
                     <span className="text-[9px] text-slate-400 font-mono">QR Label Format</span>
                   </div>
                 )}
@@ -702,7 +724,11 @@ export const BarcodesLabels: React.FC = () => {
 
               {barcodeType !== 'QR Code' && (
                 <div className="flex justify-center pt-1">
-                  <QrCode size={30} className="text-slate-900 dark:text-gray-200 border border-slate-200 dark:border-gray-750 p-0.5 bg-white rounded" />
+                  <img
+                      src={qrCodeUrl}
+                      className="w-10 h-10 border p-0.5 bg-white rounded"
+                      alt="QR Code"
+                    />
                 </div>
               )}
             </div>
