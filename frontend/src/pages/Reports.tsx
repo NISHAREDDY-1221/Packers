@@ -4,7 +4,7 @@ import api from '../api/axios';
 import {
   Filter, Download, GitCommit,
   CheckCircle, RefreshCw, UserCheck, DollarSign, AlertTriangle,
-  Trash2, Package, Activity, RefreshCcw, TrendingUp, Info
+  Trash2, Info
 } from 'lucide-react';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -88,17 +88,13 @@ export const Reports: React.FC = () => {
   }), [qualityChecks, filterProduct]);
 
   const reportsList = [
-    { id: 'packing',       label: 'Packing Report',        icon: CheckCircle },
-    { id: 'repacking',     label: 'Repacking Report',      icon: RefreshCw },
-    { id: 'employee',      label: 'Employee Productivity',  icon: UserCheck },
-    { id: 'traceability',  label: 'Batch Traceability',     icon: GitCommit },
-    { id: 'cost',          label: 'Cost Report',            icon: DollarSign },
-    { id: 'rejected',      label: 'Rejected Report',        icon: AlertTriangle },
-    { id: 'waste',         label: 'Waste Report',           icon: Trash2 },
-    { id: 'consumption',   label: 'Material Consumption',   icon: Package },
-    { id: 'machine',       label: 'Machine Utilization',    icon: Activity },
-    { id: 'conversion',    label: 'Inventory Conversion',   icon: RefreshCcw },
-    { id: 'profitability', label: 'Profitability',          icon: TrendingUp },
+    { id: 'packing',      label: 'Packing Report',       icon: CheckCircle },
+    { id: 'repacking',   label: 'Repacking Report',     icon: RefreshCw },
+    { id: 'employee',    label: 'Employee Productivity', icon: UserCheck },
+    { id: 'traceability',label: 'Batch Traceability',   icon: GitCommit },
+    { id: 'cost',        label: 'Cost Report',          icon: DollarSign },
+    { id: 'rejected',    label: 'Rejected Report',      icon: AlertTriangle },
+    { id: 'waste',       label: 'Waste Report',         icon: Trash2 },
   ];
 
   const handleExport = (type: 'Excel' | 'PDF') => {
@@ -423,30 +419,6 @@ export const Reports: React.FC = () => {
             </div>
           </div>
         );
-
-      case 'consumption':
-      case 'machine':
-      case 'conversion':
-      case 'profitability': {
-        const labels: Record<string, string> = {
-          consumption: 'Raw Material & Packaging Consumption Ledger',
-          machine: 'Machine Utilization & OEE Metrics',
-          conversion: 'Inventory Conversion (Bulk to Retail Yield)',
-          profitability: 'Product Line & Packing Profitability',
-        };
-        return (
-          <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 text-center">
-            <div className="p-4 bg-slate-50 rounded-full border border-slate-200">
-              <Info size={28} className="text-slate-300" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-700 text-sm mb-1">{labels[activeTab]}</h3>
-              <p className="text-xs text-slate-400 max-w-sm">This report requires additional configuration and data inputs (e.g. machine logs, BOM consumption tracking). Coming in next release.</p>
-            </div>
-            <span className="text-[10px] font-bold px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">Planned Feature</span>
-          </div>
-        );
-      }
 
       default:
         return (
