@@ -17,6 +17,7 @@ import type { ApprovalRequest, ApprovalType, ApprovalStatus, Priority } from '..
 export const Approvals: React.FC = () => {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchApprovals();
@@ -25,10 +26,12 @@ export const Approvals: React.FC = () => {
   const fetchApprovals = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const data = await approvalService.getApprovals();
-      setApprovals(data);
-    } catch (error) {
-      console.error('Failed to fetch approvals:', error);
+      setApprovals(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch approvals:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to load approvals');
     } finally {
       setIsLoading(false);
     }
@@ -52,10 +55,11 @@ export const Approvals: React.FC = () => {
   // Filtered Data
   const filteredApprovals = useMemo(() => {
     return approvals.filter(a => {
+      const reqByStr = typeof a.requestedBy === 'string' ? a.requestedBy : (a.requestedBy as any)?.name || '';
       const matchesSearch = 
         a.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
         a.relatedEntityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        a.requestedBy.toLowerCase().includes(searchTerm.toLowerCase());
+        reqByStr.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesType = typeFilter === 'ALL' || a.type === typeFilter;
       const matchesStatus = statusFilter === 'ALL' || a.status === statusFilter;
@@ -68,10 +72,12 @@ export const Approvals: React.FC = () => {
     if (!selectedRequest) return;
     try {
       const updated = await approvalService.processApproval(selectedRequest.id, 'APPROVE');
-      setApprovals(prev => prev.map(a => a.id === updated.id ? updated : a));
+      setApprovals(prev => prev.map(a => a.id === updated.id ? { ...a, status: updated.status, history: updated.history } : a));
       setSelectedRequest(null);
-    } catch (error) {
+      alert('Request approved successfully!');
+    } catch (error: any) {
       console.error('Failed to approve request:', error);
+      alert(`Failed to approve: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -79,11 +85,13 @@ export const Approvals: React.FC = () => {
     if (!selectedRequest || !rejectionReason.trim()) return;
     try {
       const updated = await approvalService.processApproval(selectedRequest.id, 'REJECT', rejectionReason);
-      setApprovals(prev => prev.map(a => a.id === updated.id ? updated : a));
+      setApprovals(prev => prev.map(a => a.id === updated.id ? { ...a, status: updated.status, history: updated.history } : a));
       setRejectionReason('');
       setSelectedRequest(null);
-    } catch (error) {
+      alert('Request rejected.');
+    } catch (error: any) {
       console.error('Failed to reject request:', error);
+      alert(`Failed to reject: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -224,6 +232,12 @@ export const Approvals: React.FC = () => {
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-gray-500 dark:text-gray-400">
                     Loading approvals...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-red-500">
+                    ⚠️ {error}
                   </td>
                 </tr>
               ) : filteredApprovals.length === 0 ? (

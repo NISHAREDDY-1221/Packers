@@ -157,21 +157,21 @@ const drawBarcode128 = (canvas: HTMLCanvasElement | null, text: string) => {
   });
   bars = bars.concat(PATTERNS[106]);
 
-  const scale = 2.4;
-  const padding = 10;
+  const scale = 3;
+  const padding = 0;
   const barcodeWidth = bars.reduce((acc, curr) => acc + curr, 0) * scale;
 
-  canvas.width = barcodeWidth + padding * 2;
-  canvas.height = 80;
+  canvas.width = barcodeWidth;
+  canvas.height = 100;
 
-  let x = padding;
+  let x = 0;
   let isBar = true;
 
   bars.forEach((width) => {
     const w = width * scale;
     if (isBar) {
       ctx.fillStyle = "#000000";
-      ctx.fillRect(x, 4, w, 72);
+      ctx.fillRect(x, 0, w, 100);
     }
     x += w;
     isBar = !isBar;
@@ -190,20 +190,33 @@ export const BarcodesLabels: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [allWos, hist] = await Promise.all([
-          workOrderService.getWorkOrders({ sort: '-updatedAt' }),
-          barcodeService.getPrintHistory()
-        ]);
-        const wosList = allWos?.data || allWos;
+        let wosList: any = [];
+        let hist: any = [];
+        
+        try {
+          const allWos = await workOrderService.getWorkOrders({ sort: '-updatedAt' });
+          wosList = allWos?.data || allWos;
+        } catch (err) {
+          console.error('Failed to load work orders', err);
+        }
+
+        try {
+          hist = await barcodeService.getPrintHistory();
+        } catch (err) {
+          console.error('Failed to load print history (possibly role restriction)', err);
+        }
+
         const wosArray = Array.isArray(wosList) ? wosList : [];
-        const wos = wosArray.filter((wo: any) => ['QC_PASSED', 'COMPLETED', 'QC_PENDING', 'PACKING_STARTED'].includes(wo.status));
+        const wos = wosArray.filter((wo: any) => 
+          ['QC_PASSED', 'COMPLETED', 'QC Passed', 'Completed'].includes(wo.status)
+        );
         
         console.log('wos:', wos, 'hist:', hist);
         setSelectableWOs(wos);
         if (wos.length > 0) setSelectedWO(wos[0]);
         setHistory(Array.isArray(hist) ? hist : []);
       } catch (err) {
-        console.error('Failed to load barcode data', err);
+        console.error('Unexpected error loading barcode data', err);
       } finally {
         setIsLoading(false);
       }
@@ -279,7 +292,7 @@ export const BarcodesLabels: React.FC = () => {
           ${
             type !== "QR Code"
               ? `
-            <img src="${barcodeDataUrl}" style="width: 85%; height: 24px;" alt="barcode" />
+            <img src="${barcodeDataUrl}" style="width: 100%; height: 28px; image-rendering: pixelated;" alt="barcode" />
             <div style="font-size: 7px; font-family: monospace; margin-top: 1px; color: #111827;">${type}: ${job.batchNo}</div>
           `
               : `
@@ -287,6 +300,7 @@ export const BarcodesLabels: React.FC = () => {
             <div style="font-size: 7px; font-family: monospace; margin-top: 1px; color: #111827;">QR Code</div>
           `
           }
+          <div style="height:4mm;"></div>
         </div>
       </div>
     `;
@@ -535,6 +549,7 @@ export const BarcodesLabels: React.FC = () => {
               if (wo) setSelectedWO(wo);
             }}
           >
+            <option value="" disabled>{selectableWOs.length === 0 ? 'No QC products available' : 'Select a product...'}</option>
             {selectableWOs.map(w => (
               <option key={w.id} value={w.id}>
                 {w.woNumber || w.woNo} - {w.product?.name || w.productName} ({w.status})

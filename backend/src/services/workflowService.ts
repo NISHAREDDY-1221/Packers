@@ -5,7 +5,7 @@ export class WorkflowService {
   // --- Quality Check ---
   static async getQualityChecks(queryString: any = {}) {
     const queryObj = { ...queryString };
-    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)(prisma.qualityCheck, queryObj)
+    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
       .filter()
       .search(['qcNumber', 'result'])
       .sort()
@@ -13,7 +13,10 @@ export class WorkflowService {
 
     apiFeatures.query = { 
       ...apiFeatures.query, 
-      include: { workOrder: true, inspector: true } 
+      include: { 
+        workOrder: { include: { product: true } }, 
+        inspector: true 
+      } 
     };
 
     const [qcs, total] = await Promise.all([
@@ -24,12 +27,50 @@ export class WorkflowService {
     return { data: qcs, total, page: apiFeatures.queryString.page || 1 };
   }
 
+  static async getFinishedGoods(queryString: any = {}) {
+    const queryObj = { ...queryString };
+    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
+      .filter()
+      .sort()
+      .paginate();
+
+    apiFeatures.query = {
+      ...apiFeatures.query,
+      include: { workOrder: { include: { product: true } }, product: true },
+    };
+
+    const [fgs, total] = await Promise.all([
+      prisma.finishedGoods.findMany(apiFeatures.query),
+      prisma.finishedGoods.count({ where: apiFeatures.query.where }),
+    ]);
+    return { data: fgs, total, page: apiFeatures.queryString.page || 1 };
+  }
+
+  static async getRepackingLogs(queryString: any = {}) {
+    const queryObj = { ...queryString };
+    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
+      .filter()
+      .sort()
+      .paginate();
+
+    apiFeatures.query = {
+      ...apiFeatures.query,
+      include: { sourceWorkOrder: { include: { product: true } } },
+    };
+
+    const [logs, total] = await Promise.all([
+      prisma.repackingLog.findMany(apiFeatures.query),
+      prisma.repackingLog.count({ where: apiFeatures.query.where }),
+    ]);
+    return { data: logs, total, page: apiFeatures.queryString.page || 1 };
+  }
+
   static async submitQualityCheck(data: { woId: string; checkedQty: number; result: any; severity?: any; failureReason?: string; remarks?: string; checksPayload: any; inspectorId: string }) {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (workOrder.status !== 'PACKING_STARTED' && workOrder.status !== 'QC_PENDING') {
-      throw new AppError(400, 'Quality Check can only be performed on Work Orders that have started packing');
+    if (workOrder.status !== 'PACKING_STARTED' && workOrder.status !== 'PACKING_COMPLETED' && workOrder.status !== 'QC_PENDING') {
+      throw new AppError(400, 'Quality Check can only be performed on Work Orders that are packed or in QC pending status');
     }
 
     const qcNumber = `QC-${Date.now().toString().slice(-6)}`;
@@ -49,12 +90,42 @@ export class WorkflowService {
         }
       });
 
-      const newStatus = (data.result === 'PASS' || data.result === 'PARTIAL_PASS') ? 'QC_PASSED' : 'QC_PENDING';
+      const isPassed = (data.result === 'PASS' || data.result === 'PARTIAL_PASS');
+      const newStatus = isPassed ? 'COMPLETED' : 'PENDING';
       
       const updatedWO = await tx.workOrder.update({
         where: { id: data.woId },
-        data: { status: newStatus },
+        data: { 
+          status: newStatus,
+          ...(isPassed ? { completedAt: new Date() } : {})
+        },
       });
+
+      // Automatically post to Finished Goods if passed
+      if (isPassed && workOrder.productId) {
+        const fgNumber = `FG-${Date.now().toString().slice(-6)}`;
+        await tx.finishedGoods.create({
+          data: {
+            fgNumber,
+            woId: data.woId,
+            productId: workOrder.productId,
+            batchNumber: workOrder.batchNumber || `BATCH-${Date.now().toString().slice(-6)}`,
+            postedQty: data.checkedQty,
+            destination: 'MAIN_WAREHOUSE', // Default
+          }
+        });
+
+        // Add actual quantity to Product availableStock
+        const product = await tx.product.findUnique({ where: { id: workOrder.productId } });
+        if (product) {
+          await tx.product.update({
+            where: { id: product.id },
+            data: {
+              availableStock: product.availableStock + data.checkedQty
+            }
+          });
+        }
+      }
 
       await tx.auditLog.create({
         data: {
@@ -75,8 +146,8 @@ export class WorkflowService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId }, include: { product: true } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (workOrder.status !== 'QC_PASSED') {
-      throw new AppError(400, 'Only QC Passed batches can be posted to Finished Goods');
+    if (workOrder.status !== 'QC_PASSED' && workOrder.status !== 'COMPLETED') {
+      throw new AppError(400, 'Only QC Passed or Completed batches can be posted to Finished Goods');
     }
 
     const fgNumber = `FG-${Date.now().toString().slice(-6)}`;

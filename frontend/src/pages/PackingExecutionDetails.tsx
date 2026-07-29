@@ -100,14 +100,7 @@ export const PackingExecutionDetails: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   // Filter queue jobs: Material Issued, Packing Started, QC Pending
-  const activeQueueWOs_UNUSED = useMemo(() => {
-    return workOrders.filter(
-      (w) =>
-        w.status === "Material Issued" ||
-        w.status === "Packing Started" ||
-        w.status === "QC Pending",
-    );
-  }, [workOrders]);
+  // (Removed unused activeQueueWOs_UNUSED)
 
   // Keep state synced with context updates
   const selectedWO = useMemo(() => {
@@ -154,11 +147,7 @@ export const PackingExecutionDetails: React.FC = () => {
     }
   }, [selectedWO?.id, selectedWO?.status, selectedWO?.startedAt, selectedWO?.completedAt]);
 
-  const handleSelectWO_UNUSED = (wo: WorkOrder) => {
-    setActiveWO(wo);
-    setActualProduced(wo.requiredQuantity || 0);
-    setActualRejected(0);
-  };
+  // (Removed unused handleSelectWO_UNUSED)
 
   const handleStartPacking = async () => {
     if (!selectedWO) return;
@@ -372,7 +361,6 @@ export const PackingExecutionDetails: React.FC = () => {
   };
 
 // Active Alerts (fetch from backend later)
-  console.log(activeQueueWOs_UNUSED, handleSelectWO_UNUSED);
   const activeAlerts = useMemo(() => {
     return [] as { type: "danger" | "warning" | "info"; message: string }[];
   }, [selectedWO]);

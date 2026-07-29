@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import api from '../api/axios';
 import { 
   Filter, Download, GitCommit,
   CheckCircle, RefreshCw, UserCheck, DollarSign, AlertTriangle, 
@@ -8,7 +8,18 @@ import {
 } from 'lucide-react';
 
 export const Reports: React.FC = () => {
-  const { finishedGoods, repackings } = useApp();
+  const [finishedGoods, setFinishedGoods] = useState<any[]>([]);
+  const [repackings, setRepackings] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/workflows/finished-goods?limit=200').then(res => {
+      setFinishedGoods(res.data.data?.data || res.data.data || []);
+    }).catch(console.error);
+    api.get('/workflows/repacking?limit=200').then(res => {
+      setRepackings(res.data.data?.data || res.data.data || []);
+    }).catch(console.error);
+  }, []);
+
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Active Tab derived from query param, defaults to 'packing'
@@ -89,13 +100,13 @@ export const Reports: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {finishedGoods.map(fg => (
                     <tr key={fg.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 text-slate-500">{fg.postedAt.split(' ')[0] || '2026-07-16'}</td>
-                      <td className="p-3 font-mono font-semibold">{fg.woNo}</td>
-                      <td className="p-3 font-semibold text-slate-700">{fg.productName}</td>
-                      <td className="p-3 font-mono text-slate-600">{fg.batchNo}</td>
+                      <td className="p-3 text-slate-500">{fg.createdAt ? new Date(fg.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                      <td className="p-3 font-mono font-semibold">{fg.workOrder?.woNumber || '—'}</td>
+                      <td className="p-3 font-semibold text-slate-700">{fg.product?.name || '—'}</td>
+                      <td className="p-3 font-mono text-slate-600">{fg.batchNumber || '—'}</td>
                       <td className="p-3 text-center font-bold text-slate-850">{fg.postedQty}</td>
                       <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">{fg.destination}</span></td>
-                      <td className="p-3 text-slate-600">Suresh Kumar</td>
+                      <td className="p-3 text-slate-600">{fg.workOrder?.supervisor?.name || '—'}</td>
                     </tr>
                   ))}
                   {finishedGoods.length === 0 && (
@@ -134,16 +145,14 @@ export const Reports: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {repackings.map(rp => (
                     <tr key={rp.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 text-slate-500">{rp.createdAt.split(' ')[0]}</td>
-                      <td className="p-3 font-mono font-bold text-rose-700">{rp.sourceBatchNo}</td>
-                      <td className="p-3 font-semibold text-slate-700">{rp.productName}</td>
-                      <td className="p-3 text-center font-bold text-green-700">+{rp.recoverableQuantity}</td>
-                      <td className="p-3 text-center font-bold text-rose-600">-{rp.wasteQuantity}</td>
-                      <td className="p-3 font-mono font-semibold text-slate-800">{rp.newBatchNo}</td>
+                      <td className="p-3 text-slate-500">{rp.createdAt ? new Date(rp.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                      <td className="p-3 font-mono font-bold text-rose-700">{rp.sourceWorkOrder?.batchNumber || rp.newBatchNumber || '—'}</td>
+                      <td className="p-3 font-semibold text-slate-700">{rp.sourceWorkOrder?.product?.name || '—'}</td>
+                      <td className="p-3 text-center font-bold text-green-700">+{rp.recoverableQty}</td>
+                      <td className="p-3 text-center font-bold text-rose-600">-{rp.wasteQty}</td>
+                      <td className="p-3 font-mono font-semibold text-slate-800">{rp.newBatchNumber || '—'}</td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${rp.newLabelPrinted ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                          {rp.newLabelPrinted ? 'Yes' : 'No'}
-                        </span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Logged</span>
                       </td>
                     </tr>
                   ))}

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import type { QualityCheck as IQC } from '../context/AppContext';
 import { ShieldCheck, X, Search, Image as ImageIcon } from 'lucide-react';
+import apiClient from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 const formatDateString = (dateStr: string) => {
   if (!dateStr) return '—';
@@ -32,9 +34,31 @@ const formatTimeWithDate = (d: Date | null) => {
 };
 
 export const QualityCheck: React.FC = () => {
-  const { workOrders, qualityChecks, addQualityCheck } = useApp();
+  const { user } = useAuth();
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [qualityChecks, setQualityChecks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [woRes, qcRes] = await Promise.all([
+          apiClient.get('/work-orders'),
+          apiClient.get('/workflows/quality-checks?limit=100')
+        ]);
+        setWorkOrders(woRes.data.data?.data || woRes.data.data || []);
+        setQualityChecks(qcRes.data.data?.data || qcRes.data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch QC data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   const [search, setSearch] = useState('');
-  const [selectedQC, setSelectedQC] = useState<IQC | null>(null);
+  const [selectedQC, setSelectedQC] = useState<any | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Form states
@@ -44,7 +68,7 @@ export const QualityCheck: React.FC = () => {
   const [formCheckedQty, setFormCheckedQty] = useState(10);
   const [formInspectionType, setFormInspectionType] = useState('Sampling Inspection');
   const [formSeverity, setFormSeverity] = useState<IQC['severity']>('Minor');
-  const [formFailureReason, setFormFailureReason] = useState('');
+  const [formFailureReasons, setFormFailureReasons] = useState<string[]>([]);
   const [formPackedQty, setFormPackedQty] = useState(0);
   const [formPhotos, setFormPhotos] = useState<{ id: string, file: File, url: string, status: 'uploading' | 'done' }[]>([]);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
@@ -82,10 +106,13 @@ export const QualityCheck: React.FC = () => {
   const [formResult, setFormResult] = useState<IQC['result']>('Pass');
   const [formSignature, setFormSignature] = useState('');
 
-  const pendingQC_WOs = workOrders.filter(w => w.status === 'QC Pending' || w.status === 'Labels Printed');
+  const pendingQC_WOs = workOrders.filter(w => w.status === 'QC_PENDING' || w.status === 'PACKING_COMPLETED');
 
   const todayDate = new Date().toISOString().split('T')[0];
-  const todaysQCs = qualityChecks.filter(qc => qc.date === todayDate);
+  const todaysQCs = qualityChecks.filter(qc => {
+    const d = qc.createdAt ? String(qc.createdAt).split('T')[0] : qc.date;
+    return d === todayDate;
+  });
   const pendingCount = pendingQC_WOs.length;
   const todaysInspections = todaysQCs.length;
   const passedToday = todaysQCs.filter(qc => ['Pass', 'Partial Pass'].includes(qc.result)).length;
@@ -119,7 +146,8 @@ export const QualityCheck: React.FC = () => {
     setFormQcId(generatedQcId);
     const wo = workOrders.find(w => w.id === woId);
     if (wo) {
-      setFormBatchNo('');
+      const woBatch = wo.batchNumber || `BATCH-2026-${String(wo.woNumber || wo.woNo || '').split('-').pop()}`;
+      setFormBatchNo(woBatch);
       const packed = wo.actualProduced || wo.requiredQuantity;
       setFormPackedQty(packed);
       setFormCheckedQty(Math.max(1, Math.round(packed * 0.2))); // default 20% sample
@@ -135,42 +163,53 @@ export const QualityCheck: React.FC = () => {
     setFormResult(allPassed ? 'Pass' : 'Rework');
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formWoId) return;
 
-    const wo = workOrders.find(w => w.id === formWoId)!;
-    const newQC: IQC = {
-      id: formQcId || `QC-${Date.now().toString().slice(-4)}`,
-      woId: formWoId,
-      woNo: wo.woNo,
-      productName: wo.productName,
-      batchNo: formBatchNo,
-      inspectionType: formInspectionType,
-      checkedQty: formCheckedQty,
-      checks,
-      result: formResult,
-      severity: ['Rework', 'Reject', 'Discard'].includes(formResult) ? formSeverity : undefined,
-      failureReason: ['Rework', 'Reject', 'Discard'].includes(formResult) ? formFailureReason : undefined,
-      inspector: formInspector,
-      remarks: formRemarks,
-      photoAttached: formPhotos.length > 0,
-      photos: formPhotos.filter(p => p.status === 'done').map(p => p.url),
-      signature: formSignature || formInspector,
-      startTime: startTime ? startTime.toISOString() : new Date().toISOString(),
-      completionTime: new Date().toISOString(),
-      date: new Date().toISOString().split('T')[0]
-    };
+    try {
+      const apiResultMap: Record<string, string> = {
+        'Pass': 'PASS',
+        'Partial Pass': 'PARTIAL_PASS',
+        'Reject': 'REJECT',
+        'Rework': 'REWORK',
+        'Discard': 'DISCARD'
+      };
+      const severityMap: Record<string, string> = {
+        'Minor': 'MINOR',
+        'Major': 'MAJOR',
+        'Critical': 'CRITICAL'
+      };
 
-    addQualityCheck(newQC);
-    setIsFormOpen(false);
+      const payload = {
+        woId: formWoId,
+        checkedQty: Number(formCheckedQty),
+        result: apiResultMap[formResult] || 'PASS',
+        severity: ['Rework', 'Reject', 'Discard'].includes(formResult) ? (severityMap[formSeverity] || 'MINOR') : undefined,
+        failureReason: ['Rework', 'Reject', 'Discard'].includes(formResult) ? formFailureReasons.join(', ') : undefined,
+        remarks: formRemarks,
+        checksPayload: checks,
+        inspectorId: user?.id
+      };
+
+      await apiClient.post('/workflows/quality-checks', payload);
+
+      // Re-fetch QC records to update the list
+      const qcRes = await apiClient.get('/workflows/quality-checks?limit=100');
+      setQualityChecks(qcRes.data.data?.data || qcRes.data.data || []);
+      
+      setIsFormOpen(false);
+    } catch (error: any) {
+      console.error('Failed to submit quality check:', error.response?.data || error);
+      alert(`Failed to submit: ${error.response?.data?.message || error.message}`);
+    }
     
     // Reset Form
     setFormWoId('');
     setFormQcId('');
     setFormInspectionType('Sampling Inspection');
     setFormSeverity('Minor');
-    setFormFailureReason('');
+    setFormFailureReasons([]);
     setFormRemarks('');
     setFormPhotos([]);
     setChecks({
@@ -199,8 +238,14 @@ export const QualityCheck: React.FC = () => {
   };
 
   const filteredQCs = qualityChecks.filter(qc => {
-    return qc.productName.toLowerCase().includes(search.toLowerCase()) || qc.woNo.toLowerCase().includes(search.toLowerCase());
+    const pName = qc.productName || qc.workOrder?.product?.name || '';
+    const wNo = qc.woNo || qc.workOrder?.woNumber || '';
+    return pName.toLowerCase().includes(search.toLowerCase()) || wNo.toLowerCase().includes(search.toLowerCase());
   });
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading QC Data...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -261,11 +306,13 @@ export const QualityCheck: React.FC = () => {
           <div className="space-y-3">
             {pendingQC_WOs.map((wo, index) => {
               const tentativeQcId = `QC-2026-${String(qualityChecks.length + index + 1).padStart(3, '0')}`;
-              const batchNo = wo.batchNumber || `BATCH-2026-${wo.woNo.split('-').pop()}`;
+              const pName = wo.product?.name || wo.productName || 'Unknown Product';
+              const wNo = wo.woNumber || wo.woNo || '—';
+              const batchNo = wo.batchNumber || `BATCH-2026-${String(wNo).split('-').pop()}`;
               const packedQty = wo.actualProduced || wo.requiredQuantity;
               const priority = wo.priority || 'High';
               const waitingSince = wo.expectedCompletion ? formatDateString(wo.expectedCompletion) : '2 hours ago';
-              const inspector = wo.supervisor || 'Unassigned';
+              const inspector = wo.supervisor?.name || wo.supervisor || 'Unassigned';
               
               return (
                 <div
@@ -281,8 +328,8 @@ export const QualityCheck: React.FC = () => {
                   </div>
                   
                   <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{wo.productName}</h4>
-                    <div className="text-slate-500 font-mono text-[10px]">{wo.woNo}</div>
+                    <h4 className="font-bold text-slate-800 text-sm">{pName}</h4>
+                    <div className="text-slate-500 font-mono text-[10px]">{wNo}</div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -345,16 +392,24 @@ export const QualityCheck: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredQCs.map((qc) => (
+                {filteredQCs.map((qc) => {
+                  const qcDate = qc.createdAt ? String(qc.createdAt).split('T')[0] : qc.date;
+                  const qcId = qc.qcNumber || qc.id;
+                  const pName = qc.workOrder?.product?.name || qc.productName || '—';
+                  const wNo = qc.workOrder?.woNumber || qc.woNo || '—';
+                  const bNo = qc.workOrder?.batchNumber || qc.batchNo || '—';
+                  const insp = typeof qc.inspector === 'string' ? qc.inspector : (qc.inspector?.name || '—');
+                  
+                  return (
                   <tr key={qc.id} className="hover:bg-slate-50/50">
-                    <td className="px-2 py-3 font-medium whitespace-nowrap">{formatDateString(qc.date)}</td>
-                    <td className="px-2 py-3 font-mono font-semibold text-slate-500 whitespace-nowrap">{qc.id}</td>
+                    <td className="px-2 py-3 font-medium whitespace-nowrap">{formatDateString(qcDate)}</td>
+                    <td className="px-2 py-3 font-mono font-semibold text-slate-500 whitespace-nowrap">{qcId}</td>
                     <td className="px-2 py-3">
-                      <div className="font-semibold text-slate-900 truncate max-w-[120px]" title={qc.productName}>{qc.productName}</div>
-                      <div className="font-mono text-slate-400 text-[10px] truncate max-w-[120px]" title={qc.woNo}>{qc.woNo}</div>
+                      <div className="font-semibold text-slate-900 truncate max-w-[120px]" title={pName}>{pName}</div>
+                      <div className="font-mono text-slate-400 text-[10px] truncate max-w-[120px]" title={wNo}>{wNo}</div>
                     </td>
-                    <td className="px-2 py-3 font-mono text-[11px] whitespace-nowrap truncate max-w-[100px]" title={qc.batchNo}>{qc.batchNo}</td>
-                    <td className="px-2 py-3 text-[11px] truncate max-w-[100px]" title={qc.inspector}>{qc.inspector}</td>
+                    <td className="px-2 py-3 font-mono text-[11px] whitespace-nowrap truncate max-w-[100px]" title={bNo}>{bNo}</td>
+                    <td className="px-2 py-3 text-[11px] truncate max-w-[100px]" title={insp}>{insp}</td>
                     <td className="px-2 py-3 text-[10px] text-slate-500 truncate max-w-[100px]" title={qc.remarks}>{qc.remarks || '—'}</td>
                     <td className="px-2 py-3 whitespace-nowrap text-center">
                       <span className={`inline-block px-2 py-0.5 rounded-full font-bold border text-[10px] ${getResultBadge(qc.result)}`}>
@@ -370,7 +425,8 @@ export const QualityCheck: React.FC = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {filteredQCs.length === 0 && (
                   <tr>
                     <td colSpan={8} className="p-6 text-center text-slate-400">
@@ -390,8 +446,8 @@ export const QualityCheck: React.FC = () => {
           <div className="bg-white rounded-xl border border-slate-200 w-full max-w-lg shadow-2xl p-6 text-left space-y-4 max-h-[90vh] overflow-y-auto sidebar-scrollbar">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3 sticky top-0 bg-white z-10 pt-2 -mt-2">
               <div>
-                <span className="text-xs font-mono font-bold text-slate-400">{selectedQC.id}</span>
-                <h3 className="font-bold text-slate-800 text-base">{selectedQC.productName}</h3>
+                <span className="text-xs font-mono font-bold text-slate-400">{selectedQC.qcNumber || selectedQC.id}</span>
+                <h3 className="font-bold text-slate-800 text-base">{selectedQC.workOrder?.product?.name || selectedQC.productName}</h3>
               </div>
               <button onClick={() => setSelectedQC(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-rose-600 transition-colors cursor-pointer bg-slate-50">
                 <X size={18} strokeWidth={2.5} />
@@ -399,12 +455,12 @@ export const QualityCheck: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-lg border border-slate-100">
-              <div><strong>WO No:</strong> {selectedQC.woNo}</div>
-              <div><strong>Batch No:</strong> {selectedQC.batchNo}</div>
-              <div><strong>Inspector:</strong> {selectedQC.inspector}</div>
-              <div><strong>Date:</strong> {formatDateString(selectedQC.date)}</div>
+              <div><strong>WO No:</strong> {selectedQC.workOrder?.woNumber || selectedQC.woNo}</div>
+              <div><strong>Batch No:</strong> {selectedQC.workOrder?.batchNumber || selectedQC.batchNo}</div>
+              <div><strong>Inspector:</strong> {typeof selectedQC.inspector === 'string' ? selectedQC.inspector : (selectedQC.inspector?.name || '—')}</div>
+              <div><strong>Date:</strong> {formatDateString(selectedQC.createdAt ? String(selectedQC.createdAt).split('T')[0] : selectedQC.date)}</div>
               <div><strong>Checked Qty:</strong> {selectedQC.checkedQty}</div>
-              <div><strong>Inspection:</strong> {selectedQC.inspectionType}</div>
+              <div><strong>Inspection:</strong> {selectedQC.inspectionType || 'Standard'}</div>
               <div><strong>QC Status:</strong> <span className={`px-2 py-0.5 rounded font-bold border ${getResultBadge(selectedQC.result)}`}>{selectedQC.result}</span></div>
               {selectedQC.severity && <div><strong>Severity:</strong> <span className="px-2 py-0.5 rounded font-bold border bg-rose-100 text-rose-800 border-rose-200">{selectedQC.severity}</span></div>}
               {selectedQC.failureReason && <div><strong>Failure Reason:</strong> {selectedQC.failureReason}</div>}
@@ -424,7 +480,7 @@ export const QualityCheck: React.FC = () => {
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-slate-500 uppercase">Inspections Checked Matrix</h4>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                {Object.entries(selectedQC.checks).map(([check, passed]) => (
+                {Object.entries(selectedQC.checksPayload || selectedQC.checks || {}).map(([check, passed]) => (
                   <div key={check} className="flex justify-between p-2 border border-slate-100 rounded-md bg-white">
                     <span className="capitalize">{check} Check</span>
                     <span className={passed ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
@@ -444,7 +500,7 @@ export const QualityCheck: React.FC = () => {
               <div className="space-y-2">
                 <h4 className="text-xs font-bold text-slate-500 uppercase">Inspector Details</h4>
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-2 text-xs h-[calc(100%-24px)]">
-                  <div><strong>Inspector:</strong> {selectedQC.inspector}</div>
+                  <div><strong>Inspector:</strong> {typeof selectedQC.inspector === 'string' ? selectedQC.inspector : (selectedQC.inspector?.name || '—')}</div>
                   <div><strong>Signature:</strong> <span className="font-mono text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">{selectedQC.signature}</span></div>
                 </div>
               </div>
@@ -505,7 +561,7 @@ export const QualityCheck: React.FC = () => {
                   >
                     <option value="">-- Choose Pending QC Batch --</option>
                     {pendingQC_WOs.map(w => (
-                      <option key={w.id} value={w.id}>{w.woNo} - {w.productName}</option>
+                      <option key={w.id} value={w.id}>{w.woNumber || w.woNo} - {w.product?.name || w.productName}</option>
                     ))}
                   </select>
                 </div>
@@ -526,26 +582,26 @@ export const QualityCheck: React.FC = () => {
               {formWoId && (() => {
                 const wo = pendingQC_WOs.find(w => w.id === formWoId);
                 if (!wo) return null;
-                const batchDisplay = wo.batchNumber || formBatchNo || `BATCH-2026-${wo.woNo.split('-').pop()}`;
+                const batchDisplay = wo.batchNumber || formBatchNo || `BATCH-2026-${String(wo.woNumber || wo.woNo || '').split('-').pop()}`;
                 const packedQty   = wo.actualProduced ?? wo.requiredQuantity;
                 const labelsPrinted = packedQty;
-                const completedDateRaw = wo.lastUpdated || wo.expectedCompletion;
-                const completedDate = completedDateRaw ? formatDateString(completedDateRaw) : '—';
+                const completedDateRaw = wo.lastUpdated || wo.expectedCompletion || wo.updatedAt;
+                const completedDate = completedDateRaw ? formatDateString(completedDateRaw.split('T')[0]) : '—';
                 return (
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
                     <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">Work Order Summary</span>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
                       <div className="flex flex-col">
                         <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wide">Work Order No.</span>
-                        <span className="font-bold text-slate-800 font-mono">{wo.woNo}</span>
+                        <span className="font-bold text-slate-800 font-mono">{wo.woNumber || wo.woNo}</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wide">Product Name</span>
-                        <span className="font-bold text-slate-800">{wo.productName}</span>
+                        <span className="font-bold text-slate-800">{wo.product?.name || wo.productName}</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wide">Recipe / BOM</span>
-                        <span className="font-bold text-slate-800">{wo.recipeId}</span>
+                        <span className="font-bold text-slate-800">{wo.recipeId || '—'}</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wide">Batch Number</span>
@@ -735,7 +791,7 @@ export const QualityCheck: React.FC = () => {
                     onChange={(e) => {
                       setFormResult(e.target.value as IQC['result']);
                       if (!['Rework', 'Reject', 'Discard'].includes(e.target.value)) {
-                        setFormFailureReason('');
+                        setFormFailureReasons([]);
                       }
                     }}
                   >
@@ -798,23 +854,26 @@ export const QualityCheck: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Failure Reason *</label>
-                    <select
-                      required={['Rework', 'Reject', 'Discard'].includes(formResult)}
-                      className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white font-semibold"
-                      value={formFailureReason}
-                      onChange={(e) => setFormFailureReason(e.target.value)}
-                    >
-                      <option value="">-- Select Reason --</option>
-                      <option value="Seal Defect">Seal Defect</option>
-                      <option value="Barcode Issue">Barcode Issue</option>
-                      <option value="Label Error">Label Error</option>
-                      <option value="Weight Mismatch">Weight Mismatch</option>
-                      <option value="Packaging Damage">Packaging Damage</option>
-                      <option value="Expiry Date Error">Expiry Date Error</option>
-                      <option value="MRP Error">MRP Error</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Failure Reason(s) *</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {["Seal Defect", "Barcode Issue", "Label Error", "Weight Mismatch", "Packaging Damage", "Expiry Date Error", "MRP Error", "Other"].map(reason => (
+                        <label key={reason} className="flex items-center gap-2 cursor-pointer text-[11px] font-medium text-slate-700 bg-slate-50 p-1.5 rounded border border-slate-200">
+                          <input
+                            type="checkbox"
+                            checked={formFailureReasons.includes(reason)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormFailureReasons(prev => [...prev, reason]);
+                              } else {
+                                setFormFailureReasons(prev => prev.filter(r => r !== reason));
+                              }
+                            }}
+                            className="rounded accent-emerald-600"
+                          />
+                          {reason}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

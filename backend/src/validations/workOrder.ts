@@ -12,7 +12,19 @@ export const createWorkOrderSchema = z.object({
 
 export const updateWorkOrderStatusSchema = z.object({
   body: z.object({
-    status: z.enum(['PENDING', 'APPROVED', 'CANCELLED']),
+    status: z.enum([
+      'DRAFT',
+      'PENDING',
+      'APPROVED',
+      'MATERIAL_ISSUED',
+      'PACKING_STARTED',
+      'PACKING_IN_PROGRESS',
+      'PACKING_COMPLETED',
+      'QC_PENDING',
+      'QC_PASSED',
+      'COMPLETED',
+      'CANCELLED'
+    ]),
   }),
 });
 

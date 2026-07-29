@@ -9,6 +9,16 @@ export const getQualityChecks = catchAsync(async (req: Request, res: Response) =
   sendResponse(res, 200, 'Quality Checks retrieved', result);
 });
 
+export const getFinishedGoods = catchAsync(async (req: Request, res: Response) => {
+  const result = await WorkflowService.getFinishedGoods(req.query);
+  sendResponse(res, 200, 'Finished Goods retrieved', result);
+});
+
+export const getRepackingLogs = catchAsync(async (req: Request, res: Response) => {
+  const result = await WorkflowService.getRepackingLogs(req.query);
+  sendResponse(res, 200, 'Repacking Logs retrieved', result);
+});
+
 // --- QC Checklists ---
 export const getQcChecklists = catchAsync(async (req: Request, res: Response) => {
   // Configurable QC Checkpoints

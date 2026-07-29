@@ -167,6 +167,22 @@ export class WorkOrderService {
         }
       });
 
+      if (payload && Array.isArray(payload.materials)) {
+        for (const material of payload.materials) {
+          if (material.productId) {
+            const currentStock = Number(material.stockQty) || 0;
+            const issued = Number(material.issuedQty) || 0;
+            
+            await tx.product.update({
+              where: { id: material.productId },
+              data: {
+                availableStock: currentStock - issued
+              }
+            });
+          }
+        }
+      }
+
       const updatedWO = await tx.workOrder.update({
         where: { id },
         data: { status: 'MATERIAL_ISSUED' },

@@ -50,12 +50,23 @@ export const ActiveQCInspection: React.FC = () => {
       const res = await apiClient.get('/workflows/qc-checklists');
       const data: QcChecklist[] = res.data.data;
       setChecklists(data);
-      // Initialize states
+      const saved = localStorage.getItem('qc_progress_current');
+      
       const initial: Record<string, ChecklistState> = {};
       data.forEach(c => {
         initial[c.id] = { status: null, remarks: '' };
       });
-      setChecksState(initial);
+      
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setChecksState({ ...initial, ...parsed });
+        } catch(e) {
+          setChecksState(initial);
+        }
+      } else {
+        setChecksState(initial);
+      }
     } catch (e) {
       console.error('Failed to fetch checklists', e);
     }
@@ -153,8 +164,10 @@ export const ActiveQCInspection: React.FC = () => {
   };
 
   const saveProgress = () => {
-    // We can simply persist local state or send to backend if we had an intermediate save API
-    alert('Progress saved locally.');
+    if (activeJob) {
+      localStorage.setItem('qc_progress_current', JSON.stringify(checksState));
+      alert('Progress saved locally.');
+    }
   };
 
   const validateCompletion = () => {
@@ -191,12 +204,16 @@ export const ActiveQCInspection: React.FC = () => {
 
       await apiClient.post('/workflows/quality-checks', payload);
 
-      // Backend also needs to update status to QC_PASSED or PACKING_STARTED. 
-      // If the `/quality-checks` doesn't do it automatically, we do it here:
-      await qcTasksService.updateWorkOrderStatus(activeJob.id, failedItems > 0 ? 'PACKING_STARTED' : 'QC_PASSED');
+      // Clear local saved progress upon successful submission
+      localStorage.removeItem('qc_progress_current');
 
       setShowCompleteModal(false);
-      alert('QC Inspection completed successfully.');
+      const isPassed = failedItems === 0;
+      if (isPassed) {
+        alert('QC Inspection passed! The product has been posted to Finished Goods and the Work Order is completed.');
+      } else {
+        alert('QC Inspection failed. The Work Order has been sent back to Approvals for Repacking/Rework.');
+      }
       navigate('/qc/tasks');
     } catch (e: any) {
       const errorMsg = e.response?.data?.data ? JSON.stringify(e.response.data.data) : (e.message || 'Failed to complete inspection');

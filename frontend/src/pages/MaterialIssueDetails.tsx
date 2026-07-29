@@ -26,6 +26,7 @@ export const MaterialIssueDetails: React.FC = () => {
   const [scannedBarcode, setScannedBarcode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [issueSuccess, setIssueSuccess] = useState<string | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
   
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
 
@@ -70,26 +71,31 @@ export const MaterialIssueDetails: React.FC = () => {
     if (batchNo === '') setBatchNo(`BATCH-${selectedWO.woNumber}-1`);
     if (location === '') setLocation('');
 
-    const reqQty = selectedWO.requiredQty;
-    
-    setMaterialsToIssue([
-      ...(selectedWO.recipe.items?.filter(i => !i.isPackaging) || []).map(item => ({
-        id: item.inputProductId,
-        item: item.inputProduct?.name || item.inputProductId,
-        type: 'Raw Material',
-        reqQty: item.requiredQty,
-        stockQty: 0,
-        issueQty: 0,
-      })),
-      ...(selectedWO.recipe.items?.filter(i => i.isPackaging) || []).map(pkg => ({
-        id: pkg.inputProductId,
-        item: pkg.inputProduct?.name || pkg.inputProductId,
-        type: 'Packaging',
-        reqQty: pkg.requiredQty,
-        stockQty: 0,
-        issueQty: 0,
-      }))
-    ]);
+    const ratio = (selectedWO.recipe.outputQty && selectedWO.recipe.outputQty > 0) 
+      ? selectedWO.requiredQty / selectedWO.recipe.outputQty 
+      : 1;
+
+    setMaterialsToIssue(prev => {
+      const prevMap = new Map(prev.map(p => [p.id, p.issueQty]));
+      return [
+        ...(selectedWO.recipe.items?.filter(i => !i.isPackaging) || []).map(item => ({
+          id: item.inputProductId,
+          item: item.inputProduct?.name || item.inputProductId,
+          type: 'Raw Material',
+          reqQty: Math.ceil(item.requiredQty * ratio),
+          stockQty: item.inputProduct?.availableStock || 0,
+          issueQty: prevMap.get(item.inputProductId) || 0,
+        })),
+        ...(selectedWO.recipe.items?.filter(i => i.isPackaging) || []).map(pkg => ({
+          id: pkg.inputProductId,
+          item: pkg.inputProduct?.name || pkg.inputProductId,
+          type: 'Packaging',
+          reqQty: Math.ceil(pkg.requiredQty * ratio),
+          stockQty: pkg.inputProduct?.availableStock || 0,
+          issueQty: prevMap.get(pkg.inputProductId) || 0,
+        }))
+      ];
+    });
   }, [selectedWO]);
 
   const handleMaterialChange = (id: string, field: keyof MaterialItem, value: string) => {
@@ -106,16 +112,30 @@ export const MaterialIssueDetails: React.FC = () => {
 
   const allAvailable = materialsToIssue.every(m => m.stockQty >= m.reqQty);
 
+  const handleRefreshStock = async () => {
+    try {
+      setIsSubmitting(true);
+      // Fetch latest stock from API (simulated by re-fetching WO since it includes availableStock)
+      await fetchWO();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleIssueMaterials = async () => {
     if (!selectedWO) return;
     
     try {
       setIsSubmitting(true);
+      setIssueError(null);
       // Simulate API call to issue materials
       await workOrderService.issueMaterials(selectedWO.id, {
         batchNo,
         location,
         materials: materialsToIssue.map(m => ({
+          productId: m.id,
           itemCode: m.item,
           type: m.type,
           reqQty: m.reqQty,
@@ -131,9 +151,10 @@ export const MaterialIssueDetails: React.FC = () => {
         navigate('/material-issue');
       }, 2000);
       
-    } catch (err) {
-      console.error("Failed to issue materials", err);
-      alert("Failed to issue materials. See console for details.");
+    } catch (error: any) {
+      console.error("Failed to issue materials", error);
+      const msg = error.response?.data?.message || error.message || 'Failed to issue materials';
+      setIssueError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -177,6 +198,13 @@ export const MaterialIssueDetails: React.FC = () => {
         <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 p-4 rounded-xl flex items-center gap-3">
           <CheckCircle size={20} />
           <span className="font-semibold">{issueSuccess}</span>
+        </div>
+      )}
+      
+      {issueError && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 p-4 rounded-xl flex items-center gap-3">
+          <AlertTriangle size={20} />
+          <span className="font-semibold">{issueError}</span>
         </div>
       )}
 
@@ -272,8 +300,12 @@ export const MaterialIssueDetails: React.FC = () => {
                     className="pl-8 pr-3 py-1.5 border border-slate-200 dark:border-gray-700 rounded-lg text-xs focus:ring-1 focus:ring-[#00891D] w-48 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors">
-                  <RefreshCw size={12} />
+                <button 
+                  onClick={handleRefreshStock}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={isSubmitting ? "animate-spin" : ""} />
                   Refresh Stock
                 </button>
              </div>
@@ -338,13 +370,8 @@ export const MaterialIssueDetails: React.FC = () => {
                           className="w-28 px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
                         />
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium">
-                        <input
-                          type="number"
-                          value={mat.reqQty || ''}
-                          onChange={(e) => handleMaterialChange(mat.id, 'reqQty', e.target.value)}
-                          className="w-24 px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
-                        />
+                      <td className="px-4 py-3 font-mono font-bold text-slate-800 dark:text-gray-200">
+                        {mat.reqQty}
                       </td>
                       <td className="px-4 py-3 font-mono">
                         <input
@@ -395,15 +422,16 @@ export const MaterialIssueDetails: React.FC = () => {
             
             <button 
               onClick={handleIssueMaterials}
-              disabled={isSubmitting || !allAvailable || selectedWO.status === 'MATERIAL_ISSUED'}
+              disabled={isSubmitting || !allAvailable || selectedWO.status !== 'APPROVED'}
               className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all
-                ${isSubmitting || !allAvailable || selectedWO.status === 'MATERIAL_ISSUED'
+                ${isSubmitting || !allAvailable || selectedWO.status !== 'APPROVED'
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500' 
                   : 'bg-[#00891D] hover:bg-[#007017] text-white hover:shadow-md'
                 }`}
             >
               {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <Package size={16} />}
-              {selectedWO.status === 'MATERIAL_ISSUED' ? 'Already Issued' : 'Issue Materials'}
+              {selectedWO.status === 'APPROVED' ? 'Issue Materials' : 
+               selectedWO.status === 'PENDING' ? 'Awaiting Approval' : 'Already Issued'}
             </button>
           </div>
         </div>
