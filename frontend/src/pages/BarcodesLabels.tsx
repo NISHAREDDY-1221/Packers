@@ -196,7 +196,7 @@ export const BarcodesLabels: React.FC = () => {
         ]);
         const wosList = allWos?.data || allWos;
         const wosArray = Array.isArray(wosList) ? wosList : [];
-        const wos = wosArray.filter((wo: any) => ['QC_PASSED'].includes(wo.status));
+        const wos = wosArray.filter((wo: any) => ['QC_PASSED', 'COMPLETED', 'QC_PENDING', 'PACKING_STARTED'].includes(wo.status));
         
         console.log('wos:', wos, 'hist:', hist);
         setSelectableWOs(wos);
