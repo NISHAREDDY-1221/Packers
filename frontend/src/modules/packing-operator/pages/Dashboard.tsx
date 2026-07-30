@@ -45,8 +45,8 @@ export const Dashboard: React.FC = () => {
     { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/operator/report-issue' },
   ];
 
-  const activeJobs = workOrders.filter((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'MATERIAL_ISSUED');
-  const activeJob = activeJobs.find((wo: any) => wo.status === 'PACKING_STARTED') || activeJobs.find((wo: any) => wo.status === 'MATERIAL_ISSUED');
+  const activeJobs = workOrders.filter((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS' || wo.status === 'MATERIAL_ISSUED');
+  const activeJob = activeJobs.find((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS') || activeJobs.find((wo: any) => wo.status === 'MATERIAL_ISSUED');
 
   const slaRiskJobs = workOrders.filter((wo: any) => wo.expectedDate && wo.expectedDate <= today && !completedStatuses.includes(wo.status));
 
@@ -99,7 +99,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-5 md:p-6">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Current Active Job</h2>
-                {activeJob?.status === 'PACKING_STARTED' && (
+                {(activeJob?.status === 'PACKING_STARTED' || activeJob?.status === 'PACKING_IN_PROGRESS') && (
                   <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center shadow-sm">
                     <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
                     Packing

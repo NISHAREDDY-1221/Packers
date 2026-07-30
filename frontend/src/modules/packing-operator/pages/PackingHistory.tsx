@@ -157,7 +157,7 @@ export const PackingHistory: React.FC = () => {
             const expectedDate = job.expectedDate ? job.expectedDate.substring(0, 10) : '';
             const completedDateStr = job.completedAt ? job.completedAt.substring(0, 10) : '';
             const isDelayed = expectedDate && completedDateStr > expectedDate;
-            const started = job.startedAt ? new Date(job.startedAt).getTime() : new Date(job.completedAt!).getTime();
+            const started = job.startedAt ? new Date(job.startedAt).getTime() : new Date(job.createdAt || job.completedAt!).getTime();
             const completed = new Date(job.completedAt!).getTime();
             const isOnTime = !isDelayed;
             const durationMins = Math.round((completed - started) / 60000);

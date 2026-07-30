@@ -34,7 +34,7 @@ export const BarcodesLabels: React.FC = () => {
   // Find work orders that have completed packing
   const readyWorkOrders = useMemo(() => {
     return workOrders.filter(w =>
-      w.status === 'Completed' || w.status === 'QC Passed' || w.status === 'PACKING_COMPLETED' || w.status === 'QC_PASSED' || w.status === 'QC_PENDING' || w.status === 'LABELS_PRINTED' || w.status === 'COMPLETED' || w.status === 'LABEL_APPLICATION_ASSIGNED' || w.status === 'LABEL_APPLICATION_IN_PROGRESS' || w.status === 'LABELS_APPLIED'
+      ['PACKING_COMPLETED', 'LABELS_GENERATED'].includes(w.status)
     );
   }, [workOrders]);
 
