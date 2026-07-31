@@ -33,6 +33,7 @@ export const authenticate = catchAsync(async (req: Request, res: Response, next:
     req.user = decoded;
     next();
   } catch (err) {
+    console.error('JWT Verify Error:', err, 'Token:', token);
     return next(new AppError(401, 'Invalid or expired token.'));
   }
 });

@@ -5,12 +5,12 @@ import { catchAsync } from '../utils/catchAsync';
 export const getPrintHistory = catchAsync(async (req: Request, res: Response) => {
   const history = await prisma.labelPrintJob.findMany({
     include: {
-      workOrder: {
+      WorkOrder: {
         include: {
           product: true,
         },
       },
-      printedBy: true,
+      User: true,
     },
     orderBy: {
       createdAt: 'desc',
@@ -20,11 +20,11 @@ export const getPrintHistory = catchAsync(async (req: Request, res: Response) =>
 
   const formatted = history.map((job: any) => ({
     id: job.id,
-    woNo: job.workOrder?.woNumber || 'Unknown',
-    sku: job.workOrder?.product?.sku || 'Unknown',
+    woNo: job.WorkOrder?.woNumber || 'Unknown',
+    sku: job.WorkOrder?.product?.sku || 'Unknown',
     batchNo: job.batchNumber,
     printedQty: job.printedQty,
-    printedBy: job.printedBy?.name || 'Unknown',
+    printedBy: job.User?.name || 'Unknown',
     status: job.status,
     timestamp: job.createdAt,
     reprintReason: job.reprintReason,
@@ -34,35 +34,69 @@ export const getPrintHistory = catchAsync(async (req: Request, res: Response) =>
 });
 
 export const printLabels = catchAsync(async (req: Request, res: Response) => {
-  const { workOrderId, batchNumber, barcodeType, printedQty } = req.body;
+  const { workOrderId, batchNumber, barcodeType, printedQty, operatorId, printer, labelTemplate } = req.body;
   const userId = req.user!.id;
 
-  const job = await prisma.labelPrintJob.create({
-    data: {
-      workOrderId,
-      batchNumber,
-      barcodeType,
-      printedQty,
-      printedById: userId,
-      status: 'Printed',
-    },
-    include: {
-      workOrder: {
-        include: {
-          product: true,
-        },
+  const result = await prisma.$transaction(async (tx: any) => {
+    // 1. Create the PrintJob
+    const job = await tx.labelPrintJob.create({
+      data: {
+        workOrderId,
+        batchNumber,
+        barcodeType,
+        printedQty,
+        printedById: userId,
+        status: 'Printed',
+        type: 'INITIAL',
+        printer: printer || 'Unknown',
+        labelTemplate: labelTemplate || 'Retail Label',
       },
-      printedBy: true,
-    },
+      include: {
+        WorkOrder: {
+          include: {
+            product: true,
+          },
+        },
+        User: true,
+      },
+    });
+
+    // 2. Create the LabelApplicationTask
+    const task = await tx.labelApplicationTask.create({
+      data: {
+        woId: workOrderId,
+        printJobId: job.id,
+        operatorId: operatorId || userId, // fallback if not provided
+        assignedById: userId,
+        requiredQuantity: job.WorkOrder.actualProduced || job.WorkOrder.requiredQty,
+        appliedQuantity: 0,
+        remainingQuantity: job.WorkOrder.actualProduced || job.WorkOrder.requiredQty,
+        status: 'ASSIGNED',
+      }
+    });
+
+    // 3. Update the WorkOrder status and assignments
+    await tx.workOrder.update({
+      where: { id: workOrderId },
+      data: {
+        status: 'LABEL_APPLICATION_ASSIGNED',
+        labelsPrinted: { increment: printedQty },
+        operatorId: operatorId || userId,
+      }
+    });
+
+    return { job, task };
   });
+
+  const { job } = result;
 
   const formatted = {
     id: job.id,
-    woNo: job.workOrder.woNumber,
-    sku: job.workOrder.product.sku,
+    woNo: job.WorkOrder.woNumber,
+    sku: job.WorkOrder.product.sku,
     batchNo: job.batchNumber,
     printedQty: job.printedQty,
-    printedBy: job.printedBy.name,
+    printedBy: job.User.name,
     status: job.status,
     timestamp: job.createdAt,
     reprintReason: job.reprintReason,
@@ -72,32 +106,34 @@ export const printLabels = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const reprintLabels = catchAsync(async (req: Request, res: Response) => {
-  const { jobId, reprintReason } = req.body;
+  const { jobId, reprintReason, printedQty } = req.body;
   const userId = req.user!.id;
 
   const originalJob = await prisma.labelPrintJob.findUnique({
     where: { id: jobId },
-    include: { workOrder: true },
+    include: { WorkOrder: true },
   });
 
   if (!originalJob) {
     return res.status(404).json({ success: false, message: 'Original print job not found' });
   }
 
+  const reprintQty = printedQty || originalJob.printedQty;
+
   // If reprint qty > 100, create approval request instead of immediate reprint
-  if (originalJob.printedQty > 100) {
+  if (reprintQty > 100) {
     const approval = await prisma.approvalRequest.create({
       data: {
         type: 'BARCODE_REPRINT',
         relatedEntityId: originalJob.workOrderId,
-        relatedEntityName: `Work Order #${originalJob.workOrder.woNumber} - Barcode Reprint`,
+        relatedEntityName: `Work Order #${originalJob.WorkOrder.woNumber} - Barcode Reprint`,
         requestedById: userId,
         reason: reprintReason || 'Reprint requires approval due to high quantity',
         priority: 'MEDIUM',
         status: 'PENDING',
         proposedValues: {
           jobId: originalJob.id,
-          reprintQty: originalJob.printedQty,
+          reprintQty: reprintQty,
           reason: reprintReason,
         }
       },
@@ -110,38 +146,132 @@ export const reprintLabels = catchAsync(async (req: Request, res: Response) => {
     });
   }
 
-  // If <= 100, create reprint directly
-  const job = await prisma.labelPrintJob.create({
-    data: {
-      workOrderId: originalJob.workOrderId,
-      batchNumber: originalJob.batchNumber,
-      barcodeType: originalJob.barcodeType,
-      printedQty: originalJob.printedQty,
-      printedById: userId,
-      status: 'Reprinted',
-      reprintReason,
-    },
-    include: {
-      workOrder: {
-        include: {
-          product: true,
-        },
+  const result = await prisma.$transaction(async (tx: any) => {
+    // If <= 100, create reprint directly
+    const job = await tx.labelPrintJob.create({
+      data: {
+        workOrderId: originalJob.workOrderId,
+        batchNumber: originalJob.batchNumber,
+        barcodeType: originalJob.barcodeType,
+        printedQty: reprintQty,
+        printedById: userId,
+        status: 'Reprinted',
+        reprintReason,
+        type: 'REPRINT',
+        printer: originalJob.printer,
+        labelTemplate: originalJob.labelTemplate,
       },
-      printedBy: true,
-    },
+      include: {
+        WorkOrder: {
+          include: {
+            product: true,
+          },
+        },
+        User: true,
+      },
+    });
+
+    // We do NOT increment the LabelApplicationTask requiredQuantity.
+    // It stays the same because reprint is just replacing labels, not adding to packed products.
+    // However, we do update WorkOrder labelsPrinted to keep a total count.
+    await tx.workOrder.update({
+      where: { id: originalJob.workOrderId },
+      data: {
+        labelsPrinted: { increment: reprintQty },
+      }
+    });
+
+    return job;
   });
 
   const formatted = {
-    id: job.id,
-    woNo: job.workOrder.woNumber,
-    sku: job.workOrder.product.sku,
-    batchNo: job.batchNumber,
-    printedQty: job.printedQty,
-    printedBy: job.printedBy.name,
-    status: job.status,
-    timestamp: job.createdAt,
-    reprintReason: job.reprintReason,
+    id: result.id,
+    woNo: result.WorkOrder.woNumber,
+    sku: result.WorkOrder.product.sku,
+    batchNo: result.batchNumber,
+    printedQty: result.printedQty,
+    printedBy: result.User.name,
+    status: result.status,
+    timestamp: result.createdAt,
+    reprintReason: result.reprintReason,
   };
 
   res.status(201).json({ success: true, data: formatted, requiresApproval: false });
+});
+
+export const getMyTasks = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  
+  const tasks = await prisma.labelApplicationTask.findMany({
+    where: {
+      operatorId: userId,
+      status: {
+        in: ['ASSIGNED', 'IN_PROGRESS', 'ISSUE_REPORTED']
+      }
+    },
+    include: {
+      workOrder: {
+        include: { product: true }
+      },
+      printJob: true
+    },
+    orderBy: {
+      assignedAt: 'desc'
+    }
+  });
+
+  // Map to match the frontend expectations for tasks
+  const formattedTasks = tasks.map((t: any) => ({
+    id: t.workOrder.id, // Using WO ID to match frontend behavior which expects a work order
+    woNumber: t.workOrder.woNumber,
+    product: t.workOrder.product,
+    status: t.workOrder.status,
+    priority: t.workOrder.priority,
+    requiredQty: t.requiredQuantity,
+    actualProduced: t.workOrder.actualProduced,
+    labelsApplied: t.appliedQuantity,
+    startedAt: t.startedAt || t.assignedAt,
+    createdAt: t.assignedAt,
+    taskId: t.id,
+    printJobId: t.printJobId,
+  }));
+
+  res.status(200).json({ success: true, data: formattedTasks });
+});
+
+export const completeLabelTask = catchAsync(async (req: Request, res: Response) => {
+  const { workOrderId, appliedQuantity } = req.body;
+
+  const result = await prisma.$transaction(async (tx: any) => {
+    const task = await tx.labelApplicationTask.findFirst({
+      where: { woId: workOrderId, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
+      include: { workOrder: true },
+      orderBy: { assignedAt: 'desc' }
+    });
+
+    if (!task) throw new Error('Task not found for this work order');
+
+    const updatedTask = await tx.labelApplicationTask.update({
+      where: { id: task.id },
+      data: {
+        appliedQuantity: task.appliedQuantity + appliedQuantity,
+        remainingQuantity: Math.max(0, task.requiredQuantity - (task.appliedQuantity + appliedQuantity)),
+        status: (task.appliedQuantity + appliedQuantity >= task.requiredQuantity) ? 'COMPLETED' : 'IN_PROGRESS',
+        completedAt: (task.appliedQuantity + appliedQuantity >= task.requiredQuantity) ? new Date() : null,
+      }
+    });
+
+    // Also update WorkOrder labelsApplied
+    const wo = await tx.workOrder.update({
+      where: { id: task.woId },
+      data: {
+        labelsApplied: { increment: appliedQuantity },
+        status: (task.appliedQuantity + appliedQuantity >= task.requiredQuantity) ? 'LABELS_APPLIED' : 'LABEL_APPLICATION_IN_PROGRESS',
+      }
+    });
+
+    return updatedTask;
+  });
+
+  res.status(200).json({ success: true, data: result });
 });
