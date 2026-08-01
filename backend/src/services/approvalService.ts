@@ -104,6 +104,9 @@ export class ApprovalService {
         requestedBy: updatedApproval.requestedBy.name,
         history: history.map((h: any) => ({ ...h, actionBy: h.actionBy.name }))
       };
+    }, {
+      maxWait: 15000, // 15 seconds
+      timeout: 30000, // 30 seconds
     });
   }
 }
