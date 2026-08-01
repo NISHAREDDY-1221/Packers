@@ -1,17 +1,54 @@
-import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import type { RepackingRecord } from '../context/AppContext';
-import { RefreshCw, X, Search, AlertTriangle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Package, X, Clock, CheckCircle, AlertTriangle,
+  Users, ChevronDown, Loader2, Scissors
+} from 'lucide-react';
+import Breadcrumbs from '../components/common/Breadcrumbs';
+import { repackingService } from '../api/repackingService';
+import { workOrderService } from '../api/workOrderService';
+import type { RepackingLog, PendingRepackWorkOrder } from '../api/repackingService';
+import type { QCUser } from '../api/qualityCheckService';
 
-const formatDateTime = (dateStr?: string) => {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmt = (dateStr?: string) => {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  return `${day}-${month}-${year} ${time}`;
+  if (isNaN(d.getTime())) return dateStr;
+  return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
 };
+
+const PRIORITY_LABEL: Record<string, string> = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', URGENT: 'Urgent' };
+const PRIORITY_COLOR = (p: string) => p === 'HIGH' || p === 'URGENT' ? 'text-red-600 font-bold' : p === 'MEDIUM' ? 'text-yellow-600 font-semibold' : 'text-gray-500';
+
+const STATUS_BADGE: Record<string, string> = {
+  'Pending Repack':   'bg-amber-50 text-amber-700 border-amber-200',
+  'Repacked':         'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'Failed':           'bg-rose-50 text-rose-700 border-rose-200',
+};
+const STATUS_DOT: Record<string, string> = {
+  'Pending Repack': 'bg-amber-400',
+  'Repacked': 'bg-emerald-500',
+  'Failed': 'bg-rose-500',
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface TableRow {
+  _type: 'PENDING' | 'COMPLETED';
+  id: string;
+  woId: string;
+  woNumber: string;
+  productName: string;
+  batchNumber: string;
+  repackTime: string;
+  assignedTo: string;
+  displayStatus: string;
+  priority: string;
+  recoverableQty: number;
+  wasteQty: number;
+  rawRP?: RepackingLog;
+  rawWO?: PendingRepackWorkOrder;
+}
+
 const REPACK_TYPES = [
   'Damaged Pack → New Pack',
   'Large Pack → Small Packs',
@@ -21,406 +58,496 @@ const REPACK_TYPES = [
   'Customer Return → Repack'
 ];
 
+// ─── Reusable Select ──────────────────────────────────────────────────────────
+const Sel = ({ label, value, onChange, children, className = '' }: {
+  label?: string; value: string; onChange: (v: string) => void;
+  children: React.ReactNode; className?: string;
+}) => (
+  <div className="flex flex-col gap-1">
+    {label && <span className="text-[10px] font-semibold text-gray-500 uppercase">{label}</span>}
+    <div className="relative">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`appearance-none bg-white border border-gray-200 rounded-lg pl-3 pr-7 py-2 text-xs font-medium text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#00891D] ${className}`}
+      >
+        {children}
+      </select>
+      <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+    </div>
+  </div>
+);
+
+// ─── Component ─────────────────────────────────────────────────────────────────
 export const Repacking: React.FC = () => {
-  const { repackings, recipes, workOrders, qualityChecks, addRepacking } = useApp();
-  
-  const failedQCs = qualityChecks.filter(qc => ['Reject', 'Rework', 'Discard'].includes(qc.result));
+  // ── data ──
+  const [pendingWOs, setPendingWOs]       = useState<PendingRepackWorkOrder[]>([]);
+  const [completedRPs, setCompletedRPs]   = useState<RepackingLog[]>([]);
+  const [operators, setOperators]         = useState<QCUser[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [refreshKey, setRefreshKey]       = useState(0);
 
-  const pendingRepackQCs = failedQCs.filter(qc => {
-    const wo = workOrders.find(w => w.id === qc.woId);
-    if (!wo || wo.status !== 'QC Pending') return false;
-    const batchNo = qc.batchNo || wo.batchNumber || `BATCH-2026-${wo.woNo.split('-').pop()}`;
-    return !repackings.some(rp => rp.sourceBatchNo === batchNo);
-  });
+  // ── filters ──
+  const [filterProduct]   = useState('');
+  const [search,          setSearch]          = useState('');
+  const [filterStatus,    setFilterStatus]    = useState('');
+  const [filterOperator,  setFilterOperator]  = useState('');
+  const [filterPriority,  setFilterPriority]  = useState('');
+  const [filterBatch,     setFilterBatch]     = useState('');
+  const [filterWO,        setFilterWO]        = useState('');
 
-  const handleSelectFailedBatch = (batchNo: string) => {
-    setFormSourceBatch(batchNo);
-    const qc = failedQCs.find(q => (q.batchNo || `BATCH-2026-${workOrders.find(w => w.id === q.woId)?.woNo.split('-').pop()}`) === batchNo);
-    if (qc) {
-      setFormProductName(qc.productName);
+  // ── assign bar ──
+  const [assignWO,       setAssignWO]       = useState('');
+  const [assignTo,       setAssignTo]       = useState('');
+  const [assignPriority, setAssignPriority] = useState('HIGH');
+  const [assignTime,     setAssignTime]     = useState('30 mins');
+
+  // ── modals ──
+  const [selectedRP,  setSelectedRP]  = useState<RepackingLog | null>(null);
+  const [isFormOpen,  setIsFormOpen]  = useState(false);
+  const [selectedWO,  setSelectedWO]  = useState<PendingRepackWorkOrder | null>(null);
+
+  // ── form fields ──
+  const [formSourceBatch,   setFormSourceBatch]   = useState('');
+  const [formRepackType,    setFormRepackType]    = useState(REPACK_TYPES[0]);
+  const [formRecoveredQty,  setFormRecoveredQty]  = useState(0);
+  const [formWasteQty,      setFormWasteQty]      = useState(0);
+  const [formSignature,     setFormSignature]     = useState('');
+  const [submitting,        setSubmitting]        = useState(false);
+
+  // ─── Load ────────────────────────────────────────────────────────────────
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [woRes, rpRes, userRes] = await Promise.all([
+        repackingService.getPendingRepackWorkOrders(),
+        repackingService.getRepackingLogs(),
+        repackingService.getOperators(),
+      ]);
+      setPendingWOs(woRes);
+      setCompletedRPs(rpRes.data);
+      setOperators(userRes);
+    } catch (err) {
+      console.error('Failed to load Repacking data', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll, refreshKey]);
+
+  // ─── KPIs ────────────────────────────────────────────────────────────────
+  const todayStr = new Date().toDateString();
+  const repackedToday = useMemo(() =>
+    completedRPs.filter(rp => new Date(rp.createdAt).toDateString() === todayStr).length,
+  [completedRPs]);
+  const totalRecovered = useMemo(() =>
+    completedRPs.reduce((acc, rp) => acc + (rp.recoverableQty || 0), 0),
+  [completedRPs]);
+  const totalWaste = useMemo(() =>
+    completedRPs.reduce((acc, rp) => acc + (rp.wasteQty || 0), 0),
+  [completedRPs]);
+
+  // ─── Task Assignment ──────────────────────────────────────────────────────
+  const handleAssignTask = async () => {
+    if (!assignWO || !assignTo) return;
+    try {
+      const wo = pendingWOs.find(w => w.id === assignWO);
+      if (!wo) return;
+      await workOrderService.updateWorkOrderStatus(assignWO, wo.status, {
+        operatorId: assignTo,
+        priority: assignPriority
+      });
+      const assignedUser = operators.find(o => o.id === assignTo);
+      alert(`Repacking task assigned to ${assignedUser?.name || 'Team Member'}.`);
+      setAssignWO('');
+      setAssignTo('');
+      loadAll();
+    } catch (err: any) {
+      console.error('Failed to assign task', err);
+      alert(err?.response?.data?.message || err?.message || 'Failed to assign repacking task');
     }
   };
-  const [search, setSearch] = useState('');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<RepackingRecord | null>(null);
 
-  // Form states
-  const [formSourceBatch, setFormSourceBatch] = useState('');
-  const [formProductName, setFormProductName] = useState('');
-  const [formRecipeId, setFormRecipeId] = useState('');
-  const [formRepackType, setFormRepackType] = useState('Damaged Pack → New Pack');
-  const [formRecoveredQty, setFormRecoveredQty] = useState(0);
-  const [formWasteQty, setFormWasteQty] = useState(0);
-  const [newBatchNo, setNewBatchNo] = useState('');
-  const [printLabels, setPrintLabels] = useState(true);
+  // ─── Table rows ───────────────────────────────────────────────────────────
+  const unifiedData = useMemo<TableRow[]>(() => {
+    const rows: TableRow[] = [];
+    pendingWOs.forEach(wo => rows.push({
+      _type: 'PENDING', id: `PENDING-${wo.id}`, woId: wo.id,
+      woNumber: wo.woNumber, productName: wo.product?.name ?? '—',
+      batchNumber: wo.batchNumber || (wo as any).batchNo || (wo.woNumber ? `BATCH-${wo.woNumber}` : '—'),
+      repackTime: wo.updatedAt,
+      assignedTo: (wo as any).operator?.name ?? (wo as any).supervisor?.name ?? (wo as any).inspector?.name ?? 'Unassigned',
+      displayStatus: 'Pending Repack',
+      priority: wo.priority,
+      recoverableQty: 0,
+      wasteQty: 0,
+      rawWO: wo,
+    }));
+    completedRPs.forEach(rp => rows.push({
+      _type: 'COMPLETED', id: rp.id, woId: rp.sourceWoId,
+      woNumber: rp.sourceWorkOrder?.woNumber ?? '—',
+      productName: rp.sourceWorkOrder?.product?.name ?? '—',
+      batchNumber: rp.batchNumber || rp.sourceWorkOrder?.batchNumber || (rp.sourceWorkOrder?.woNumber ? `BATCH-${rp.sourceWorkOrder.woNumber}` : '—'),
+      repackTime: rp.createdAt,
+      assignedTo: rp.loggedBy?.name ?? '—',
+      displayStatus: 'Repacked',
+      priority: rp.sourceWorkOrder?.priority ?? 'MEDIUM',
+      recoverableQty: rp.recoverableQty,
+      wasteQty: rp.wasteQty,
+      rawRP: rp,
+    }));
+    return rows;
+  }, [pendingWOs, completedRPs]);
 
-  const handleSelectRecipe = (recipeId: string) => {
-    setFormRecipeId(recipeId);
-    const rcp = recipes.find(r => r.id === recipeId);
-    if (rcp) {
-      setFormProductName(rcp.packingName);
-      setNewBatchNo('');
+  const filteredData = useMemo(() => {
+    let d = unifiedData;
+    if (filterStatus) {
+      d = d.filter(r =>
+        filterStatus === 'PENDING' ? r._type === 'PENDING' :
+        filterStatus === 'COMPLETED' ? r._type === 'COMPLETED' :
+        r.displayStatus === filterStatus
+      );
     }
-  };
+    if (filterOperator) d = d.filter(r => r.assignedTo === filterOperator);
+    if (filterPriority) d = d.filter(r => r.priority === filterPriority);
+    if (filterBatch)    d = d.filter(r => r.batchNumber.toLowerCase().includes(filterBatch.toLowerCase()));
+    if (filterWO)       d = d.filter(r => r.woNumber.toLowerCase().includes(filterWO.toLowerCase()));
+    if (filterProduct)  d = d.filter(r => r.productName.toLowerCase().includes(filterProduct.toLowerCase()));
+    if (search) {
+      const t = search.toLowerCase();
+      d = d.filter(r =>
+        r.productName.toLowerCase().includes(t) || r.woNumber.toLowerCase().includes(t) ||
+        r.batchNumber.toLowerCase().includes(t) || r.assignedTo.toLowerCase().includes(t)
+      );
+    }
+    return d;
+  }, [unifiedData, filterStatus, filterOperator, filterPriority, filterBatch, filterWO, filterProduct, search]);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const newRecord: RepackingRecord = {
-      id: `RP-${Date.now().toString().slice(-4)}`,
-      sourceBatchNo: formSourceBatch,
-      productName: formProductName,
-      repackRecipeId: formRecipeId,
-      repackType: formRepackType,
-      recoverableQuantity: Number(formRecoveredQty),
-      wasteQuantity: Number(formWasteQty),
-      newBatchNo,
-      newLabelPrinted: printLabels,
-      createdAt: new Date().toLocaleString()
-    };
-
-    addRepacking(newRecord);
-    setIsFormOpen(false);
-
-    // Reset Form
-    setFormSourceBatch('');
-    setFormProductName('');
-    setFormRecipeId('');
-    setFormRecoveredQty(0);
+  // ─── Form helpers ─────────────────────────────────────────────────────────
+  const openForm = (wo: PendingRepackWorkOrder) => {
+    setSelectedWO(wo);
+    setFormSourceBatch(wo.batchNumber ?? `BATCH-${wo.woNumber.split('-').pop()}`);
+    setFormRepackType(REPACK_TYPES[0]);
+    // pre-fill with rejected count if available, else half of required qty for testing
+    setFormRecoveredQty(Math.max(1, wo.actualRejected ?? Math.round(wo.requiredQty * 0.5)));
     setFormWasteQty(0);
+    setFormSignature('');
+    setIsFormOpen(true);
   };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedWO) return;
+    setSubmitting(true);
+    try {
+      await repackingService.logRepacking({
+        sourceWoId: selectedWO.id,
+        repackType: formRepackType,
+        recoverableQty: formRecoveredQty,
+        wasteQty: formWasteQty,
+      });
+      setIsFormOpen(false); setSelectedWO(null);
+      setRefreshKey(k => k + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? 'Failed to submit repacking log.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
-      {/* Search and Repack trigger */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-        <div className="relative flex-1 max-w-md w-full">
-          <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search repacking history..."
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <button
-          onClick={() => setIsFormOpen(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer"
-        >
-          <RefreshCw size={16} />
-          <span>New Repacking Log</span>
-        </button>
+    <div className="w-full px-2 md:px-4 pb-6">
+
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="mb-4 mt-3">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Repacking & Rework</h1>
+        <Breadcrumbs />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
-        {/* Pending Repacking Queue */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs lg:col-span-1 space-y-4">
-          <h3 className="font-bold text-slate-800 text-sm border-b border-slate-150 pb-3 flex items-center gap-1.5">
-            <AlertTriangle size={16} className="text-orange-600" />
-            <span>Pending Repacking Queue</span>
-          </h3>
-
-          <div className="space-y-3">
-            {pendingRepackQCs.map(qc => {
-              const wo = workOrders.find(w => w.id === qc.woId)!;
-              const batchNo = qc.batchNo || wo.batchNumber || `BATCH-2026-${wo.woNo.split('-').pop()}`;
-              
-              return (
-                <div key={qc.id} className="p-4 border border-slate-200 hover:border-orange-400 rounded-xl bg-slate-50 transition-all space-y-3 text-xs">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">QC ID</div>
-                      <div className="font-mono font-bold text-slate-700">{qc.id}</div>
-                    </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide ${qc.result === 'Rework' ? 'bg-orange-100 text-orange-800' : 'bg-rose-100 text-rose-800'}`}>
-                      {qc.result}
-                    </span>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{wo.productName}</h4>
-                    <div className="text-slate-500 font-mono text-[10px]">{wo.woNo}</div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Failed Batch No</span>
-                      <span className="font-mono font-medium text-slate-700">{batchNo}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Failed Qty</span>
-                      <span className="font-medium text-slate-700">{qc.checkedQty || wo.actualProduced} units</span>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Failure Reason</span>
-                      <span className="font-medium text-slate-700 truncate block" title={qc.failureReason || qc.remarks}>{qc.failureReason || qc.remarks || '—'}</span>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Waiting Since</span>
-                      <span className="font-medium text-slate-700">{formatDateTime(qc.completionTime || qc.date)}</span>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => { handleSelectFailedBatch(batchNo); setIsFormOpen(true); }}
-                    className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RefreshCw size={14} />
-                    Start Repacking
-                  </button>
-                </div>
-              );
-            })}
-            
-            {pendingRepackQCs.length === 0 && (
-              <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-200 rounded-lg">
-                No pending failed batches.
-              </div>
-            )}
+      {/* ── KPI Cards ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+        {[
+          { label: 'Pending Repack',    value: loading ? '…' : pendingWOs.length,       icon: <AlertTriangle size={20}/>, bg: 'bg-orange-100', color: 'text-orange-600' },
+          { label: 'Active Operators',  value: loading ? '…' : operators.length,        icon: <Users size={20}/>,         bg: 'bg-blue-100',   color: 'text-blue-600' },
+          { label: 'Total Repacked',    value: loading ? '…' : completedRPs.length,     icon: <CheckCircle size={20}/>,   bg: 'bg-green-100',  color: 'text-green-600' },
+          { label: 'Repacked Today',    value: loading ? '…' : repackedToday,           icon: <Clock size={20}/>,         bg: 'bg-indigo-100', color: 'text-indigo-600' },
+          { label: 'Yield Recovered',   value: loading ? '…' : totalRecovered,          icon: <Package size={20}/>,       bg: 'bg-purple-100', color: 'text-purple-600' },
+          { label: 'Total Waste',       value: loading ? '…' : totalWaste,              icon: <Scissors size={20}/>,      bg: 'bg-red-100',    color: 'text-red-500' },
+        ].map(c => (
+          <div key={c.label} className="bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-3 flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${c.bg} ${c.color}`}>{c.icon}</div>
+            <div className="min-w-0">
+              <div className="text-[10px] text-gray-500 font-medium leading-tight truncate">{c.label}</div>
+              <div className="text-lg font-bold text-gray-900 leading-tight">{c.value}</div>
+            </div>
           </div>
+        ))}
+      </div>
+
+      {/* ── Assign Task Bar ────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-5">
+        <div className="px-4 pt-3 pb-2 border-b border-gray-100 flex items-center justify-between">
+          <span className="text-sm font-bold text-gray-800">Assign Repacking Task</span>
+          <button
+            onClick={() => { setSelectedWO(null); setIsFormOpen(true); }}
+            className="flex items-center gap-1.5 bg-[#00891D] hover:bg-[#006b17] text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+          >
+            <Scissors size={14} /> New Repacking Log
+          </button>
         </div>
 
-        {/* Ledger Column */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs lg:col-span-2 space-y-4">
-          <h3 className="font-bold text-slate-800 text-sm border-b border-slate-150 pb-3">Repacking History Ledger</h3>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+        <div className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-3 items-end">
+          <Sel label="Select Product / Work Order" value={assignWO} onChange={setAssignWO} className="min-w-[220px]">
+            <option value="">-- Choose failed/rework WO --</option>
+            {pendingWOs.map(wo => (
+              <option key={wo.id} value={wo.id}>
+                {wo.woNumber} — {wo.product?.name ?? 'Unknown'}
+              </option>
+            ))}
+          </Sel>
+
+          <Sel label="Assign To (Team Member)" value={assignTo} onChange={setAssignTo} className="min-w-[180px]">
+            <option value="">{operators.length === 0 ? 'No team members found' : '-- Select Team Member --'}</option>
+            {operators.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </Sel>
+
+          <Sel label="Priority" value={assignPriority} onChange={setAssignPriority} className="w-32">
+            {(['LOW','MEDIUM','HIGH','URGENT'] as const).map(p => (
+              <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>
+            ))}
+          </Sel>
+
+          <Sel label="Expected Time" value={assignTime} onChange={setAssignTime} className="w-28">
+            {['15 mins','30 mins','45 mins','1 hour','2 hours'].map(t => <option key={t}>{t}</option>)}
+          </Sel>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-transparent select-none">Action</span>
+            <button
+              disabled={!assignWO || !assignTo}
+              className="flex items-center gap-1.5 bg-[#00891D] hover:bg-[#006b17] disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              onClick={handleAssignTask}
+            >
+              <Users size={14} /> Assign Task
+            </button>
+          </div>
+        </div>
+      </div>
+
+
+      {/* ── Table ──────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
+            <Loader2 size={20} className="animate-spin" />
+            <span className="text-sm">Loading repacking data...</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto table-scrollbar">
+            <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                  <th className="p-3">RP ID</th>
-                  <th className="p-3">Source Batch</th>
-                  <th className="p-3">Product Name</th>
-                  <th className="p-3">Workflow Type</th>
-                  <th className="p-3 text-center">Recovered Yield</th>
-                  <th className="p-3 text-center">Wastage</th>
-                  <th className="p-3">New Batch No</th>
-                  <th className="p-3 text-right">Details</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  {['PRODUCT / WORK ORDER','BATCH NO','DATE / TIME','ASSIGNED TO','RECOVERED','WASTE','STATUS','PRIORITY','ACTION'].map(h => (
+                    <th key={h} className={`px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${h === 'ACTION' || h === 'RECOVERED' || h === 'WASTE' ? 'text-right' : 'text-left'}`}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {repackings.filter(rp => rp.productName.toLowerCase().includes(search.toLowerCase()) || rp.sourceBatchNo.toLowerCase().includes(search.toLowerCase())).map((rp) => (
-                  <tr key={rp.id} className="hover:bg-slate-50/50">
-                    <td className="p-3 font-mono font-semibold text-slate-500">{rp.id}</td>
-                    <td className="p-3 font-mono">{rp.sourceBatchNo}</td>
-                    <td className="p-3 font-semibold text-slate-900">{rp.productName}</td>
-                    <td className="p-3 font-medium text-indigo-600">{rp.repackType}</td>
-                    <td className="p-3 text-center font-bold">{rp.recoverableQuantity}</td>
-                    <td className="p-3 text-center text-rose-600 font-bold">{rp.wasteQuantity}</td>
-                    <td className="p-3 font-mono text-[11px]">{rp.newBatchNo}</td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => setSelectedRecord(rp)}
-                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold px-2 py-1 rounded cursor-pointer"
-                      >
-                        View
-                      </button>
+              <tbody className="divide-y divide-gray-100">
+                {filteredData.length === 0 ? (
+                  <tr><td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">No repacking records found.</td></tr>
+                ) : filteredData.map(row => (
+                  <tr key={row.id} className="hover:bg-gray-50/60 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-gray-900 text-xs">{row.productName}</div>
+                      <div className="font-mono text-[10px] text-gray-400">{row.woNumber}</div>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{row.batchNumber}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-[10px] text-gray-500 font-medium">{fmt(row.repackTime)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 font-medium">{row.assignedTo}</td>
+                    <td className="px-4 py-3 text-right">
+                      {row._type === 'COMPLETED' ? <span className="text-xs font-bold text-emerald-600">{row.recoverableQty}</span> : <span className="text-xs text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row._type === 'COMPLETED' ? <span className="text-xs font-bold text-rose-600">{row.wasteQty}</span> : <span className="text-xs text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${STATUS_BADGE[row.displayStatus] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[row.displayStatus] ?? 'bg-gray-400'}`} />
+                        {row.displayStatus}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[11px] ${PRIORITY_COLOR(row.priority)}`}>{PRIORITY_LABEL[row.priority] ?? row.priority}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row._type === 'PENDING' ? (
+                        <button onClick={() => row.rawWO && openForm(row.rawWO)}
+                          className="bg-[#00891D] hover:bg-[#006b17] text-white font-semibold px-3 py-1.5 rounded-lg text-[11px] transition-colors cursor-pointer whitespace-nowrap">
+                          Start Repacking
+                        </button>
+                      ) : (
+                        <button onClick={() => row.rawRP && setSelectedRP(row.rawRP)}
+                          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold px-3 py-1.5 rounded-lg text-[11px] transition-colors cursor-pointer whitespace-nowrap">
+                          View Details
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
-                {repackings.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="p-6 text-center text-slate-400">
-                      No repacking operations logged yet.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+
+        {/* Footer */}
+        {!loading && (
+          <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
+            {filteredData.length} of {unifiedData.length} records
+            &nbsp;·&nbsp;{pendingWOs.length} pending&nbsp;·&nbsp;{completedRPs.length} completed
+          </div>
+        )}
       </div>
 
-      {/* Repacking Detail Modal */}
-      {selectedRecord && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-sm shadow-2xl p-6 text-left space-y-4">
+      {/* ── Detail Modal ────────────────────────────────────────── */}
+      {selectedRP && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-md shadow-2xl p-6 text-left space-y-4">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
-                <span className="text-xs font-mono font-bold text-slate-400">{selectedRecord.id}</span>
-                <h3 className="font-bold text-slate-800 text-base">Repacking Summary</h3>
+                <span className="text-[10px] font-mono font-bold text-slate-400">{selectedRP.rpNumber}</span>
+                <h3 className="font-bold text-slate-800 text-base">{selectedRP.sourceWorkOrder?.product?.name ?? '—'}</h3>
               </div>
-              <button onClick={() => setSelectedRecord(null)} className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer">
-                <X size={18} />
+              <button onClick={() => setSelectedRP(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-rose-600 cursor-pointer">
+                <X size={18} strokeWidth={2.5} />
               </button>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <span className="text-slate-500">Source Batch</span>
-                <span className="font-mono font-bold">{selectedRecord.sourceBatchNo}</span>
+            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <div><strong>Repack No:</strong> {selectedRP.rpNumber}</div>
+              <div><strong>Work Order:</strong> {selectedRP.sourceWorkOrder?.woNumber ?? '—'}</div>
+              <div><strong>Operator:</strong> {selectedRP.loggedBy?.name ?? '—'}</div>
+              <div><strong>Date:</strong> {fmt(selectedRP.createdAt)}</div>
+              <div><strong>Source Batch:</strong> {selectedRP.sourceWorkOrder?.batchNumber ?? '—'}</div>
+              <div><strong>New Batch:</strong> {selectedRP.newBatchNumber}</div>
+              <div className="col-span-2 border-t border-slate-200 mt-1 pt-2">
+                <strong>Repack Type:</strong> {selectedRP.repackType}
               </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <span className="text-slate-500">Product Name</span>
-                <span className="font-bold text-slate-855">{selectedRecord.productName}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <span className="text-slate-500">Repack Type</span>
-                <span className="font-medium text-indigo-600">{selectedRecord.repackType}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <span className="text-slate-500">Recovered Yield</span>
-                <span className="font-bold text-emerald-600">{selectedRecord.recoverableQuantity} Units</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <span className="text-slate-500">Waste Material</span>
-                <span className="font-bold text-rose-600">{selectedRecord.wasteQuantity} Units</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <span className="text-slate-500">New Batch Generated</span>
-                <span className="font-mono font-bold">{selectedRecord.newBatchNo}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                <span className="text-slate-500">Labels Auto-Printed</span>
-                <span className="font-semibold text-slate-800">{selectedRecord.newLabelPrinted ? 'Yes' : 'No'}</span>
-              </div>
+              <div><strong className="text-emerald-700">Recovered Yield:</strong> {selectedRP.recoverableQty}</div>
+              <div><strong className="text-rose-700">Waste:</strong> {selectedRP.wasteQty}</div>
             </div>
 
-            <div className="pt-2 flex justify-end">
-              <button onClick={() => setSelectedRecord(null)} className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-lg text-xs cursor-pointer">
-                Close
-              </button>
+            <div className="pt-3 flex justify-end">
+              <button onClick={() => setSelectedRP(null)} className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-lg text-xs cursor-pointer">Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Create Repacking Log Modal */}
+      {/* ── Repack Form Modal ──────────────────────────────────────────── */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[90vh] overflow-y-auto flex flex-col">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col">
             <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-900 text-white rounded-t-xl">
               <h3 className="font-bold text-sm flex items-center gap-2">
-                <RefreshCw size={18} />
-                <span>Log Repacking Operation</span>
+                <Scissors size={18} /> Repack & Rework Log
               </h3>
-              <button onClick={() => setIsFormOpen(false)} className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer">
+              <button onClick={() => { setIsFormOpen(false); setSelectedWO(null); }} className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer">
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4 flex-1 text-left text-xs">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Select QC Failed Batch *</label>
-                  <select
-                    required
-                    className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none"
-                    value={formSourceBatch}
-                    onChange={(e) => handleSelectFailedBatch(e.target.value)}
-                  >
-                    <option value="">-- Choose Failed Batch --</option>
-                    {failedQCs.map(qc => {
-                      const wo = workOrders.find(w => w.id === qc.woId);
-                      if (!wo || wo.status === 'Completed') return null;
-                      const batchNo = qc.batchNo || wo.batchNumber || `BATCH-2026-${wo.woNo.split('-').pop()}`;
-                      return (
-                        <option key={qc.id} value={batchNo}>
-                          {batchNo} - {qc.productName} ({qc.result})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Repack Workflow Type *</label>
-                  <select
-                    className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none"
-                    value={formRepackType}
-                    onChange={(e) => setFormRepackType(e.target.value)}
-                  >
-                    {REPACK_TYPES.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            <form onSubmit={handleFormSubmit} className="p-6 space-y-5 flex-1 text-left text-xs max-h-[80vh] overflow-y-auto">
 
+              {/* WO selector */}
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Select Target Config Recipe *</label>
-                <select
-                  required
-                  className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none"
-                  value={formRecipeId}
-                  onChange={(e) => handleSelectRecipe(e.target.value)}
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Select Work Order *</label>
+                <select required
+                  className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D]"
+                  value={selectedWO?.id ?? ''}
+                  onChange={e => { const wo = pendingWOs.find(w => w.id === e.target.value); if (wo) openForm(wo); }}
                 >
-                  <option value="">-- Choose Recipe --</option>
-                  {recipes.map(r => (
-                    <option key={r.id} value={r.id}>{r.packingName}</option>
+                  <option value="">-- Choose Pending Rework Batch --</option>
+                  {pendingWOs.map(w => (
+                    <option key={w.id} value={w.id}>{w.woNumber} — {w.product?.name ?? 'Unknown'}</option>
                   ))}
                 </select>
               </div>
 
+              {/* WO summary */}
+              {selectedWO && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Work Order Summary</span>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                    <div className="flex flex-col"><span className="text-slate-400 text-[9px] uppercase font-semibold">WO Number</span><span className="font-bold text-slate-800 font-mono">{selectedWO.woNumber}</span></div>
+                    <div className="flex flex-col"><span className="text-slate-400 text-[9px] uppercase font-semibold">Product</span><span className="font-bold text-slate-800">{selectedWO.product?.name ?? '—'}</span></div>
+                    <div className="flex flex-col"><span className="text-slate-400 text-[9px] uppercase font-semibold">Source Batch</span><span className="font-bold text-slate-800 font-mono">{selectedWO.batchNumber ?? '—'}</span></div>
+                    <div className="flex flex-col"><span className="text-slate-400 text-[9px] uppercase font-semibold">Failed Qty (approx)</span><span className="font-bold text-slate-800">{selectedWO.actualRejected ?? selectedWO.requiredQty} units</span></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Batch & Type */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Recovered Yield Qty (Units) *</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                    value={formRecoveredQty}
-                    onChange={(e) => setFormRecoveredQty(Number(e.target.value))}
-                  />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Source Batch No</label>
+                  <input type="text" readOnly className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500 font-mono"
+                    value={formSourceBatch} />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Wastage Qty (Units) *</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                    value={formWasteQty}
-                    onChange={(e) => setFormWasteQty(Number(e.target.value))}
-                  />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Repack Type *</label>
+                  <select required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white font-semibold focus:outline-none focus:ring-1 focus:ring-[#00891D]"
+                    value={formRepackType} onChange={e => setFormRepackType(e.target.value)}>
+                    {REPACK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
                 </div>
               </div>
 
+              {/* Yield & Waste */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">New Batch Number Generated</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full p-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50"
-                    value={newBatchNo}
-                    onChange={(e) => setNewBatchNo(e.target.value)}
-                  />
+                  <label className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Recovered Yield Qty *</label>
+                  <input type="number" required min={0} className="w-full p-2 border border-emerald-200 rounded-lg text-sm font-bold text-emerald-700 bg-emerald-50 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    value={formRecoveredQty} onChange={e => setFormRecoveredQty(Number(e.target.value))} />
+                  <p className="text-[9px] text-emerald-600 mt-1">Quantity successfully saved for repackaging.</p>
                 </div>
-                <div className="flex items-center pt-5">
-                  <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      className="rounded accent-emerald-600 w-4 h-4"
-                      checked={printLabels}
-                      onChange={() => setPrintLabels(!printLabels)}
-                    />
-                    <span>Auto-print repack labels</span>
-                  </label>
+                <div>
+                  <label className="block text-[10px] font-bold text-rose-600 uppercase mb-1">Waste / Discard Qty *</label>
+                  <input type="number" required min={0} className="w-full p-2 border border-rose-200 rounded-lg text-sm font-bold text-rose-700 bg-rose-50 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    value={formWasteQty} onChange={e => setFormWasteQty(Number(e.target.value))} />
+                  <p className="text-[9px] text-rose-600 mt-1">Quantity permanently lost or discarded.</p>
                 </div>
               </div>
 
+              {/* Signature */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Operator Signature *</label>
+                <input type="text" required placeholder="Type your initials"
+                  className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#00891D]"
+                  value={formSignature} onChange={e => setFormSignature(e.target.value)} />
+              </div>
+
+              {/* Submit */}
               <div className="border-t border-slate-100 pt-5 flex justify-end gap-3 -mx-6 -mb-6 p-4 bg-slate-50 rounded-b-xl">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-semibold cursor-pointer"
-                >
+                <button type="button" onClick={() => { setIsFormOpen(false); setSelectedWO(null); }}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-semibold cursor-pointer">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold cursor-pointer flex items-center gap-1.5"
-                >
-                  <CheckCircle size={16} />
-                  <span>Log Repacking Batch</span>
+                <button type="submit" disabled={submitting}
+                  className="px-5 py-2 bg-[#00891D] hover:bg-[#006b17] text-white rounded-lg text-sm font-semibold cursor-pointer disabled:opacity-60 flex items-center gap-2">
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
+                  {submitting ? 'Logging...' : 'Submit Repack Log'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 };

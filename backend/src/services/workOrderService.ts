@@ -49,9 +49,24 @@ export class WorkOrderService {
     
     // RBAC Scoping
     if (user?.role === 'OPERATOR') {
-      whereClause = { ...whereClause, operatorId: user.id };
-    } else if (user?.role === 'QC_INSPECTOR') {
-      whereClause = { ...whereClause, status: { in: ['QC_PENDING', 'LABELS_PRINTED', 'QC_IN_PROGRESS'] } };
+      whereClause = {
+        ...whereClause,
+        OR: [{ operatorId: user.id }, { operatorId: null }]
+      };
+    } else if (user?.role === 'QC_INSPECTOR' || user?.role === 'QC_CHECKER') {
+      whereClause = {
+        ...whereClause,
+        status: { 
+          in: [
+            'PACKING_COMPLETED',
+            'LABEL_APPLICATION_ASSIGNED',
+            'LABEL_APPLICATION_IN_PROGRESS',
+            'LABELS_APPLIED',
+            'QC_PENDING',
+          ] 
+        },
+        OR: [{ inspectorId: user.id }, { inspectorId: null }]
+      };
     }
 
     apiFeatures.query = { 
@@ -69,7 +84,8 @@ export class WorkOrderService {
           }
         }, 
         supervisor: true,
-        operator: true
+        operator: true,
+        inspector: true
       } 
     };
 
@@ -85,15 +101,16 @@ export class WorkOrderService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    // Enforce basic state machine validation for simple transitions
-    if (status === 'APPROVED' && !['PENDING', 'PENDING_APPROVAL', 'DRAFT'].includes(workOrder.status)) {
-      throw new AppError(400, 'Can only approve DRAFT or PENDING_APPROVAL work orders');
+    if (status === 'PACKING_STARTED') {
+      return await WorkOrderService.startPacking(id, userId);
     }
 
     const updateData: any = { status };
-    if (extra.operatorId) updateData.operatorId = extra.operatorId;
-    if (extra.labelsPrinted !== undefined) updateData.labelsPrinted = extra.labelsPrinted;
-    if (extra.labelsApplied !== undefined) updateData.labelsApplied = extra.labelsApplied;
+    if (extra?.operatorId) updateData.operatorId = extra.operatorId;
+    if (extra?.inspectorId) updateData.inspectorId = extra.inspectorId;
+    if (extra?.priority) updateData.priority = extra.priority;
+    if (extra?.labelsPrinted !== undefined) updateData.labelsPrinted = extra.labelsPrinted;
+    if (extra?.labelsApplied !== undefined) updateData.labelsApplied = extra.labelsApplied;
 
     const updatedWO = await prisma.workOrder.update({
       where: { id },
@@ -132,8 +149,8 @@ export class WorkOrderService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (workOrder.status !== 'APPROVED') {
-      throw new AppError(400, 'Materials can only be issued for APPROVED Work Orders');
+    if (!['APPROVED', 'PENDING', 'MATERIAL_ISSUED'].includes(workOrder.status)) {
+      throw new AppError(400, 'Materials can only be issued for APPROVED or PENDING Work Orders');
     }
 
     const issueNo = `MI-${Date.now().toString().slice(-6)}`;
@@ -172,18 +189,19 @@ export class WorkOrderService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (workOrder.status !== 'MATERIAL_ISSUED') {
-      throw new AppError(400, 'Cannot start packing unless materials are issued');
+    if (!['MATERIAL_ISSUED', 'APPROVED', 'PACKING_STARTED'].includes(workOrder.status)) {
+      throw new AppError(400, 'Cannot start packing unless work order is approved or materials are issued');
     }
 
-    const batchNumber = `BATCH-${workOrder.woNumber}-${Date.now().toString().slice(-4)}`;
+    const batchNumber = workOrder.batchNumber || `BATCH-${workOrder.woNumber}-${Date.now().toString().slice(-6)}`;
 
     const updatedWO = await prisma.workOrder.update({
       where: { id },
       data: { 
         status: 'PACKING_STARTED',
-        startedAt: new Date(),
+        startedAt: workOrder.startedAt || new Date(),
         batchNumber, // Assign batch number/barcode during packing execution
+        operatorId: workOrder.operatorId || userId, // Auto-assign job to operator starting it if unassigned
       },
     });
 

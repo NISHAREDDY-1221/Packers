@@ -16,7 +16,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
   const { email, password, name, roleName } = req.body;
 
   let role = await prisma.role.findUnique({ where: { name: roleName } });
-  
+
   if (!role) {
     role = await prisma.role.create({
       data: {
@@ -60,10 +60,11 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   });
 
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw new AppError(401, 'Incorrect email or password');
+    throw new AppError(401, 'Invalid email or password');
   }
 
-  const token = signToken(user.id, user.role.name, user.role.permissions);
+  const permissions = user.role?.permissions || [];
+  const token = signToken(user.id, user.role.name, permissions);
 
   sendResponse(res, 200, 'Login successful', {
     token,
@@ -72,6 +73,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
       name: user.name,
       email: user.email,
       role: user.role.name,
+      permissions,
     },
   });
 });
@@ -82,4 +84,21 @@ export const getOperators = catchAsync(async (req: Request, res: Response) => {
     select: { id: true, name: true, email: true }
   });
   sendResponse(res, 200, 'Operators retrieved', operators);
+});
+
+export const getUsers = catchAsync(async (req: Request, res: Response) => {
+  const users = await prisma.user.findMany({
+    select: { id: true, name: true, email: true, role: { select: { name: true } } },
+    orderBy: { name: 'asc' },
+  });
+  sendResponse(res, 200, 'Users retrieved', users);
+});
+
+export const getQCInspectors = catchAsync(async (req: Request, res: Response) => {
+  const inspectors = await prisma.user.findMany({
+    where: { role: { name: { in: ['QC_INSPECTOR', 'QC_CHECKER', 'ADMIN', 'MANAGER'] } } },
+    select: { id: true, name: true, email: true, role: { select: { name: true } } },
+    orderBy: { name: 'asc' },
+  });
+  sendResponse(res, 200, 'QC Inspectors retrieved', inspectors);
 });

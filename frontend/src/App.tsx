@@ -80,7 +80,7 @@ const router = createBrowserRouter([
   {
     path: '/operator',
     element: (
-      <RoleRoute allowedRoles={['OPERATOR']}>
+      <RoleRoute allowedRoles={['OPERATOR', 'ADMIN', 'MANAGER']}>
         <OperatorLayout />
       </RoleRoute>
     ),
@@ -98,7 +98,7 @@ const router = createBrowserRouter([
   {
     path: '/qc',
     element: (
-      <RoleRoute allowedRoles={['QC_INSPECTOR', 'QC_CHECKER']}>
+      <RoleRoute allowedRoles={['QC_INSPECTOR', 'QC_CHECKER', 'ADMIN', 'MANAGER']}>
         <QCLayout />
       </RoleRoute>
     ),
@@ -130,7 +130,7 @@ export function App() {
     <ThemeProvider>
       <AuthProvider>
         <AppProvider>
-          <RouterProvider router={router} />
+          <RouterProvider router={router} future={{ v7_startTransition: true }} />
         </AppProvider>
       </AuthProvider>
     </ThemeProvider>

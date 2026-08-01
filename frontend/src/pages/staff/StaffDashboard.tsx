@@ -10,16 +10,20 @@ export const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
 
+  const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await workOrderService.getWorkOrders();
-        setWorkOrders(response.data);
+        const response = await workOrderService.getWorkOrders({ limit: 500 });
+        setWorkOrders(response.data || []);
       } catch (err) {
         console.error('Failed to fetch work orders for dashboard', err);
       }
     };
     fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
@@ -29,9 +33,9 @@ export const StaffDashboard: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   if (isQC) {
-    const pendingInspection = workOrders.filter(wo => ['PACKING_STARTED', 'QC_PENDING'].includes(wo.status)).length;
-    const readyForQC = workOrders.filter(wo => wo.status === 'QC_PENDING').length;
-    const qcInProgress = workOrders.filter(wo => wo.status === 'QC_PENDING').length; // Map appropriately
+    const pendingInspection = workOrders.filter(wo => QC_STATUSES.includes(wo.status)).length;
+    const readyForQC = workOrders.filter(wo => QC_STATUSES.includes(wo.status)).length;
+    const qcInProgress = workOrders.filter(wo => QC_STATUSES.includes(wo.status)).length;
     const passedToday = workOrders.filter(wo => 
       wo.status === 'QC_PASSED' && (wo.completedAt?.startsWith(today) || wo.updatedAt?.startsWith(today))
     ).length;

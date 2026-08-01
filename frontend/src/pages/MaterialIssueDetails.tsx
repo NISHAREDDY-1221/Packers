@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { workOrderService } from '../api/workOrderService';
 import type { WorkOrder } from '../api/workOrderService';
+import { masterDataService } from '../api/masterDataService';
+import type { Warehouse } from '../api/masterDataService';
 
 import {
   Package, CheckCircle, AlertTriangle, X,
@@ -24,6 +26,13 @@ export const MaterialIssueDetails: React.FC = () => {
   const [scannedBarcode, setScannedBarcode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [issueSuccess, setIssueSuccess] = useState<string | null>(null);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+
+  useEffect(() => {
+    masterDataService.getWarehouses().then(setWarehouses).catch(console.error);
+  }, []);
 
   const fetchWO = async () => {
     try {
@@ -45,47 +54,100 @@ export const MaterialIssueDetails: React.FC = () => {
     if (id) fetchWO();
   }, [id]);
 
-  const materialsToIssue = useMemo(() => {
-    if (!selectedWO || !selectedWO.recipe) return [];
-    
-    // For demo purposes, we auto-populate a default batch and location if available
-    if (batchNo === '') setBatchNo(`BATCH-${selectedWO.woNumber}-1`);
-    if (location === '') setLocation('WH-A-RACK-12');
+  interface MaterialItem {
+    id: string;
+    item: string;
+    type: string;
+    reqQty: number;
+    stockQty: number;
+    issueQty: number;
+  }
 
-    const reqQty = selectedWO.requiredQty;
+  const [materialsToIssue, setMaterialsToIssue] = useState<MaterialItem[]>([]);
+
+  useEffect(() => {
+    if (!selectedWO || !selectedWO.recipe) return;
     
-    return [
-      ...(selectedWO.recipe.items?.filter(i => !i.isPackaging) || []).map(item => ({
-        id: item.inputProductId,
-        item: item.inputProduct?.name || item.inputProductId,
-        type: 'Raw Material',
-        reqQty: item.requiredQty * reqQty,
-        stockQty: (item.requiredQty * reqQty) + 50, // mock stock
-      })),
-      ...(selectedWO.recipe.items?.filter(i => i.isPackaging) || []).map(pkg => ({
-        id: pkg.inputProductId,
-        item: pkg.inputProduct?.name || pkg.inputProductId,
-        type: 'Packaging',
-        reqQty: pkg.requiredQty * reqQty,
-        stockQty: (pkg.requiredQty * reqQty) + 200, // mock stock
-      }))
-    ];
+    if (batchNo === '') setBatchNo(`BATCH-${selectedWO.woNumber}-1`);
+    if (location === '') setLocation('');
+
+    const ratio = (selectedWO.recipe.outputQty && selectedWO.recipe.outputQty > 0) 
+      ? selectedWO.requiredQty / selectedWO.recipe.outputQty 
+      : 1;
+
+    setMaterialsToIssue(prev => {
+      const prevMap = new Map(prev.map(p => [p.id, p.issueQty]));
+      return [
+        ...(selectedWO.recipe.items?.filter(i => !i.isPackaging) || []).map(item => {
+          const reqQty = Math.ceil(item.requiredQty * ratio);
+          return {
+            id: item.inputProductId,
+            item: item.inputProduct?.name || item.inputProductId,
+            type: 'Raw Material',
+            reqQty,
+            stockQty: item.inputProduct?.availableStock ? item.inputProduct.availableStock : (reqQty + 50),
+            issueQty: prevMap.get(item.inputProductId) !== undefined ? prevMap.get(item.inputProductId)! : reqQty,
+          };
+        }),
+        ...(selectedWO.recipe.items?.filter(i => i.isPackaging) || []).map(pkg => {
+          const reqQty = Math.ceil(pkg.requiredQty * ratio);
+          return {
+            id: pkg.inputProductId,
+            item: pkg.inputProduct?.name || pkg.inputProductId,
+            type: 'Packaging',
+            reqQty,
+            stockQty: pkg.inputProduct?.availableStock ? pkg.inputProduct.availableStock : (reqQty + 100),
+            issueQty: prevMap.get(pkg.inputProductId) !== undefined ? prevMap.get(pkg.inputProductId)! : reqQty,
+          };
+        })
+      ];
+    });
   }, [selectedWO]);
 
+  const handleMaterialChange = (id: string, field: keyof MaterialItem, value: string) => {
+    setMaterialsToIssue(prev => prev.map(m => {
+      if (m.id === id) {
+        return {
+          ...m,
+          [field]: (field === 'reqQty' || field === 'stockQty' || field === 'issueQty') ? Number(value) : value
+        };
+      }
+      return m;
+    }));
+  };
+
   const allAvailable = materialsToIssue.every(m => m.stockQty >= m.reqQty);
+
+  const handleRefreshStock = async () => {
+    try {
+      setIsSubmitting(true);
+      // Fetch latest stock from API (simulated by re-fetching WO since it includes availableStock)
+      await fetchWO();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleIssueMaterials = async () => {
     if (!selectedWO) return;
     
     try {
       setIsSubmitting(true);
+      setIssueError(null);
       // Simulate API call to issue materials
       await workOrderService.issueMaterials(selectedWO.id, {
         batchNo,
         location,
         materials: materialsToIssue.map(m => ({
-          item: m.item,
-          issuedQty: m.reqQty
+          productId: m.id,
+          itemCode: m.item,
+          type: m.type,
+          reqQty: m.reqQty,
+          stockQty: m.stockQty,
+          issuedQty: m.issueQty,
+          status: m.stockQty < m.reqQty ? 'Shortage' : 'Available'
         }))
       });
       
@@ -95,9 +157,10 @@ export const MaterialIssueDetails: React.FC = () => {
         navigate('/material-issue');
       }, 2000);
       
-    } catch (err) {
-      console.error("Failed to issue materials", err);
-      alert("Failed to issue materials. See console for details.");
+    } catch (error: any) {
+      console.error("Failed to issue materials", error);
+      const msg = error.response?.data?.message || error.message || 'Failed to issue materials';
+      setIssueError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -141,6 +204,13 @@ export const MaterialIssueDetails: React.FC = () => {
         <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 p-4 rounded-xl flex items-center gap-3">
           <CheckCircle size={20} />
           <span className="font-semibold">{issueSuccess}</span>
+        </div>
+      )}
+      
+      {issueError && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 p-4 rounded-xl flex items-center gap-3">
+          <AlertTriangle size={20} />
+          <span className="font-semibold">{issueError}</span>
         </div>
       )}
 
@@ -236,8 +306,12 @@ export const MaterialIssueDetails: React.FC = () => {
                     className="pl-8 pr-3 py-1.5 border border-slate-200 dark:border-gray-700 rounded-lg text-xs focus:ring-1 focus:ring-[#00891D] w-48 dark:bg-gray-900 dark:text-white"
                   />
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors">
-                  <RefreshCw size={12} />
+                <button 
+                  onClick={handleRefreshStock}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={isSubmitting ? "animate-spin" : ""} />
                   Refresh Stock
                 </button>
              </div>
@@ -261,9 +335,10 @@ export const MaterialIssueDetails: React.FC = () => {
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 dark:border-gray-700 rounded-lg text-sm bg-slate-50 dark:bg-gray-900 dark:text-white"
               >
-                <option value="">Select Location</option>
-                <option value="WH-A-RACK-12">WH-A-RACK-12</option>
-                <option value="WH-B-RACK-05">WH-B-RACK-05</option>
+                <option value="">Select Warehouse...</option>
+                {warehouses.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -285,15 +360,41 @@ export const MaterialIssueDetails: React.FC = () => {
                   const hasShortage = mat.stockQty < mat.reqQty;
                   return (
                     <tr key={mat.id} className="hover:bg-slate-50/50 dark:hover:bg-gray-800/50">
-                      <td className="px-4 py-3 font-bold text-slate-800 dark:text-gray-200">{mat.item}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-gray-400">{mat.type}</td>
-                      <td className="px-4 py-3 font-mono font-medium">{mat.reqQty}</td>
-                      <td className="px-4 py-3 font-mono">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${hasShortage ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {mat.stockQty}
-                        </span>
+                      <td className="px-4 py-3">
+                        <input
+                          type="text"
+                          value={mat.item || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'item', e.target.value)}
+                          className="w-full px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
+                        />
                       </td>
-                      <td className="px-4 py-3 font-mono text-slate-800 dark:text-gray-200 font-bold">{mat.reqQty}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="text"
+                          value={mat.type || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'type', e.target.value)}
+                          className="w-28 px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-slate-800 dark:text-gray-200">
+                        {mat.reqQty}
+                      </td>
+                      <td className="px-4 py-3 font-mono">
+                        <input
+                          type="number"
+                          value={mat.stockQty || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'stockQty', e.target.value)}
+                          className={`w-24 px-2 py-1 rounded border text-xs font-bold ${hasShortage ? 'border-red-300 bg-red-50 text-red-700' : 'border-emerald-300 bg-emerald-50 text-emerald-700'} focus:outline-none focus:ring-1 focus:ring-[#00891D]`}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-mono text-slate-800 dark:text-gray-200 font-bold">
+                        <input
+                          type="number"
+                          value={mat.issueQty || ''}
+                          onChange={(e) => handleMaterialChange(mat.id, 'issueQty', e.target.value)}
+                          className="w-24 px-2 py-1 border border-slate-200 dark:border-gray-700 rounded text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#00891D] dark:bg-gray-900"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         {hasShortage ? (
                            <span className="flex items-center gap-1 text-red-600 text-xs font-bold"><X size={12}/> Shortage</span>
@@ -327,15 +428,15 @@ export const MaterialIssueDetails: React.FC = () => {
             
             <button 
               onClick={handleIssueMaterials}
-              disabled={isSubmitting || !allAvailable || selectedWO.status === 'MATERIAL_ISSUED'}
+              disabled={isSubmitting || !allAvailable || (selectedWO.status !== 'APPROVED' && selectedWO.status !== 'PENDING' && selectedWO.status !== 'MATERIAL_ISSUED')}
               className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all
-                ${isSubmitting || !allAvailable || selectedWO.status === 'MATERIAL_ISSUED'
+                ${isSubmitting || !allAvailable || (selectedWO.status !== 'APPROVED' && selectedWO.status !== 'PENDING' && selectedWO.status !== 'MATERIAL_ISSUED')
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500' 
                   : 'bg-[#00891D] hover:bg-[#007017] text-white hover:shadow-md'
                 }`}
             >
               {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <Package size={16} />}
-              {selectedWO.status === 'MATERIAL_ISSUED' ? 'Already Issued' : 'Issue Materials'}
+              {selectedWO.status === 'MATERIAL_ISSUED' ? 'Re-issue Materials' : 'Issue Materials'}
             </button>
           </div>
         </div>

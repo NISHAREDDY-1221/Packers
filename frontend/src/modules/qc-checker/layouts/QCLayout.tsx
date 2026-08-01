@@ -31,8 +31,19 @@ export const QCLayout: React.FC = () => {
     }
   }, [darkMode]);
 
+  const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
+
   useEffect(() => {
-    workOrderService.getWorkOrders().then((res: any) => setAssignedJobsCount(res.data.length)).catch(console.error);
+    const fetchCount = () => {
+      workOrderService.getWorkOrders({ limit: 500 }).then((res: any) => {
+        const qcJobs = (res.data || []).filter((wo: any) => QC_STATUSES.includes(wo.status));
+        setAssignedJobsCount(qcJobs.length);
+      }).catch(console.error);
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

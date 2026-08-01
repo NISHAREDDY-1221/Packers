@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { qcTasksService } from '../services/qcTasksService';
 import type { QCInspection } from '../../../shared/types';
 
+import { qualityCheckService } from '../../../api/qualityCheckService';
+
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   
@@ -18,21 +20,31 @@ export const Dashboard: React.FC = () => {
 
   const [activeJob, setActiveJob] = useState<QCInspection | null>(null);
 
+  const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await qcTasksService.getWorkOrders();
-        const orders = response.data;
+        const [woRes, qcRes] = await Promise.all([
+          qcTasksService.getWorkOrders(),
+          qualityCheckService.getQualityChecks()
+        ]);
+        const orders = woRes.data || [];
+        const qcs = qcRes.data || [];
         
+        const qcPendingOrders = orders.filter((o: any) => QC_STATUSES.includes(o.status));
+        const passedTodayCount = qcs.filter((q: any) => q.result === 'PASS' || q.result === 'PARTIAL_PASS').length;
+        const failedTodayCount = qcs.filter((q: any) => q.result === 'REJECT' || q.result === 'DISCARD' || q.result === 'REWORK').length;
+
         setStats({
-          pending: orders.filter((o: any) => o.status === 'QC_PENDING').length,
-          ready: orders.filter((o: any) => o.status === 'QC_PENDING').length,
+          pending: qcPendingOrders.length,
+          ready: qcPendingOrders.length,
           inProgress: 0, 
-          completed: orders.filter((o: any) => o.status === 'QC_PASSED').length,
-          delayed: orders.filter((o: any) => o.status === 'PACKING_STARTED').length, // rework/failed
-          issues: 2
+          completed: passedTodayCount,
+          delayed: failedTodayCount,
+          issues: 0
         });
-        const active = orders.find((o: any) => o.status === 'QC_PENDING');
+        const active = orders.find((o: any) => QC_STATUSES.includes(o.status));
         setActiveJob(active || null);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
@@ -40,6 +52,8 @@ export const Dashboard: React.FC = () => {
     };
     
     fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const kpis = [
@@ -135,7 +149,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-5 md:p-6">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Current Active Job</h2>
-                {activeJob?.status === 'QC_PENDING' && (
+                {activeJob && QC_STATUSES.includes(activeJob.status) && (
                   <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center shadow-sm">
                     <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
                     Inspecting

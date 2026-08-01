@@ -97,19 +97,28 @@ export const ActivePacking: React.FC = () => {
   }
 
   const handleUpdateQuantity = async () => {
-    const newPacked = Number(addPacked) || 0;
-    const newRejected = Number(addRejected) || 0;
-    if (newPacked < 0 || newRejected < 0) return alert('Cannot add negative quantities');
+    const inputPacked = Number(addPacked) || 0;
+    const inputRejected = Number(addRejected) || 0;
+    if (inputPacked < 0 || inputRejected < 0) return alert('Cannot add negative quantities');
     
-    const totalNew = packedQty + newPacked + rejectedQty + newRejected;
+    // Determine target cumulative produced & rejected:
+    // If input quantity is >= current packedQty or equals requiredQty, treat as cumulative total target; otherwise treat as incremental amount to add.
+    let targetPacked = (inputPacked >= packedQty || inputPacked === requiredQty) ? inputPacked : packedQty + inputPacked;
+    let targetRejected = (inputRejected >= rejectedQty) ? inputRejected : rejectedQty + inputRejected;
+
+    if (inputPacked === requiredQty) {
+      targetPacked = requiredQty;
+    }
+
+    const totalNew = targetPacked + targetRejected;
     if (totalNew > requiredQty) {
-      return alert(`Total quantity cannot exceed required quantity (${requiredQty})`);
+      return alert(`Total produced + rejected quantity (${totalNew}) cannot exceed required quantity (${requiredQty}). Current packed: ${packedQty}, remaining capacity to add: ${Math.max(0, requiredQty - packedQty - rejectedQty)}.`);
     }
 
     try {
       await workOrderService.updateQuantity(activeJob.id, {
-        actualProduced: packedQty + newPacked,
-        actualRejected: rejectedQty + newRejected
+        actualProduced: targetPacked,
+        actualRejected: targetRejected
       });
       setAddPacked('');
       setAddRejected('');

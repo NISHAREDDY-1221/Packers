@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { workOrderService } from '../api/workOrderService';
+import { qualityCheckService } from '../api/qualityCheckService';
+import { repackingService } from '../api/repackingService';
+import apiClient from '../api/axios';
 
 export interface RecipeConfig {
   id: string;
@@ -199,9 +202,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const fetchApiData = async () => {
       try {
-        const res = await workOrderService.getWorkOrders();
-        if (res.data) {
-          const apiWOs = res.data.map((wo: any) => ({
+        const [woRes, qcRes, fgRes, rpRes] = await Promise.allSettled([
+          workOrderService.getWorkOrders({ limit: 500 }),
+          qualityCheckService.getQualityChecks({ limit: 500 }),
+          apiClient.get('/workflows/finished-goods', { params: { limit: 500 } }),
+          repackingService.getRepackingLogs({ limit: 500 }),
+        ]);
+
+        if (woRes.status === 'fulfilled' && woRes.value.data) {
+          const apiWOs = woRes.value.data.map((wo: any) => ({
             id: wo.id,
             woNo: wo.woNumber,
             date: wo.createdAt ? new Date(wo.createdAt).toISOString().split('T')[0] : '',
@@ -220,16 +229,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             batchNumber: wo.batchNumber || ''
           })) as WorkOrder[];
           
-          setWorkOrders(prev => {
-            const mockOnly = prev.filter(p => !p.id.includes('-')); // keep old mocks that don't have UUIDs maybe?
-            return [...apiWOs, ...mockOnly];
-          });
+          setWorkOrders(prev => apiWOs.length > 0 ? apiWOs : prev);
+        }
+
+        if (qcRes.status === 'fulfilled' && qcRes.value.data) {
+          const rawQCs = Array.isArray(qcRes.value.data) ? qcRes.value.data : (qcRes.value.data.data || []);
+          const mappedQCs: QualityCheck[] = rawQCs.map((q: any) => ({
+            id: q.id,
+            woId: q.woId,
+            woNo: q.workOrder?.woNumber || '—',
+            productName: q.workOrder?.product?.name || '—',
+            batchNo: q.workOrder?.batchNumber || '—',
+            inspectionType: 'Standard',
+            checkedQty: q.checkedQty || 0,
+            checks: q.checksPayload || {},
+            result: q.result === 'PASS' ? 'Pass' : q.result === 'PARTIAL_PASS' ? 'Partial Pass' : q.result === 'REWORK' ? 'Rework' : 'Reject',
+            severity: q.severity ? (q.severity.charAt(0) + q.severity.slice(1).toLowerCase()) as any : undefined,
+            failureReason: q.failureReason,
+            inspector: q.inspector?.name || 'Inspector',
+            remarks: q.remarks || '',
+            date: q.createdAt ? new Date(q.createdAt).toISOString().split('T')[0] : '',
+          }));
+          setQualityChecks(mappedQCs);
+        }
+
+        if (fgRes.status === 'fulfilled' && fgRes.value.data) {
+          const rawFGs = fgRes.value.data.data?.data || fgRes.value.data.data || [];
+          const mappedFGs: FinishedGoods[] = (Array.isArray(rawFGs) ? rawFGs : []).map((f: any) => ({
+            id: f.id,
+            woNo: f.workOrder?.woNumber || f.fgNumber || '—',
+            productName: f.product?.name || f.workOrder?.product?.name || '—',
+            batchNo: f.batchNumber || f.workOrder?.batchNumber || '—',
+            postedQty: f.postedQty || 0,
+            destination: f.destination || 'Warehouse',
+            postedAt: f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '',
+            costs: { rawMaterial: 0, packaging: 0, employee: 0, electricity: 0, machine: 0, transportation: 0, miscellaneous: 0, total: 0, costPerUnit: 0, profitMargin: 0 }
+          }));
+          setFinishedGoods(mappedFGs);
+        }
+
+        if (rpRes.status === 'fulfilled' && rpRes.value.data) {
+          const rawRPs = Array.isArray(rpRes.value.data) ? rpRes.value.data : (rpRes.value.data.data || []);
+          const mappedRPs: RepackingRecord[] = (Array.isArray(rawRPs) ? rawRPs : []).map((r: any) => ({
+            id: r.id,
+            sourceBatchNo: r.sourceWorkOrder?.batchNumber || '—',
+            productName: r.sourceWorkOrder?.product?.name || '—',
+            repackRecipeId: '',
+            repackType: r.repackType || 'Standard Repack',
+            recoverableQuantity: r.recoverableQty || 0,
+            wasteQuantity: r.wasteQty || 0,
+            newBatchNo: r.newBatchNumber || '—',
+            newLabelPrinted: true,
+            createdAt: r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : '',
+          }));
+          setRepackings(mappedRPs);
         }
       } catch (err) {
-        console.error('Failed to fetch API work orders in AppContext', err);
+        console.error('Failed to fetch API data in AppContext', err);
       }
     };
     fetchApiData();
+    const interval = setInterval(fetchApiData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const addRecipe = (recipe: RecipeConfig) => {

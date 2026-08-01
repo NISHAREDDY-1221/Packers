@@ -36,20 +36,6 @@ interface SearchResult {
   route: string;
 }
 
-const mockSearchData: SearchResult[] = [
-  { id: '1', type: 'recipe', title: 'Premium Coffee Beans Packing', subtitle: 'BOM-001 • Fruits & Veg', route: '/recipe-bom' },
-  { id: '2', type: 'recipe', title: 'Fresh Mangoes Packing 1kg', subtitle: 'BOM-002 • Fruits & Veg', route: '/recipe-bom' },
-  { id: '3', type: 'workOrder', title: 'WO #9876 - Premium Coffee Beans', subtitle: 'Priority: Urgent • Status: Approved', route: '/work-orders' },
-  { id: '4', type: 'workOrder', title: 'WO #9877 - Fresh Mangoes 1kg', subtitle: 'Priority: High • Status: Material Issued', route: '/work-orders' },
-  { id: '5', type: 'materialIssue', title: 'Material Issue MI-101', subtitle: 'WO #9877 • Status: Pending', route: '/material-issue' },
-  { id: '6', type: 'execution', title: 'Execution Panel - Operator 1', subtitle: 'WO #9876 • Packing Started', route: '/packing-execution' },
-  { id: '7', type: 'label', title: 'Barcode Label Templates', subtitle: '1D/2D QR templates', route: '/barcodes-labels' },
-  { id: '8', type: 'qc', title: 'QC Inspection Report - Batch A3', subtitle: 'WO #9876 • Result: Pass', route: '/quality-check' },
-  { id: '9', type: 'fg', title: 'Finished Goods Entry #204', subtitle: 'Store Posting • 450 units', route: '/finished-goods' },
-  { id: '10', type: 'repack', title: 'Repack Recovery - Batch M12', subtitle: 'Damaged Pack -> New Pack', route: '/repacking' },
-  { id: '11', type: 'report', title: 'Packing Efficiency Report', subtitle: 'Monthly Analytics', route: '/reports' },
-];
-
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -103,13 +89,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   };
 
   const searchResults = useMemo<SearchResult[]>(() => {
-    if (!searchQuery.trim()) return [];
-    const query = searchQuery.toLowerCase().trim();
-    return mockSearchData.filter(
-      (item) =>
-        item.title.toLowerCase().includes(query) ||
-        (item.subtitle && item.subtitle.toLowerCase().includes(query))
-    );
+    return [];
   }, [searchQuery]);
 
   useEffect(() => {

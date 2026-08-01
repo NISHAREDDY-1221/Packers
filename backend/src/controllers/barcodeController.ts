@@ -3,7 +3,13 @@ import { prisma } from '../utils/prisma';
 import { catchAsync } from '../utils/catchAsync';
 
 export const getPrintHistory = catchAsync(async (req: Request, res: Response) => {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const history = await prisma.labelPrintJob.findMany({
+    where: {
+      createdAt: {
+        gte: oneDayAgo,
+      },
+    },
     include: {
       WorkOrder: {
         include: {
@@ -15,7 +21,6 @@ export const getPrintHistory = catchAsync(async (req: Request, res: Response) =>
     orderBy: {
       createdAt: 'desc',
     },
-    take: 50,
   });
 
   const formatted = history.map((job: any) => ({
@@ -28,6 +33,7 @@ export const getPrintHistory = catchAsync(async (req: Request, res: Response) =>
     status: job.status,
     timestamp: job.createdAt,
     reprintReason: job.reprintReason,
+    printer: job.printer || 'Zebra ZD420 (Thermal)',
   }));
 
   res.status(200).json({ success: true, data: formatted });

@@ -9,6 +9,7 @@ export const submitQCSchema = z.object({
     failureReason: z.string().optional(),
     remarks: z.string().optional(),
     checksPayload: z.any(),
+    photoUrls: z.any().optional(),
   }),
 });
 

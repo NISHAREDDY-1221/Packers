@@ -90,5 +90,7 @@ const router = Router();
 router.post('/register', validate(registerSchema), register);
 router.post('/login', validate(loginSchema), login);
 router.get('/operators', require('../controllers/authController').getOperators);
+router.get('/users', require('../controllers/authController').getUsers);
+router.get('/qc-inspectors', require('../controllers/authController').getQCInspectors);
 
 export default router;

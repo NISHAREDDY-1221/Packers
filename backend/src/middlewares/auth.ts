@@ -30,6 +30,16 @@ export const authenticate = catchAsync(async (req: Request, res: Response, next:
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as JwtPayload;
+    
+    // Ensure user still exists in the database
+    const userExists = await require('../utils/prisma').prisma.user.findUnique({ 
+      where: { id: decoded.id } 
+    });
+    
+    if (!userExists) {
+      return next(new AppError(401, 'The user belonging to this token no longer exists.'));
+    }
+
     req.user = decoded;
     next();
   } catch (err) {

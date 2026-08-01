@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import type { WorkOrder } from '../context/AppContext';
-import { Printer, RefreshCw, Barcode, QrCode, ClipboardList, CheckCircle, AlertTriangle, UserCheck } from 'lucide-react';
+import { Printer, RefreshCw, Barcode, QrCode, ClipboardList, CheckCircle, AlertTriangle, UserCheck, Clock } from 'lucide-react';
 import { authService } from '../api/authService';
 import type { User } from '../api/authService';
 import { workOrderService } from '../api/workOrderService';
+import { barcodeService } from '../api/barcodeService';
 
 const PRINTERS = [
   'Zebra ZD420 (Thermal)',
@@ -28,13 +29,147 @@ interface PrintJob {
   assignedOperator?: string;
 }
 
-export const BarcodesLabels: React.FC = () => {
-  const { workOrders, recipes, updateWorkOrderStatus } = useApp();
+// Code 128 Barcode drawing function on Canvas
+const drawBarcode128 = (canvas: HTMLCanvasElement | null, text: string) => {
+  if (!canvas || !text) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Find work orders that have completed packing
+  // Code 128 pattern table
+  const PATTERNS: number[][] = [
+    [2, 1, 2, 2, 2, 2], [2, 2, 2, 1, 2, 2], [2, 2, 2, 2, 2, 1], [1, 2, 1, 2, 2, 3],
+    [1, 2, 1, 3, 2, 2], [1, 3, 1, 2, 2, 2], [1, 2, 2, 2, 1, 3], [1, 2, 2, 3, 1, 2],
+    [1, 3, 2, 2, 1, 2], [2, 2, 1, 2, 1, 3], [2, 2, 1, 3, 1, 2], [2, 3, 1, 2, 1, 2],
+    [1, 1, 2, 2, 3, 2], [1, 2, 2, 1, 3, 2], [1, 2, 2, 2, 3, 1], [1, 1, 3, 2, 2, 2],
+    [1, 2, 3, 1, 2, 2], [1, 2, 3, 2, 2, 1], [2, 2, 3, 2, 1, 1], [2, 2, 1, 1, 3, 2],
+    [2, 2, 1, 2, 3, 1], [2, 1, 3, 2, 1, 2], [2, 2, 3, 1, 1, 2], [3, 1, 2, 1, 3, 1],
+    [3, 1, 1, 2, 2, 2], [3, 2, 1, 1, 2, 2], [3, 2, 1, 2, 2, 1], [3, 1, 2, 2, 1, 2],
+    [3, 2, 2, 1, 1, 2], [3, 2, 2, 2, 1, 1], [2, 1, 2, 1, 2, 3], [2, 1, 2, 3, 2, 1],
+    [2, 3, 2, 1, 2, 1], [1, 1, 1, 3, 2, 3], [1, 3, 1, 1, 2, 3], [1, 3, 1, 3, 2, 1],
+    [1, 1, 2, 3, 1, 3], [1, 3, 2, 1, 1, 3], [1, 3, 2, 3, 1, 1], [2, 1, 1, 3, 1, 3],
+    [2, 3, 1, 1, 1, 3], [2, 3, 1, 3, 1, 1], [1, 1, 2, 1, 3, 3], [1, 1, 2, 3, 3, 1],
+    [1, 3, 2, 1, 3, 1], [1, 1, 3, 1, 2, 3], [1, 1, 3, 3, 2, 1], [1, 3, 3, 1, 2, 1],
+    [3, 1, 3, 1, 2, 1], [2, 1, 1, 3, 3, 1], [2, 3, 1, 1, 3, 1], [2, 1, 3, 1, 1, 3],
+    [2, 1, 3, 3, 1, 1], [2, 1, 3, 1, 3, 1], [3, 1, 1, 1, 2, 3], [3, 1, 1, 3, 2, 1],
+    [3, 3, 1, 1, 2, 1], [3, 1, 2, 1, 1, 3], [3, 1, 2, 3, 1, 1], [3, 3, 2, 1, 1, 1],
+    [3, 1, 4, 1, 1, 1], [2, 2, 1, 4, 1, 1], [4, 3, 1, 1, 1, 1], [1, 1, 1, 2, 2, 4],
+    [1, 1, 1, 4, 2, 2], [1, 2, 1, 1, 2, 4], [1, 2, 1, 4, 2, 1], [1, 4, 1, 1, 2, 2],
+    [1, 4, 1, 2, 2, 1], [1, 1, 2, 2, 1, 4], [1, 1, 2, 4, 1, 2], [1, 2, 2, 1, 1, 4],
+    [1, 2, 2, 4, 1, 1], [1, 4, 2, 1, 1, 2], [1, 4, 2, 2, 1, 1], [2, 4, 1, 2, 1, 1],
+    [2, 2, 1, 1, 1, 4], [4, 1, 3, 1, 1, 1], [2, 4, 1, 1, 1, 2], [1, 3, 4, 1, 1, 1],
+    [1, 1, 1, 2, 4, 2], [1, 2, 1, 1, 4, 2], [1, 2, 1, 2, 4, 1], [1, 1, 4, 2, 1, 2],
+    [1, 2, 4, 1, 1, 2], [1, 2, 4, 2, 1, 1], [4, 1, 1, 2, 1, 2], [4, 2, 1, 1, 1, 2],
+    [4, 2, 1, 2, 1, 1], [2, 1, 2, 1, 4, 1], [2, 1, 4, 1, 2, 1], [4, 1, 2, 1, 2, 1],
+    [1, 1, 1, 1, 4, 3], [1, 1, 1, 3, 4, 1], [1, 3, 1, 1, 4, 1], [1, 1, 4, 1, 1, 3],
+    [1, 1, 4, 3, 1, 1], [4, 1, 1, 1, 1, 3], [4, 1, 1, 3, 1, 1], [1, 1, 3, 1, 4, 1],
+    [1, 1, 4, 1, 3, 1], [3, 1, 1, 1, 4, 1], [4, 1, 1, 1, 3, 1], [2, 1, 1, 4, 1, 2],
+    [2, 1, 1, 2, 1, 4], [2, 1, 1, 2, 3, 2], [2, 3, 3, 1, 1, 1, 2]
+  ];
+
+  const getCharValue = (char: string) => {
+    const code = char.charCodeAt(0);
+    if (code >= 32 && code <= 126) return code - 32;
+    return 0;
+  };
+
+  const startValue = 104;
+  let checksum = startValue;
+  const codes = [startValue];
+
+  for (let i = 0; i < text.length; i++) {
+    const val = getCharValue(text[i]);
+    codes.push(val);
+    checksum += val * (i + 1);
+  }
+
+  const stopValue = 106;
+  codes.push(checksum % 103);
+  codes.push(stopValue);
+
+  let bars: number[] = [];
+  codes.forEach((c) => {
+    if (PATTERNS[c]) {
+      bars = bars.concat(PATTERNS[c]);
+    }
+  });
+  bars = bars.concat(PATTERNS[106]);
+
+  const scale = 3;
+  const barcodeWidth = bars.reduce((acc, curr) => acc + curr, 0) * scale;
+
+  canvas.width = Math.max(barcodeWidth, 200);
+  canvas.height = 100;
+
+  let x = 0;
+  let isBar = true;
+
+  bars.forEach((width) => {
+    const w = width * scale;
+    if (isBar) {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(x, 0, w, 100);
+    }
+    x += w;
+    isBar = !isBar;
+  });
+};
+
+export const BarcodesLabels: React.FC = () => {
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const { workOrders: contextWOs, recipes, updateWorkOrderStatus } = useApp();
+  const [apiWOs, setApiWOs] = useState<WorkOrder[]>([]);
+
+  const fetchWorkOrders = async () => {
+    try {
+      const res = await workOrderService.getWorkOrders();
+      if (res && Array.isArray(res.data)) {
+        const mapped = res.data.map((wo: any) => ({
+          id: wo.id,
+          woNo: wo.woNumber || wo.woNo,
+          date: wo.createdAt ? new Date(wo.createdAt).toISOString().split('T')[0] : '',
+          requestedBy: 'System',
+          priority: wo.priority ? (typeof wo.priority === 'string' ? wo.priority.charAt(0) + wo.priority.slice(1).toLowerCase() : 'Medium') : 'Medium',
+          category: wo.product?.category?.name || 'Unknown',
+          productName: wo.product?.name || wo.productName || '',
+          recipeId: wo.recipeId || '',
+          requiredQuantity: wo.requiredQty || wo.requiredQuantity || 0,
+          expectedCompletion: wo.expectedDate ? new Date(wo.expectedDate).toISOString().split('T')[0] : '',
+          assignedTeam: 'Packing',
+          supervisor: wo.operator?.name || wo.supervisor?.name || 'Unassigned',
+          status: wo.status,
+          progress: wo.actualProduced ? (wo.actualProduced / (wo.requiredQty || 1)) * 100 : 0,
+          actualProduced: wo.actualProduced || 0,
+          batchNumber: wo.batchNumber || ''
+        })) as WorkOrder[];
+        setApiWOs(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to fetch work orders in BarcodesLabels', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchWorkOrders();
+  }, []);
+
+  const workOrders = apiWOs.length > 0 ? apiWOs : contextWOs;
+
+  // Find work orders that have started/completed packing or label generation
   const readyWorkOrders = useMemo(() => {
     return workOrders.filter(w =>
-      ['PACKING_COMPLETED', 'LABELS_GENERATED'].includes(w.status)
+      [
+        'PACKING_STARTED',
+        'PACKING_IN_PROGRESS',
+        'PACKING_COMPLETED',
+        'LABELS_GENERATED',
+        'LABELS_PRINTED',
+        'LABEL_APPLICATION_ASSIGNED',
+        'LABEL_APPLICATION_IN_PROGRESS',
+        'LABELS_APPLIED',
+        'QC_PENDING'
+      ].includes(w.status)
     );
   }, [workOrders]);
 
@@ -49,7 +184,7 @@ export const BarcodesLabels: React.FC = () => {
       setSelectedWO(selectableWOs[0]);
     } else if (selectedWO) {
       const updated = workOrders.find(w => w.id === selectedWO.id);
-      if (updated && updated.status !== selectedWO.status) {
+      if (updated) {
         setSelectedWO(updated);
       }
     }
@@ -89,6 +224,9 @@ export const BarcodesLabels: React.FC = () => {
   const [expiryDate, setExpiryDate] = useState('');
   const [printQty, setPrintQty] = useState(1);
 
+  // Dynamic QR code URL
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(batchNo || sku || '9031123456789')}`;
+
   // Sync inputs when selected work order changes
   useEffect(() => {
     if (selectedWO) {
@@ -108,6 +246,13 @@ export const BarcodesLabels: React.FC = () => {
     }
   }, [selectedWO, recipes]);
 
+  // Draw barcode on preview canvas when fields change
+  useEffect(() => {
+    if (barcodeType !== 'QR Code' && previewCanvasRef.current) {
+      drawBarcode128(previewCanvasRef.current, batchNo || sku || '9031123456789');
+    }
+  }, [batchNo, sku, barcodeType, selectedWO]);
+
   // Real-time printer status validation error sync
   useEffect(() => {
     if (printerStatus === 'Offline') {
@@ -121,8 +266,49 @@ export const BarcodesLabels: React.FC = () => {
   const labelsRequired = selectedWO ? (selectedWO.actualProduced ?? selectedWO.requiredQuantity ?? 0) : 0;
   const [labelsPrinted, setLabelsPrinted] = useState(0);
 
-  // History state
+  // History state (Stores logs from the last 24 hours / 1 complete day)
   const [history, setHistory] = useState<PrintJob[]>([]);
+
+  // Helper to filter history for 1 complete day (24 hours)
+  const filterHistoryFor24h = (jobs: PrintJob[]): PrintJob[] => {
+    const now = new Date().getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000; // 24 hours
+    return jobs.filter(job => {
+      const jobTime = new Date(job.timestamp).getTime();
+      return !isNaN(jobTime) && (now - jobTime) <= oneDayMs;
+    });
+  };
+
+  // Fetch history from backend & local persistence (strictly 24-hour window)
+  const fetchPrintHistory = async () => {
+    try {
+      const res = await barcodeService.getPrintHistory();
+      if (res && res.success && Array.isArray(res.data)) {
+        const filtered = filterHistoryFor24h(res.data);
+        setHistory(filtered);
+        localStorage.setItem('reprint_history_logs_24h', JSON.stringify(filtered));
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to fetch print history from API, checking local storage cache', err);
+    }
+
+    // Fallback to localStorage cache
+    try {
+      const cached = localStorage.getItem('reprint_history_logs_24h');
+      if (cached) {
+        const parsed: PrintJob[] = JSON.parse(cached);
+        const filtered = filterHistoryFor24h(parsed);
+        setHistory(filtered);
+      }
+    } catch (e) {
+      console.error('Failed to parse cached history', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchPrintHistory();
+  }, []);
 
   // Validation / Warning alerts
   const [validationError, setValidationError] = useState('');
@@ -149,25 +335,152 @@ export const BarcodesLabels: React.FC = () => {
     }
   };
 
+  // Preview Banner state
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
+
   // Handle Preview Generation
-  const handleGeneratePreview = () => {
+  const handleGeneratePreview = (e?: React.MouseEvent | React.FormEvent) => {
+    if (e) e.preventDefault();
     setValidationError('');
     setSuccessBanner(null);
+    if (!selectedWO) return setValidationError('Please select a Work Order to preview.');
     if (!sku) return setValidationError('SKU is required.');
     if (!batchNo) return setValidationError('Batch Number is required.');
     if (mrp <= 0) return setValidationError('MRP must be greater than 0.');
     if (!mfgDate) return setValidationError('Manufacturing Date is required.');
     if (!expiryDate) return setValidationError('Expiry Date is required.');
     
-    // Trigger visual preview refresh
+    // Draw barcode
+    if (barcodeType !== 'QR Code' && previewCanvasRef.current) {
+      drawBarcode128(previewCanvasRef.current, batchNo || sku || '9031123456789');
+    }
+
+    setPreviewNotice(`Label preview generated successfully for ${selectedWO.productName || sku}!`);
+    setTimeout(() => setPreviewNotice(null), 4000);
+
+    const previewElement = document.getElementById('label-preview-card');
+    if (previewElement) {
+      previewElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // HTML5 Print Execution Engine via hidden iframe
+  const printLabels = (job: PrintJob, template: string, type: string) => {
+    let barcodeDataUrl = "";
+    if (type !== "QR Code") {
+      const offCanvas = document.createElement("canvas");
+      drawBarcode128(offCanvas, job.batchNo || job.sku || '9031123456789');
+      barcodeDataUrl = offCanvas.toDataURL("image/png");
+    }
+
+    const labelCards: string[] = [];
+    const productName = selectedWO?.productName || "Product Name";
+
+    const cardBody = `
+      <div class="label-card" style="width: 100mm; height: 50mm; display:flex; flex-direction:column; justify-content:space-between; padding:10px 14px; font-family:'Segoe UI',Arial,sans-serif; background:#fff; overflow:hidden; page-break-after:always; break-after:page; border:none; box-sizing:border-box;">
+        <div style="text-align:center; font-size:18px; font-weight:900; color:#00891D; letter-spacing:1px; text-transform:uppercase; border-bottom:1px solid #e5e7eb; padding-bottom:6px; margin-bottom:0;">
+          VILLAGKART RETAIL
+        </div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:#111827; margin-bottom:0; margin-top:4px;">
+          ${productName}
+        </div>
+        <div style="font-size:10px; color:#111827; line-height:1.4; padding:0 8%; flex-grow:1; display:flex; flex-direction:column; justify-content:center; margin:2px 0;">
+          <div style="display:flex; justify-content:space-between;">
+            <span>SKU: <b>${job.sku}</b></span>
+            <span>Batch: <b>${job.batchNo}</b></span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>Lot: <b>${lotNo || 'N/A'}</b></span>
+            <span>MRP: <b>₹${mrp || 0}.00</b></span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>MFG: ${mfgDate}</span>
+            <span>EXP: ${expiryDate}</span>
+          </div>
+        </div>
+        <div style="border-top:1px solid #e5e7eb; padding-top:6px; margin-top:auto;">
+          ${
+            type !== 'QR Code'
+              ? `<img src="${barcodeDataUrl}" style="width:100%; height:28px; image-rendering:pixelated; display:block;" alt="barcode" />`
+              : `<div style="display:flex;justify-content:center;"><img src="${qrCodeUrl}" style="width:35px;height:35px;" alt="QR" /></div>`
+          }
+        </div>
+      </div>
+    `;
+
+    for (let i = 0; i < job.printedQty; i++) {
+      labelCards.push(cardBody);
+    }
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const printWindow = iframe.contentWindow;
+    if (!printWindow) {
+      alert("Could not initialize print mechanism.");
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            @page { size: 100mm 50mm; margin: 0; }
+            body {
+              font-family: 'Segoe UI', Arial, sans-serif;
+              background: #fff;
+              width: 100mm;
+            }
+            .label-grid {
+              display: block;
+            }
+            @media print { body { background: #fff; } }
+          </style>
+        </head>
+        <body>
+          <div class="label-grid">
+            ${labelCards.join("")}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+                setTimeout(function() { 
+                  if (window.frameElement && window.frameElement.parentNode) {
+                    window.frameElement.parentNode.removeChild(window.frameElement);
+                  }
+                }, 500);
+              }, 100);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   // Handle Generate and Print
-  const handlePrint = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePrint = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
     setValidationError('');
     setSuccessBanner(null);
+    setPreviewNotice(null);
 
+    if (!selectedWO) {
+      setValidationError('Please select a Work Order first.');
+      return;
+    }
     // 1. Printer Connected Validation
     if (printerStatus === 'Offline') {
       setValidationError('Printer is Offline. Please check printer connection.');
@@ -175,7 +488,7 @@ export const BarcodesLabels: React.FC = () => {
     }
     // 2. Batch Number Available
     if (!batchNo) {
-      setValidationError('Batch Number is not available.');
+      setValidationError('Batch Number is required.');
       return;
     }
     // 3. MRP Configured
@@ -193,54 +506,89 @@ export const BarcodesLabels: React.FC = () => {
       setValidationError('Expiry Date is required.');
       return;
     }
-
-    // Success printing path
-    const jobId = `PRT-${Math.floor(100 + Math.random() * 900)}`;
-    const timestamp = new Date().toLocaleString();
+    if (printQty <= 0) {
+      setValidationError('Print quantity must be greater than 0.');
+      return;
+    }
 
     const operator = operators.find(o => o.id === assignedOperatorId);
-    
-    const newJob: PrintJob = {
-      id: jobId,
-      woNo: selectedWO?.woNo || 'N/A',
-      sku,
-      batchNo,
-      printedQty: printQty,
-      printer: selectedPrinter,
-      timestamp,
-      printedBy: selectedWO?.supervisor || 'Admin Manager',
-      status: 'Printed',
-      assignedOperator: operator ? operator.name : 'Unknown'
-    };
+    let createdJob: PrintJob | null = null;
 
-    setHistory([newJob, ...history]);
+    // Try backend API call first
+    try {
+      const res = await barcodeService.printLabels({
+        workOrderId: selectedWO.id,
+        batchNumber: batchNo,
+        barcodeType,
+        printedQty: printQty,
+        operatorId: assignedOperatorId,
+        printer: selectedPrinter,
+        labelTemplate
+      });
+
+      if (res && res.data) {
+        createdJob = {
+          id: res.data.id,
+          woNo: res.data.woNo || selectedWO.woNo,
+          sku: res.data.sku || sku,
+          batchNo: res.data.batchNo || batchNo,
+          printedQty: res.data.printedQty || printQty,
+          printer: selectedPrinter,
+          timestamp: res.data.timestamp || new Date().toISOString(),
+          printedBy: res.data.printedBy || selectedWO.supervisor || 'Admin Manager',
+          status: 'Printed',
+          assignedOperator: operator ? operator.name : 'Assigned Operator'
+        };
+      }
+    } catch (err) {
+      console.error('Print API failed, proceeding with local job state', err);
+    }
+
+    if (!createdJob) {
+      createdJob = {
+        id: `PRT-${Math.floor(100 + Math.random() * 900)}`,
+        woNo: selectedWO?.woNo || 'N/A',
+        sku,
+        batchNo,
+        printedQty: printQty,
+        printer: selectedPrinter,
+        timestamp: new Date().toISOString(),
+        printedBy: selectedWO?.supervisor || 'Admin Manager',
+        status: 'Printed',
+        assignedOperator: operator ? operator.name : 'Assigned Operator'
+      };
+    }
+
+    setHistory(prev => {
+      const updated = filterHistoryFor24h([createdJob!, ...prev]);
+      localStorage.setItem('reprint_history_logs_24h', JSON.stringify(updated));
+      return updated;
+    });
     setLabelsPrinted(prev => prev + printQty);
 
     setSuccessBanner({
       totalPrinted: printQty,
-      timestamp,
+      timestamp: new Date(createdJob.timestamp).toLocaleString(),
       printer: selectedPrinter,
-      jobId
+      jobId: createdJob.id
     });
 
     if (selectedWO) {
-      if (!selectedWO.id.startsWith('WO-')) {
-        // Backend WO
-        workOrderService.updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId })
-          .then(() => {
-            updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
-          }).catch(err => {
-            console.error('Failed to update work order via API', err);
-            updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
-          });
-      } else {
-        updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
-      }
+      workOrderService.updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId })
+        .then(() => {
+          updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
+        }).catch(err => {
+          console.error('Failed to update work order status via API', err);
+          updateWorkOrderStatus(selectedWO.id, 'LABEL_APPLICATION_ASSIGNED', { labelsPrinted: printQty, operatorId: assignedOperatorId });
+        });
     }
+
+    // Execute iframe printing with barcode graphic
+    printLabels(createdJob, labelTemplate, barcodeType);
   };
 
   // Handle Reprint Action
-  const handleReprint = (job: PrintJob) => {
+  const handleReprint = async (job: PrintJob) => {
     const reason = prompt('Please enter the reprint reason:');
     if (reason === null) return; // cancelled
     if (!reason.trim()) {
@@ -248,21 +596,58 @@ export const BarcodesLabels: React.FC = () => {
       return;
     }
 
-    const newJob: PrintJob = {
-      ...job,
-      id: `PRT-${Math.floor(100 + Math.random() * 900)}`,
-      timestamp: new Date().toLocaleString(),
-      status: 'Reprinted',
-      reprintReason: reason
-    };
+    let reprintJob: PrintJob | null = null;
 
-    setHistory([newJob, ...history]);
+    try {
+      const res = await barcodeService.reprintLabels({
+        jobId: job.id,
+        reprintReason: reason,
+        printedQty: job.printedQty
+      });
+
+      if (res.requiresApproval) {
+        alert(res.message || 'Reprint request sent for approval due to high quantity (> 100).');
+        return;
+      }
+
+      if (res && res.data) {
+        reprintJob = {
+          ...job,
+          id: res.data.id,
+          timestamp: res.data.timestamp || new Date().toISOString(),
+          status: 'Reprinted',
+          reprintReason: reason
+        };
+      }
+    } catch (err) {
+      console.error('Reprint API call failed, using local job state', err);
+    }
+
+    if (!reprintJob) {
+      reprintJob = {
+        ...job,
+        id: `PRT-${Math.floor(100 + Math.random() * 900)}`,
+        timestamp: new Date().toISOString(),
+        status: 'Reprinted',
+        reprintReason: reason
+      };
+    }
+
+    setHistory(prev => {
+      const updated = filterHistoryFor24h([reprintJob!, ...prev]);
+      localStorage.setItem('reprint_history_logs_24h', JSON.stringify(updated));
+      return updated;
+    });
+
     setSuccessBanner({
       totalPrinted: job.printedQty,
-      timestamp: newJob.timestamp,
+      timestamp: new Date(reprintJob.timestamp).toLocaleString(),
       printer: job.printer,
-      jobId: newJob.id
+      jobId: reprintJob.id
     });
+
+    // Execute iframe printing with barcode graphic
+    printLabels(reprintJob, labelTemplate, barcodeType);
   };
 
   return (
@@ -275,53 +660,65 @@ export const BarcodesLabels: React.FC = () => {
             <h2 className="text-base font-bold text-slate-800 dark:text-gray-150">Barcode & Label Generation</h2>
             <p className="text-xs text-slate-400 dark:text-gray-500">Select a completed work order to generate and print product labels.</p>
           </div>
-          <select
-            className="p-2 border border-slate-200 dark:border-gray-650 rounded-lg text-sm bg-slate-50 dark:bg-gray-700 text-slate-800 dark:text-gray-100 focus:ring-1 focus:ring-[#00891D]"
-            value={selectedWO?.id || ''}
-            onChange={(e) => {
-              const wo = selectableWOs.find(w => w.id === e.target.value);
-              if (wo) setSelectedWO(wo);
-            }}
-          >
-            {selectableWOs.map(w => (
-              <option key={w.id} value={w.id}>
-                {w.woNo} - {w.productName} ({w.status})
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              className="p-2 border border-slate-200 dark:border-gray-650 rounded-lg text-sm bg-slate-50 dark:bg-gray-700 text-slate-800 dark:text-gray-100 focus:ring-1 focus:ring-[#00891D]"
+              value={selectedWO?.id || ''}
+              onChange={(e) => {
+                const wo = selectableWOs.find(w => w.id === e.target.value);
+                if (wo) setSelectedWO(wo);
+              }}
+            >
+              {selectableWOs.length === 0 && (
+                <option value="">No packed products available for label printing</option>
+              )}
+              {selectableWOs.map(w => (
+                <option key={w.id} value={w.id}>
+                  {w.woNo} - {w.productName} ({w.status.replace(/_/g, ' ')})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => { fetchWorkOrders(); fetchPrintHistory(); }}
+              title="Refresh Data"
+              className="p-2 bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
         </div>
 
         {selectedWO && (
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 bg-slate-50 dark:bg-gray-750 p-4 rounded-lg text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 bg-slate-50 dark:bg-gray-750 p-4 rounded-xl text-xs border border-slate-200 dark:border-gray-700">
             <div>
-              <span className="block font-semibold text-slate-400 dark:text-gray-500">Work Order Number</span>
-              <span className="font-bold text-slate-800 dark:text-gray-200">{selectedWO.woNo}</span>
+              <span className="block text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1">Work Order Number</span>
+              <span className="font-mono font-bold text-slate-800 dark:text-gray-200">{selectedWO.woNo}</span>
             </div>
             <div>
-              <span className="block font-semibold text-slate-400 dark:text-gray-500">Product Name</span>
-              <span className="font-bold text-slate-800 dark:text-gray-200">{selectedWO.productName}</span>
+              <span className="block text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1">Product Name</span>
+              <span className="font-semibold text-slate-800 dark:text-gray-200 truncate block">{selectedWO.productName}</span>
             </div>
             <div>
-              <span className="block font-semibold text-slate-400 dark:text-gray-500">Recipe/BOM</span>
-              <span className="font-bold text-slate-805 dark:text-gray-200">{selectedWO.recipeId}</span>
+              <span className="block text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1">Recipe/BOM</span>
+              <span className="font-mono font-bold text-slate-800 dark:text-gray-200 truncate block max-w-[150px]" title={selectedWO.recipeId}>{selectedWO.recipeId}</span>
             </div>
             <div>
-              <span className="block font-semibold text-slate-400 dark:text-gray-500">Batch Number</span>
-              <span className="font-bold text-slate-800 dark:text-gray-200 font-mono">{batchNo || 'N/A'}</span>
+              <span className="block text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1">Batch Number</span>
+              <span className="font-mono font-bold text-slate-800 dark:text-gray-200">{batchNo || 'N/A'}</span>
             </div>
             <div>
-              <span className="block font-semibold text-slate-400 dark:text-gray-500">Packed Quantity</span>
-              <span className="font-bold text-slate-808 dark:text-gray-200">{selectedWO.actualProduced || selectedWO.requiredQuantity}</span>
+              <span className="block text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1">Packed Quantity</span>
+              <span className="font-bold text-slate-900 dark:text-gray-200">{selectedWO.actualProduced || selectedWO.requiredQuantity} Units</span>
             </div>
             <div>
-              <span className="block font-semibold text-slate-400 dark:text-gray-500">Packing Status</span>
-              <span className={`inline-block px-2 py-0.5 rounded-full font-bold border ${getStatusColor(selectedWO.status)}`}>
+              <span className="block text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1">Packing Status</span>
+              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${getStatusColor(selectedWO.status)}`}>
                 {selectedWO.status}
               </span>
             </div>
             <div>
-              <span className="block font-semibold text-slate-400 dark:text-gray-500">Workflow Status</span>
-              <span className="inline-block px-2 py-0.5 rounded-full font-bold border bg-indigo-50 border-indigo-200 text-indigo-700">
+              <span className="block text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1">Workflow Status</span>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-indigo-50 border-indigo-200 text-indigo-700 whitespace-nowrap">
                 {
                   selectedWO.status === 'LABELS_APPLIED' ? 'Labels Applied' :
                   selectedWO.status === 'LABEL_APPLICATION_IN_PROGRESS' ? 'Application In Progress' :
@@ -345,6 +742,14 @@ export const BarcodesLabels: React.FC = () => {
             <div><span className="font-medium text-slate-500 dark:text-gray-400">Printer Used:</span> <span className="font-bold text-slate-800 dark:text-gray-200">{successBanner.printer}</span></div>
             <div><span className="font-medium text-slate-500 dark:text-gray-400">Print Job ID:</span> <span className="font-bold text-slate-800 dark:text-gray-200 font-mono">{successBanner.jobId}</span></div>
           </div>
+        </div>
+      )}
+
+      {/* Preview Success Banner */}
+      {previewNotice && (
+        <div className="bg-blue-50 border border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/30 text-blue-800 dark:text-blue-400 p-4 rounded-xl flex items-center gap-3">
+          <CheckCircle className="text-blue-600 dark:text-blue-400 shrink-0" size={18} />
+          <span className="text-xs font-bold">{previewNotice}</span>
         </div>
       )}
 
@@ -557,76 +962,55 @@ export const BarcodesLabels: React.FC = () => {
           </div>
         </div>
 
-        {/* Center Column: Enhanced Label Preview */}
-        <div className="lg:col-span-1 bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4">
+        {/* Center Column: Reference Label Preview Template from dummy-main */}
+        <div id="label-preview-card" className="lg:col-span-1 bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 rounded-xl p-5 shadow-xs flex flex-col justify-between space-y-4">
           <div>
             <h3 className="font-bold text-slate-800 dark:text-gray-200 text-sm flex items-center gap-2 border-b border-slate-100 dark:border-gray-750 pb-3 mb-4">
-              <Barcode size={18} className="text-indigo-600 dark:text-indigo-400" />
+              <Barcode size={18} className="text-[#00891D]" />
               <span>Label Preview Template</span>
             </h3>
 
-            {/* Enhanced Thermal Retail Label Preview */}
-            <div className="border-2 border-dashed border-slate-300 dark:border-gray-600 rounded-lg p-5 font-mono text-xs text-slate-800 dark:text-gray-150 bg-white dark:bg-gray-900 space-y-4 max-w-sm mx-auto shadow-xs">
-              <div className="text-center border-b border-slate-200 dark:border-gray-750 pb-2 flex flex-col items-center">
-                <span className="font-bold text-sm tracking-wider uppercase text-[#00891D]">VillagKart Retail</span>
-                <span className="text-[8px] block text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">Rural Hub Packaging Unit</span>
+            {/* Label preview matching reference design */}
+            <div style={{ background: '#fff', border: '1.5px solid #d1d5db', borderRadius: 12, padding: '14px 18px', maxWidth: 380, margin: '0 auto', fontFamily: "'Segoe UI', Arial, sans-serif", display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 220 }}>
+              {/* Brand Header */}
+              <div style={{ textAlign: 'center', fontSize: 20, fontWeight: 900, color: '#00891D', letterSpacing: 1, textTransform: 'uppercase', borderBottom: '1.5px solid #e5e7eb', paddingBottom: 8, marginBottom: 0 }}>
+                VILLAGKART RETAIL
               </div>
 
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">Product:</span>
-                  <span className="font-bold text-right max-w-[150px] truncate">{selectedWO?.productName || 'No Product Selected'}</span>
+              {/* Product Name */}
+              <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 0, marginTop: 6 }}>
+                {selectedWO?.productName || 'Select a Work Order'}
+              </div>
+
+              {/* 2-column info grid */}
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: '#111827', padding: '0 8%', flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', margin: '4px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>SKU: <b>{sku || '—'}</b></span>
+                  <span>Batch: <b style={{ fontFamily: 'monospace', fontSize: 11 }}>{batchNo || '—'}</b></span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">SKU:</span>
-                  <span className="font-bold">{sku || 'N/A'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Lot: <b style={{ fontFamily: 'monospace' }}>{lotNo || '—'}</b></span>
+                  <span>MRP: <b>₹{mrp || 0}.00</b></span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">BATCH:</span>
-                  <span className="font-bold">{batchNo || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">LOT:</span>
-                  <span className="font-bold">{lotNo || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-450 dark:text-gray-500">FORMAT:</span>
-                  <span className="font-bold">{barcodeType}</span>
-                </div>
-                <div className="flex justify-between border-t border-dashed border-slate-200 dark:border-gray-750 pt-1.5 mt-1.5">
-                  <span className="text-slate-450 dark:text-gray-500">MRP:</span>
-                  <span className="font-bold text-[#00891D]">₹{mrp || 0}.00 <span className="text-[9px] font-normal text-slate-400 dark:text-gray-500">(Incl. Taxes)</span></span>
-                </div>
-                <div className="flex justify-between text-[9px] pt-1 text-slate-500 dark:text-gray-400">
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#374151' }}>
                   <span>MFG: {mfgDate || 'YYYY-MM-DD'}</span>
                   <span>EXP: {expiryDate || 'YYYY-MM-DD'}</span>
                 </div>
               </div>
 
-              {/* Dynamic Barcode graphic */}
-              <div className="flex flex-col items-center justify-center pt-2 border-t border-slate-200 dark:border-gray-750">
+              {/* Barcode / QR */}
+              <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 'auto', paddingTop: 8 }}>
                 {barcodeType !== 'QR Code' ? (
-                  <>
-                    <div className="w-full h-10 bg-slate-900 dark:bg-gray-800 flex gap-0.5 px-3 py-1 items-stretch rounded-xs">
-                      {Array.from({ length: 48 }).map((_, i) => (
-                        <div key={i} className={`flex-1 bg-white ${i % 3 === 0 || i % 7 === 0 ? 'opacity-0' : 'opacity-100'}`}></div>
-                      ))}
-                    </div>
-                    <span className="text-[9px] text-slate-400 mt-1 font-mono tracking-widest uppercase">{barcodeType}: {batchNo || '9031123456789'}</span>
-                  </>
+                  <canvas
+                    ref={previewCanvasRef}
+                    style={{ width: '100%', height: 72, display: 'block', imageRendering: 'pixelated' }}
+                  />
                 ) : (
-                  <div className="flex flex-col items-center gap-1">
-                    <QrCode size={48} className="text-slate-900 dark:text-gray-200 border border-slate-200 dark:border-gray-750 p-1 bg-white rounded" />
-                    <span className="text-[9px] text-slate-400 font-mono">QR Label Format</span>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <img src={qrCodeUrl} style={{ width: 80, height: 80 }} alt="QR" />
                   </div>
                 )}
               </div>
-
-              {barcodeType !== 'QR Code' && (
-                <div className="flex justify-center pt-1">
-                  <QrCode size={30} className="text-slate-900 dark:text-gray-200 border border-slate-200 dark:border-gray-750 p-0.5 bg-white rounded" />
-                </div>
-              )}
             </div>
           </div>
 
@@ -650,7 +1034,7 @@ export const BarcodesLabels: React.FC = () => {
           </div>
 
           {/* Label Application Progress Card */}
-          <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 p-4 rounded-xl text-xs space-y-2 mt-4">
+          <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 p-4 rounded-xl text-xs space-y-2">
             <div className="flex justify-between items-center">
               <span className="font-bold text-indigo-800 dark:text-indigo-400 block uppercase text-[10px] tracking-wider">Application Progress</span>
               <span className="text-[9px] text-indigo-500 font-medium">Auto-updating</span>
@@ -689,52 +1073,63 @@ export const BarcodesLabels: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Expanded Reprint History */}
+        {/* Right Column: Expanded Reprint History (Retained for 1 Complete Day / 24 Hours) */}
         <div className="lg:col-span-1 bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 rounded-xl p-5 shadow-xs space-y-4">
-          <h3 className="font-bold text-slate-808 dark:text-gray-200 text-sm flex items-center gap-2 border-b border-slate-100 dark:border-gray-750 pb-3">
-            <ClipboardList size={18} className="text-slate-500" />
-            <span>Reprint History & Logs</span>
-          </h3>
+          <div className="border-b border-slate-100 dark:border-gray-750 pb-3 flex justify-between items-center">
+            <h3 className="font-bold text-slate-808 dark:text-gray-200 text-sm flex items-center gap-2">
+              <ClipboardList size={18} className="text-slate-500" />
+              <span>Reprint History & Logs</span>
+            </h3>
+            <span className="text-[10px] text-slate-400 dark:text-gray-400 bg-slate-100 dark:bg-gray-700 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold">
+              <Clock size={10} /> 24h Window
+            </span>
+          </div>
 
           <div className="space-y-3 max-h-[460px] overflow-y-auto sidebar-scrollbar pr-1">
-            {history.map((job) => (
-              <div key={job.id} className="p-3 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-750/30 text-xs space-y-1.5 transition-colors">
-                <div className="flex justify-between items-center">
-                  <span className="font-mono font-bold text-slate-500 dark:text-gray-400">{job.id}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                    job.status === 'Reprinted' ? 'bg-amber-100 text-amber-805' : 'bg-green-100 text-green-905'
-                  }`}>
-                    {job.status}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-y-1 text-slate-600 dark:text-gray-400 text-[11px]">
-                  <div><span className="text-slate-400">WO:</span> <span className="font-medium">{job.woNo}</span></div>
-                  <div><span className="text-slate-400">SKU:</span> <span className="font-medium">{job.sku}</span></div>
-                  <div><span className="text-slate-400">Batch:</span> <span className="font-mono">{job.batchNo}</span></div>
-                  <div><span className="text-slate-400">Printed:</span> <span className="font-bold">{job.printedQty} labels</span></div>
-                  <div><span className="text-slate-400">By:</span> <span className="font-medium">{job.printedBy}</span></div>
-                  <div className="col-span-2 mt-1"><span className="text-slate-400">Assigned To:</span> <span className="font-bold text-indigo-700 dark:text-indigo-400">{job.assignedOperator || 'Unknown'}</span></div>
-                </div>
-                
-                {job.reprintReason && (
-                  <div className="bg-amber-50 dark:bg-amber-950/20 p-2 rounded border border-amber-100 dark:border-amber-900/30 text-[10px] text-amber-800 dark:text-amber-450 mt-1.5 font-medium">
-                    <span className="font-bold">Reason:</span> {job.reprintReason}
-                  </div>
-                )}
-                
-                <div className="flex justify-between items-center border-t border-slate-100 dark:border-gray-750 pt-2 mt-2">
-                  <span className="text-[10px] text-slate-400 font-mono">{job.timestamp}</span>
-                  <button
-                    onClick={() => handleReprint(job)}
-                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-gray-700 rounded border border-slate-200 dark:border-gray-650 text-slate-600 dark:text-gray-300 transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold"
-                    title="Reprint Job"
-                  >
-                    <RefreshCw size={11} />
-                    <span>Reprint</span>
-                  </button>
-                </div>
+            {history.length === 0 ? (
+              <div className="text-center text-slate-400 dark:text-gray-500 py-8 text-xs">
+                No print jobs in the last 24 hours.
               </div>
-            ))}
+            ) : (
+              history.map((job) => (
+                <div key={job.id} className="p-3 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-750/30 text-xs space-y-1.5 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono font-bold text-slate-500 dark:text-gray-400">{job.id}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                      job.status === 'Reprinted' ? 'bg-amber-100 text-amber-805' : 'bg-green-100 text-green-905'
+                    }`}>
+                      {job.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-1 text-slate-600 dark:text-gray-400 text-[11px]">
+                    <div><span className="text-slate-400">WO:</span> <span className="font-medium">{job.woNo}</span></div>
+                    <div><span className="text-slate-400">SKU:</span> <span className="font-medium">{job.sku}</span></div>
+                    <div><span className="text-slate-400">Batch:</span> <span className="font-mono">{job.batchNo}</span></div>
+                    <div><span className="text-slate-400">Printed:</span> <span className="font-bold">{job.printedQty} labels</span></div>
+                    <div><span className="text-slate-400">By:</span> <span className="font-medium">{job.printedBy}</span></div>
+                    <div className="col-span-2 mt-1"><span className="text-slate-400">Assigned To:</span> <span className="font-bold text-indigo-700 dark:text-indigo-400">{job.assignedOperator || 'Unknown'}</span></div>
+                  </div>
+                  
+                  {job.reprintReason && (
+                    <div className="bg-amber-50 dark:bg-amber-950/20 p-2 rounded border border-amber-100 dark:border-amber-900/30 text-[10px] text-amber-800 dark:text-amber-450 mt-1.5 font-medium">
+                      <span className="font-bold">Reason:</span> {job.reprintReason}
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center border-t border-slate-100 dark:border-gray-750 pt-2 mt-2">
+                    <span className="text-[10px] text-slate-400 font-mono">{new Date(job.timestamp).toLocaleString()}</span>
+                    <button
+                      onClick={() => handleReprint(job)}
+                      className="p-1.5 hover:bg-slate-100 dark:hover:bg-gray-700 rounded border border-slate-200 dark:border-gray-650 text-slate-600 dark:text-gray-300 transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold"
+                      title="Reprint Job"
+                    >
+                      <RefreshCw size={11} />
+                      <span>Reprint</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

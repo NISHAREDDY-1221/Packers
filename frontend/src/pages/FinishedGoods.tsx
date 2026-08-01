@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import type { FinishedGoods as IFG } from '../context/AppContext';
-import { Archive, X, Search, Calculator, CheckCircle } from 'lucide-react';
+import { Package, Filter, Archive, CheckCircle, Clock, X, Calculator, DollarSign } from 'lucide-react';
+import Breadcrumbs from '../components/common/Breadcrumbs';
+import { StatCard, DataTable, SearchInput, SelectInput } from '../components/ui';
 
 const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return '—';
@@ -94,151 +96,207 @@ export const FinishedGoods: React.FC = () => {
     setFormWoNo('');
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Search and posting trigger */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-        <div className="relative flex-1 max-w-md w-full">
-          <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search finished goods ledger..."
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  const unifiedData = useMemo(() => {
+    const data: any[] = [];
+    pendingFG_WOs.forEach(wo => {
+      const qc = qualityChecks.find(q => q.woId === wo.id && ['Pass', 'Partial Pass'].includes(q.result));
+      const batchNo = wo.batchNumber || qc?.batchNo || `BATCH-2026-${wo.woNo.split('-').pop()}`;
+      const approvedQty = wo.actualProduced || qc?.checkedQty || 0;
+      data.push({
+        _type: 'PENDING',
+        id: `FG-PENDING-${wo.woNo}`,
+        woNo: wo.woNo,
+        productName: wo.productName,
+        batchNo: batchNo,
+        postedQty: approvedQty,
+        destination: '-',
+        costPerUnit: 0,
+        status: 'Pending Post',
+        rawWoNo: wo.woNo
+      });
+    });
+    
+    finishedGoods.forEach(fg => {
+      data.push({
+        _type: 'POSTED',
+        id: fg.id,
+        woNo: fg.woNo,
+        productName: fg.productName,
+        batchNo: fg.batchNo,
+        postedQty: fg.postedQty,
+        destination: fg.destination,
+        costPerUnit: fg.costs?.costPerUnit || 0,
+        status: 'Posted',
+        rawFg: fg
+      });
+    });
+    return data;
+  }, [pendingFG_WOs, finishedGoods, qualityChecks]);
+
+  const filteredData = useMemo(() => {
+    let result = unifiedData;
+    if (statusFilter && statusFilter !== '') {
+      result = result.filter(row => row.status === statusFilter);
+    }
+    if (search) {
+      const term = search.toLowerCase();
+      result = result.filter(row => 
+        row.productName.toLowerCase().includes(term) || 
+        row.woNo.toLowerCase().includes(term) || 
+        row.batchNo.toLowerCase().includes(term)
+      );
+    }
+    return result;
+  }, [unifiedData, search, statusFilter]);
+
+  const totalUnitsPosted = finishedGoods.reduce((acc, fg) => acc + (fg.postedQty || 0), 0);
+  const avgCostPerUnit = finishedGoods.length > 0 ? (finishedGoods.reduce((acc, fg) => acc + (fg.costs?.costPerUnit || 0), 0) / finishedGoods.length).toFixed(2) : 0;
+
+  const columns = [
+    {
+      key: 'woNo', label: 'REF ID / WO NO', sortable: true,
+      render: (row: any) => (
+        <div className="py-0.5">
+          <div className="font-mono text-xs font-bold text-gray-900">{row._type === 'POSTED' ? row.id : 'Pending Post'}</div>
+          <div className="font-mono text-[10px] font-semibold text-gray-400">{row.woNo}</div>
         </div>
+      )
+    },
+    {
+      key: 'productName', label: 'PRODUCT NAME', sortable: true,
+      render: (row: any) => (
+        <div className="font-semibold text-xs text-gray-900 max-w-[220px] truncate">{row.productName}</div>
+      )
+    },
+    {
+      key: 'batchNo', label: 'BATCH NO', sortable: true,
+      render: (row: any) => (
+        <span className="font-mono text-xs font-medium text-gray-700 bg-gray-100/80 px-2 py-0.5 rounded border border-gray-200/60">
+          {row.batchNo}
+        </span>
+      )
+    },
+    {
+      key: 'postedQty', label: 'QTY', sortable: true,
+      render: (row: any) => (
+        <div className="font-bold text-center text-xs text-gray-900">{row.postedQty}</div>
+      )
+    },
+    {
+      key: 'status', label: 'STATUS', sortable: true,
+      render: (row: any) => (
+        <div className="text-center">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${row._type === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${row._type === 'PENDING' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+            {row.status}
+          </span>
+        </div>
+      )
+    },
+    {
+      key: 'actions', label: 'ACTION', sortable: false,
+      render: (row: any) => (
+        <div className="flex justify-end pr-2">
+          {row._type === 'PENDING' ? (
+             <button onClick={() => { handleSelectWO(row.rawWoNo); setIsPostOpen(true); }} className="bg-[#00891D] hover:bg-[#006b17] text-white font-bold px-3 py-1 rounded-lg text-xs transition-colors cursor-pointer flex items-center gap-1">
+               <Archive size={14} /> Post
+             </button>
+          ) : (
+             <button onClick={() => setSelectedFG(row.rawFg)} className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center gap-1">
+               <Calculator size={14} /> Costs
+             </button>
+          )}
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="w-full px-1 sm:px-2 md:px-3 pb-4">
+      <div className="mb-2 mt-3 flex justify-between items-end">
+        <div>
+          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">
+            Finished Goods
+          </h1>
+          <Breadcrumbs />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-full mb-6">
+        <StatCard title="Pending Postings" value={pendingFG_WOs.length} icon={Clock} variant="yellow" />
+        <StatCard title="Total Posted Logs" value={finishedGoods.length} icon={CheckCircle} variant="green" />
+        <StatCard title="Total Units Posted" value={totalUnitsPosted} icon={Package} variant="purple" />
+        <StatCard title="Avg Cost / Unit" value={`₹${avgCostPerUnit}`} icon={DollarSign} variant="blue" />
+      </div>
+
+      <div className="mt-2 mb-6 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center divide-y sm:divide-y-0 sm:divide-x divide-gray-300 dark:divide-gray-600 w-full sm:w-auto overflow-hidden">
+          <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-center flex-shrink-0">
+            <Filter size={18} className="text-gray-700" />
+          </div>
+
+          <div className="px-3 sm:px-4 py-3 sm:py-4 w-[150px] relative flex-shrink-0">
+            <div className="[&_select]:border-0 [&_select]:bg-transparent [&_select]:focus:ring-0 [&_select]:text-xs sm:text-sm [&_select]:font-bold [&_select]:text-gray-900 [&_select]:w-full">
+              <SelectInput
+                value={statusFilter}
+                onChange={(e: any) => setStatusFilter(e.target.value)}
+                options={[
+                  { value: '', label: 'Status' },
+                  { value: 'Pending Post', label: 'Pending Post' },
+                  { value: 'Posted', label: 'Posted' }
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="px-3 sm:px-4 py-3 sm:py-4 flex-1 min-w-[200px]">
+            <SearchInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search FG ledger..."
+              className="border-0 bg-transparent p-0 h-auto focus:ring-0 text-sm w-full"
+            />
+          </div>
+
+          <div className="px-3 sm:px-4 py-3 sm:py-4 flex-shrink-0 bg-gray-50 flex items-center justify-center">
+            <button
+              onClick={() => { setSearch(''); setStatusFilter(''); }}
+              className="text-xs font-bold text-gray-500 hover:text-gray-900 uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        
         <button
           onClick={() => setIsPostOpen(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 sm:py-4 rounded-xl text-sm font-bold shadow-md transition-colors whitespace-nowrap justify-center cursor-pointer flex-shrink-0"
         >
-          <Archive size={16} />
+          <Archive size={18} />
           <span>Post Finished Goods</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
-        {/* Pending Postings list */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs lg:col-span-1 space-y-4">
-          <h3 className="font-bold text-slate-800 text-sm border-b border-slate-150 pb-3">QC Approved Batches</h3>
-          
-          <div className="space-y-3">
-            {pendingFG_WOs.map(wo => {
-              const qc = qualityChecks.find(q => q.woId === wo.id && ['Pass', 'Partial Pass'].includes(q.result));
-              const batchNo = wo.batchNumber || qc?.batchNo || `BATCH-2026-${wo.woNo.split('-').pop()}`;
-              const approvedQty = wo.actualProduced || qc?.checkedQty || 0;
-              const rejectedQty = wo.actualRejected || 0;
-              const qcDate = qc?.completionTime || qc?.date || wo.lastUpdated;
-              const inspector = qc?.inspector || wo.supervisor || 'System Auto-Passed';
-
-              return (
-                <div
-                  key={wo.id}
-                  className="p-4 border border-slate-200 hover:border-slate-300 rounded-xl bg-slate-50 transition-all space-y-3 text-xs"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">QC ID</div>
-                      <div className="font-mono font-bold text-slate-700">{qc?.id || `QC-${wo.woNo}`}</div>
-                    </div>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold uppercase tracking-wide">QC Passed</span>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{wo.productName}</h4>
-                    <div className="text-slate-500 font-mono text-[10px]">{wo.woNo}</div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Batch Number</span>
-                      <span className="font-mono font-medium text-slate-700">{batchNo}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">QC Approved</span>
-                      <span className="font-medium text-slate-700">{formatDateTime(qcDate)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Approved Qty</span>
-                      <span className="font-medium text-slate-700">{approvedQty} units</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Waste Qty</span>
-                      <span className="font-medium text-slate-700">{rejectedQty} units</span>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Inspector Name</span>
-                      <span className="font-medium text-slate-700">{inspector}</span>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => { handleSelectWO(wo.woNo); setIsPostOpen(true); }}
-                    className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Archive size={14} />
-                    Post to Finished Goods
-                  </button>
-                </div>
-              );
-            })}
-            {pendingFG_WOs.length === 0 && (
-              <div className="text-center py-8 text-xs text-slate-400 border border-dashed border-slate-200 rounded-lg">
-                No pending postings. Queue empty.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Ledger list */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs lg:col-span-2 space-y-4">
-          <h3 className="font-bold text-slate-800 text-sm border-b border-slate-150 pb-3">Finished Goods Ledger</h3>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                  <th className="p-3">FG ID</th>
-                  <th className="p-3">Work Order</th>
-                  <th className="p-3">Product Name</th>
-                  <th className="p-3 font-mono">Batch Number</th>
-                  <th className="p-3 text-center">Posted Qty</th>
-                  <th className="p-3">Destination</th>
-                  <th className="p-3 text-center">Cost Per Unit</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {finishedGoods.filter(fg => fg.productName.toLowerCase().includes(search.toLowerCase())).map((fg) => (
-                  <tr key={fg.id} className="hover:bg-slate-50/50">
-                    <td className="p-3 font-mono font-semibold text-slate-500">{fg.id}</td>
-                    <td className="p-3 font-mono">{fg.woNo}</td>
-                    <td className="p-3 font-semibold text-slate-900">{fg.productName}</td>
-                    <td className="p-3 font-mono text-[11px]">{fg.batchNo}</td>
-                    <td className="p-3 text-center font-bold">{fg.postedQty}</td>
-                    <td className="p-3 font-medium text-indigo-600">{fg.destination}</td>
-                    <td className="p-3 text-center font-bold">₹{fg.costs.costPerUnit}</td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => setSelectedFG(fg)}
-                        className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-2 py-1 rounded cursor-pointer"
-                      >
-                        Costs Matrix
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {finishedGoods.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="p-6 text-center text-slate-400">
-                      No stock postings registered.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden mb-6">
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          keyExtractor={(row: any) => row.id}
+          onSort={(field) => {
+            if (sortField === field) {
+              setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+            } else {
+              setSortField(field);
+              setSortDirection('desc');
+            }
+          }}
+          sortField={sortField}
+          sortDirection={sortDirection}
+        />
       </div>
 
       {/* Cost Detail Modal */}

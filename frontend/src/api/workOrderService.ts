@@ -1,7 +1,7 @@
 import apiClient from './axios';
 import type { Product, Recipe } from './masterDataService';
 
-export type WoStatus = 'DRAFT' | 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'MATERIAL_ISSUED' | 'PACKING_STARTED' | 'PACKING_IN_PROGRESS' | 'PACKING_COMPLETED' | 'LABELS_GENERATED' | 'LABELS_PRINTED' | 'LABEL_APPLICATION_ASSIGNED' | 'LABEL_APPLICATION_IN_PROGRESS' | 'LABELS_APPLIED' | 'QC_PENDING' | 'QC_IN_PROGRESS' | 'QC_PASSED' | 'QC_FAILED' | 'REPACKING' | 'FINISHED_GOODS' | 'COMPLETED' | 'CANCELLED';
+export type WoStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'MATERIAL_ISSUED' | 'PACKING_STARTED' | 'PACKING_IN_PROGRESS' | 'PACKING_COMPLETED' | 'LABEL_APPLICATION_ASSIGNED' | 'LABEL_APPLICATION_IN_PROGRESS' | 'LABELS_APPLIED' | 'QC_PENDING' | 'QC_PASSED' | 'COMPLETED' | 'CANCELLED';
 
 export type WoPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
@@ -48,7 +48,7 @@ export interface MaterialIssueRecord {
 
 export const workOrderService = {
   async getWorkOrders(params?: Record<string, any>): Promise<{ data: WorkOrder[]; total: number; page: number }> {
-    const res = await apiClient.get<any>('/work-orders', { params });
+    const res = await apiClient.get<any>('/work-orders', { params: { limit: 500, ...params } });
     // Handle nested data structures correctly (based on backend sendResponse wrapping)
     const result = res.data.data;
     if (result && Array.isArray(result.data)) {

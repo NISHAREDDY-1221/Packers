@@ -36,6 +36,7 @@ export const errorHandler = (
   }
 
   logger.error(`${error.statusCode} - ${error.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
+  if (error.stack) logger.error(error.stack);
 
-  sendResponse(res, error.statusCode, error.message);
+  sendResponse(res, error.statusCode, error.message, error.stack);
 };

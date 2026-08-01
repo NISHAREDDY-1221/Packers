@@ -32,11 +32,12 @@ export const ActiveQCInspection: React.FC = () => {
   // Modals state
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
+  const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
+
   const fetchActiveJob = async () => {
     try {
-      const response = await workOrderService.getWorkOrders();
-      // QC Inspector's active job is usually in QC_PENDING
-      const job = response.data.find((wo) => wo.status === 'QC_PENDING');
+      const response = await workOrderService.getWorkOrders({ limit: 500 });
+      const job = (response.data || []).find((wo) => QC_STATUSES.includes(wo.status));
       setActiveJob(job || null);
     } catch (err) {
       console.error('Failed to fetch active job', err);
@@ -180,7 +181,7 @@ export const ActiveQCInspection: React.FC = () => {
       // Submit Quality Check
       const payload = {
         woId: activeJob.id,
-        checkedQty: activeJob.actualProduced || activeJob.requiredQty,
+        checkedQty: Math.max(1, activeJob.actualProduced || activeJob.requiredQty || 1),
         result: failedItems > 0 ? 'REWORK' : 'PASS',
         severity: failedItems > 0 ? 'MAJOR' : undefined,
         failureReason: failedItems > 0 ? 'Failed QC Checkpoints' : undefined,
@@ -191,15 +192,12 @@ export const ActiveQCInspection: React.FC = () => {
 
       await apiClient.post('/workflows/quality-checks', payload);
 
-      // Backend also needs to update status to QC_PASSED or PACKING_STARTED. 
-      // If the `/quality-checks` doesn't do it automatically, we do it here:
-      await workOrderService.updateWorkOrderStatus(activeJob.id, failedItems > 0 ? 'PACKING_STARTED' : 'QC_PASSED');
-
       setShowCompleteModal(false);
       alert('QC Inspection completed successfully.');
       navigate('/operator/jobs');
     } catch (e: any) {
-      alert(e.message || 'Failed to complete inspection');
+      const msg = e.response?.data?.message || e.message || 'Failed to complete inspection';
+      alert(msg);
     }
   };
 

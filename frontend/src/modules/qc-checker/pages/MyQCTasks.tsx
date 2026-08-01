@@ -11,28 +11,31 @@ export const MyQCTasks: React.FC = () => {
   const [tasks, setTasks] = useState<QCInspection[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
+
   useEffect(() => {
-    fetchTasks();
+    fetchTasks(true);
+    const interval = setInterval(() => fetchTasks(false), 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const response = await qcTasksService.getWorkOrders();
-      setTasks(response.data);
+      setTasks(response.data || []);
     } catch (error) {
       console.error('Failed to fetch tasks', error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   const getFilteredTasks = () => {
-    // Modify based on real QC statuses
     switch(activeTab) {
-      case 'ready': return tasks.filter(t => t.status === 'QC_PENDING');
-      case 'in-progress': return tasks.filter(t => t.status === 'QC_PENDING'); // If in progress QC exists
-      case 'pending': return tasks.filter(t => t.status !== 'QC_PENDING' && t.status !== 'QC_PASSED'); // E.g., still packing
+      case 'ready': return tasks.filter(t => QC_STATUSES.includes(t.status));
+      case 'in-progress': return tasks.filter(t => QC_STATUSES.includes(t.status));
+      case 'pending': return tasks.filter(t => !QC_STATUSES.includes(t.status) && t.status !== 'QC_PASSED' && t.status !== 'COMPLETED');
       default: return tasks;
     }
   };
@@ -85,7 +88,7 @@ export const MyQCTasks: React.FC = () => {
           <span className={`ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] rounded-full ${
             activeTab === 'ready' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'
           }`}>
-            {tasks.filter(t => t.status === 'QC_PENDING').length}
+            {tasks.filter(t => QC_STATUSES.includes(t.status)).length}
           </span>
         </button>
       </div>

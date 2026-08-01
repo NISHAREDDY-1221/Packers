@@ -273,7 +273,7 @@ export const WorkOrders: React.FC = () => {
     e.preventDefault();
     if (!isEditOpen) return;
     try {
-      await workOrderService.updateWorkOrderStatus(isEditOpen.id, isEditOpen.status);
+      await workOrderService.updateWorkOrderStatus(isEditOpen.id, isEditOpen.rawStatus || isEditOpen.status);
       setIsEditOpen(null);
       showToast('Work order updated successfully.');
       fetchWorkOrders();
@@ -293,7 +293,7 @@ export const WorkOrders: React.FC = () => {
       case 'PENDING':
         return to === 'APPROVED' || to === 'CANCELLED';
       case 'APPROVED':
-        return to === 'MATERIAL_ISSUED' || to === 'CANCELLED';
+        return to === 'MATERIAL_ISSUED' || to === 'PACKING_STARTED' || to === 'CANCELLED';
       case 'MATERIAL_ISSUED':
         return to === 'PACKING_STARTED' || to === 'CANCELLED';
       case 'PACKING_STARTED':
@@ -333,9 +333,9 @@ export const WorkOrders: React.FC = () => {
   const timelineSteps: TimelineStep[] = useMemo(() => {
     if (!selectedWO) return [];
     return [
-      { status: 'DRAFT', label: 'Work Order Drafted', desc: `Created on ${selectedWO.createdAt}.` },
+      { status: 'DRAFT', label: 'Work Order Drafted', desc: `Created on ${selectedWO.createdAt || 'N/A'}.` },
       { status: 'PENDING', label: 'Submitted for Approval', desc: `Awaiting store manager authorization.` },
-      { status: 'APPROVED', label: 'Authorized & Approved', desc: `Scheduled for team ${('Team Alpha')}.` },
+      { status: 'APPROVED', label: 'Authorized & Approved', desc: selectedWO.operator?.name ? `Assigned to operator ${selectedWO.operator.name}.` : 'Work order authorized & approved for material issue.' },
       { status: 'MATERIAL_ISSUED', label: 'Raw Materials Issued', desc: `BOM inventory dispatched to packing line.` },
       { status: 'PACKING_STARTED', label: 'Packing Execution Started', desc: `Currently active on floor.` },
       { status: 'QC_PENDING', label: 'QC Audit Verification', desc: `Quality checks pending evaluation.` },
@@ -770,8 +770,22 @@ export const WorkOrders: React.FC = () => {
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Work Order Timeline</h4>
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4 relative before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-gray-200">
                   {timelineSteps.map((step, idx) => {
-                    const isActive = selectedWO.status === step.status;
-                    const isPast = KANBAN_COLUMNS.indexOf(selectedWO.status) >= KANBAN_COLUMNS.indexOf(step.status);
+                    const getTimelineLevel = (s: string): number => {
+                      switch (s) {
+                        case 'DRAFT': return 0;
+                        case 'PENDING': case 'PENDING_APPROVAL': return 1;
+                        case 'APPROVED': return 2;
+                        case 'MATERIAL_ISSUED': return 3;
+                        case 'PACKING_STARTED': case 'PACKING_IN_PROGRESS': return 4;
+                        case 'PACKING_COMPLETED': case 'LABELS_PRINTED': case 'QC_PENDING': return 5;
+                        case 'QC_PASSED': case 'FINISHED_GOODS': case 'COMPLETED': return 6;
+                        default: return 0;
+                      }
+                    };
+                    const woLevel = getTimelineLevel(selectedWO.status);
+                    const stepLevel = getTimelineLevel(step.status);
+                    const isActive = woLevel === stepLevel;
+                    const isPast = woLevel >= stepLevel;
 
                     return (
                       <div key={idx} className="flex gap-3 relative z-10 text-xs">
@@ -831,7 +845,7 @@ export const WorkOrders: React.FC = () => {
                       onClick={() => {
                         workOrderService.updateWorkOrderStatus(selectedWO.id, 'APPROVED').then(() => { showToast('Approved work order.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
                       }}
-                      className="bg-[#00891D] hover:bg-[#007518] text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer"
+                      className="bg-[#00891D] hover:bg-[#007518] text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
                     >
                       Approve
                     </button>
@@ -839,10 +853,87 @@ export const WorkOrders: React.FC = () => {
                       onClick={() => {
                         workOrderService.updateWorkOrderStatus(selectedWO.id, 'CANCELLED').then(() => { showToast('Rejected work order.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
                       }}
-                      className="bg-red-50 hover:bg-red-100 text-red-750 text-red-700 px-3 py-1.5 rounded-lg font-bold cursor-pointer"
+                      className="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
                     >
                       Reject
                     </button>
+                  </>
+                )}
+
+                {selectedWO.status === 'APPROVED' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        window.location.href = `/material-issue?woId=${selectedWO.id}`;
+                      }}
+                      className="bg-[#00891D] hover:bg-[#007017] text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
+                    >
+                      Issue Material
+                    </button>
+                    <button
+                      onClick={() => {
+                        workOrderService.startPacking(selectedWO.id).then(() => { showToast('Packing started.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
+                      }}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
+                    >
+                      Start Packing
+                    </button>
+                  </>
+                )}
+
+                {selectedWO.status === 'MATERIAL_ISSUED' && (
+                  <button
+                    onClick={() => {
+                      workOrderService.startPacking(selectedWO.id).then(() => { showToast('Packing started.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
+                  >
+                    Start Packing Execution
+                  </button>
+                )}
+
+                {(selectedWO.status === 'PACKING_STARTED' || selectedWO.status === 'PACKING_IN_PROGRESS') && (
+                  <button
+                    onClick={() => {
+                      window.location.href = `/operator/active-packing`;
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
+                  >
+                    Go to Active Packing
+                  </button>
+                )}
+
+                {(selectedWO.status === 'PACKING_COMPLETED' || selectedWO.status === 'QC_PENDING') && (
+                  <button
+                    onClick={() => {
+                      window.location.href = `/qc/quality-check`;
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
+                  >
+                    Go to Quality Check
+                  </button>
+                )}
+
+                {(selectedWO.status === 'QC_PASSED' || selectedWO.status === 'FINISHED_GOODS' || selectedWO.status === 'COMPLETED') && (
+                  <>
+                    <button
+                      onClick={() => {
+                        window.location.href = `/finished-goods`;
+                      }}
+                      className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
+                    >
+                      Post to Finished Goods
+                    </button>
+                    {selectedWO.status !== 'COMPLETED' && (
+                      <button
+                        onClick={() => {
+                          workOrderService.updateWorkOrderStatus(selectedWO.id, 'COMPLETED').then(() => { showToast('Work Order completed.'); setSelectedWO(null); fetchWorkOrders(); }).catch(console.error);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold cursor-pointer text-xs"
+                      >
+                        Mark as Completed
+                      </button>
+                    )}
                   </>
                 )}
               </div>

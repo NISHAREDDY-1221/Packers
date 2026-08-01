@@ -5,7 +5,7 @@ export class WorkflowService {
   // --- Quality Check ---
   static async getQualityChecks(queryString: any = {}) {
     const queryObj = { ...queryString };
-    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)(prisma.qualityCheck, queryObj)
+    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
       .filter()
       .search(['qcNumber', 'result'])
       .sort()
@@ -13,7 +13,10 @@ export class WorkflowService {
 
     apiFeatures.query = { 
       ...apiFeatures.query, 
-      include: { workOrder: true, inspector: true } 
+      include: { 
+        workOrder: { include: { product: true, operator: true, supervisor: true } }, 
+        inspector: true 
+      } 
     };
 
     const [qcs, total] = await Promise.all([
@@ -24,16 +27,56 @@ export class WorkflowService {
     return { data: qcs, total, page: apiFeatures.queryString.page || 1 };
   }
 
+  static async getFinishedGoods(queryString: any = {}) {
+    const queryObj = { ...queryString };
+    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
+      .filter()
+      .sort()
+      .paginate();
+
+    apiFeatures.query = {
+      ...apiFeatures.query,
+      include: { workOrder: { include: { product: true } }, product: true },
+    };
+
+    const [fgs, total] = await Promise.all([
+      prisma.finishedGoods.findMany(apiFeatures.query),
+      prisma.finishedGoods.count({ where: apiFeatures.query.where }),
+    ]);
+    return { data: fgs, total, page: apiFeatures.queryString.page || 1 };
+  }
+
+  static async getRepackingLogs(queryString: any = {}) {
+    const queryObj = { ...queryString };
+    const apiFeatures = new (require('../utils/apiFeatures').APIFeatures)({}, queryObj)
+      .filter()
+      .sort()
+      .paginate();
+
+    apiFeatures.query = {
+      ...apiFeatures.query,
+      include: { 
+        sourceWorkOrder: { include: { product: true } }
+      },
+    };
+
+    const [logs, total] = await Promise.all([
+      prisma.repackingLog.findMany(apiFeatures.query),
+      prisma.repackingLog.count({ where: apiFeatures.query.where }),
+    ]);
+    return { data: logs, total, page: apiFeatures.queryString.page || 1 };
+  }
+
   static async submitQualityCheck(data: { woId: string; checkedQty: number; result: any; severity?: any; failureReason?: string; remarks?: string; checksPayload: any; inspectorId: string }) {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (!['PACKING_COMPLETED', 'LABELS_GENERATED', 'LABELS_PRINTED', 'QC_PENDING', 'QC_IN_PROGRESS'].includes(workOrder.status)) {
-      throw new AppError(400, 'Quality Check can only be performed on Work Orders that have reached the QC stage');
+    if (!['PACKING_STARTED', 'PACKING_IN_PROGRESS', 'PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'].includes(workOrder.status)) {
+      throw new AppError(400, 'Quality Check can only be performed on Work Orders that are active, packed, labeled, or in QC pending status');
     }
 
     const qcNumber = `QC-${Date.now().toString().slice(-6)}`;
-    
+
     return await prisma.$transaction(async (tx: any) => {
       const qc = await tx.qualityCheck.create({
         data: {
@@ -49,11 +92,16 @@ export class WorkflowService {
         }
       });
 
-      const newStatus = (data.result === 'PASS' || data.result === 'PARTIAL_PASS') ? 'QC_PASSED' : 'QC_FAILED';
+      // Transition WO status based on QC result
+      const isPassed = (data.result === 'PASS' || data.result === 'PARTIAL_PASS');
+      const newStatus = isPassed ? 'QC_PASSED' : (data.result === 'REWORK' ? 'PACKING_STARTED' : 'QC_PENDING');
       
       const updatedWO = await tx.workOrder.update({
         where: { id: data.woId },
-        data: { status: newStatus },
+        data: { 
+          status: newStatus,
+          ...(isPassed ? { completedAt: new Date() } : {})
+        },
       });
 
       await tx.auditLog.create({
@@ -75,8 +123,8 @@ export class WorkflowService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId }, include: { product: true } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (workOrder.status !== 'QC_PASSED') {
-      throw new AppError(400, 'Only QC Passed batches can be posted to Finished Goods');
+    if (workOrder.status !== 'QC_PASSED' && workOrder.status !== 'COMPLETED') {
+      throw new AppError(400, 'Only QC Passed or Completed batches can be posted to Finished Goods');
     }
 
     const fgNumber = `FG-${Date.now().toString().slice(-6)}`;
@@ -96,7 +144,7 @@ export class WorkflowService {
       const updatedWO = await tx.workOrder.update({
         where: { id: data.woId },
         data: { 
-          status: 'FINISHED_GOODS',
+          status: 'COMPLETED',
           completedAt: new Date(),
           actualProduced: data.postedQty,
           batchNumber: data.batchNumber, // Assign final batch number
@@ -149,16 +197,27 @@ export class WorkflowService {
         }
       });
 
-      // Update original WO status and do not duplicate
-      const nextStatus = data.targetRecipeId ? 'PACKING_COMPLETED' : 'LABELS_PRINTED';
-      
-      const updatedWO = await tx.workOrder.update({
+      // Mark original WO as completed but with actual rejected/waste values
+      await tx.workOrder.update({
         where: { id: data.sourceWoId },
         data: { 
-          status: nextStatus,
-          recipeId: data.targetRecipeId || sourceWO.recipeId,
-          actualRejected: (sourceWO.actualRejected || 0) + data.wasteQty, // Accumulate waste
+          status: 'COMPLETED',
+          completedAt: new Date(),
+          actualProduced: 0,
+          actualRejected: data.wasteQty + data.recoverableQty,
         },
+      });
+
+      const newWO = await tx.workOrder.create({
+        data: {
+          woNumber: `WO-${Date.now().toString().slice(-6)}`,
+          productId: sourceWO.productId,
+          recipeId: data.targetRecipeId || sourceWO.recipeId,
+          requiredQty: data.recoverableQty,
+          priority: 'URGENT',
+          status: 'MATERIAL_ISSUED',
+          supervisorId: sourceWO.supervisorId,
+        }
       });
 
       await tx.auditLog.create({
@@ -171,7 +230,7 @@ export class WorkflowService {
         }
       });
 
-      return { repackLog, newWO: updatedWO };
+      return { repackLog, newWO };
     });
   }
 }

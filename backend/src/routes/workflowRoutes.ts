@@ -99,8 +99,13 @@ router.get('/qc-checklists', controller.getQcChecklists);
  *       201:
  *         description: Batch posted to Finished Goods
  */
-router.post('/finished-goods', validate(validation.postFinishedGoodsSchema), controller.postFinishedGoods);
+router.route('/finished-goods')
+  .get(controller.getFinishedGoods)
+  .post(validate(validation.postFinishedGoodsSchema), controller.postFinishedGoods);
 
+router.route('/repacking')
+  .get(controller.getRepackingLogs)
+  .post(validate(validation.logRepackingSchema), controller.logRepacking);
 /**
  * @openapi
  * /workflows/repacking:
@@ -129,6 +134,8 @@ router.post('/finished-goods', validate(validation.postFinishedGoodsSchema), con
  *       201:
  *         description: Repacking logged and new Work Order generated
  */
-router.post('/repacking', validate(validation.logRepackingSchema), controller.logRepacking);
+router.route('/repacking')
+  .get(controller.getRepackingLogs)
+  .post(validate(validation.logRepackingSchema), controller.logRepacking);
 
 export default router;

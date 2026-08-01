@@ -9,28 +9,27 @@ datasource db {
 }
 
 model User {
-  id                 String            @id @default(uuid())
-  email              String            @unique
+  id                 String                 @id @default(uuid())
+  email              String                 @unique
   password           String
   name               String
   roleId             String
-  isActive           Boolean           @default(true)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  approvalActions    ApprovalHistory[] @relation("ApprovalActions")
-  requestedApprovals ApprovalRequest[] @relation("RequestedApprovals")
+  isActive           Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  approvalActions    ApprovalHistory[]      @relation("ApprovalActions")
+  requestedApprovals ApprovalRequest[]      @relation("RequestedApprovals")
   auditLogs          AuditLog[]
-  reportedIssues     Issue[]           @relation("ReportedIssues")
+  reportedIssues     Issue[]                @relation("ReportedIssues")
+  tasksAssignedBy    LabelApplicationTask[] @relation("TasksAssignedBy")
+  assignedTasks      LabelApplicationTask[] @relation("AssignedTasks")
   LabelPrintJob      LabelPrintJob[]
   materialIssues     MaterialIssue[]
   qualityChecks      QualityCheck[]
-  role               Role              @relation(fields: [roleId], references: [id])
-  assignedQc         WorkOrder[]       @relation("InspectorAssigned")
-  assignedWos        WorkOrder[]       @relation("OperatorAssigned")
+  role               Role                   @relation(fields: [roleId], references: [id])
+  assignedQc         WorkOrder[]            @relation("InspectorAssigned")
+  assignedWos        WorkOrder[]            @relation("OperatorAssigned")
   workOrders         WorkOrder[]
-
-  assignedTasks      LabelApplicationTask[] @relation("AssignedTasks")
-  tasksAssignedBy    LabelApplicationTask[] @relation("TasksAssignedBy")
 }
 
 model Role {
@@ -129,40 +128,40 @@ model RecipeItem {
 }
 
 model WorkOrder {
-  id             String          @id @default(uuid())
-  woNumber       String          @unique
+  id             String                 @id @default(uuid())
+  woNumber       String                 @unique
   productId      String
   recipeId       String
-  status         WoStatus        @default(DRAFT)
-  priority       WoPriority      @default(MEDIUM)
+  status         WoStatus               @default(DRAFT)
+  priority       WoPriority             @default(MEDIUM)
   requiredQty    Float
   actualProduced Float?
   actualRejected Float?
-  batchNumber    String?         @unique
+  batchNumber    String?                @unique
   supervisorId   String
   expectedDate   DateTime?
   startedAt      DateTime?
   completedAt    DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
   inspectorId    String?
-  isPaused       Boolean         @default(false)
+  isPaused       Boolean                @default(false)
   operatorId     String?
   pauseReason    String?
-  labelsPrinted  Float           @default(0)
-  labelsApplied  Float           @default(0)
+  labelsPrinted  Float                  @default(0)
+  labelsApplied  Float                  @default(0)
   finishedGoods  FinishedGoods[]
   reportedIssues Issue[]
+  labelTasks     LabelApplicationTask[]
   LabelPrintJob  LabelPrintJob[]
   materialIssues MaterialIssue[]
   qualityChecks  QualityCheck[]
   repackingLogs  RepackingLog[]
-  inspector      User?           @relation("InspectorAssigned", fields: [inspectorId], references: [id])
-  operator       User?           @relation("OperatorAssigned", fields: [operatorId], references: [id])
-  product        Product         @relation(fields: [productId], references: [id])
-  recipe         Recipe          @relation(fields: [recipeId], references: [id])
-  supervisor     User            @relation(fields: [supervisorId], references: [id])
-  labelTasks     LabelApplicationTask[]
+  inspector      User?                  @relation("InspectorAssigned", fields: [inspectorId], references: [id])
+  operator       User?                  @relation("OperatorAssigned", fields: [operatorId], references: [id])
+  product        Product                @relation(fields: [productId], references: [id])
+  recipe         Recipe                 @relation(fields: [recipeId], references: [id])
+  supervisor     User                   @relation(fields: [supervisorId], references: [id])
 }
 
 model MaterialIssue {
@@ -285,41 +284,41 @@ model Issue {
 }
 
 model LabelPrintJob {
-  id            String    @id @default(uuid())
+  id            String                 @id @default(uuid())
   workOrderId   String
   batchNumber   String
   barcodeType   String
   printedQty    Int
   printedById   String
-  status        String    @default("Printed")
+  status        String                 @default("Printed")
   reprintReason String?
-  type          PrintJobType @default(INITIAL)
-  printer       String       @default("Unknown")
-  labelTemplate String       @default("Retail Label")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  User          User      @relation(fields: [printedById], references: [id])
-  WorkOrder     WorkOrder @relation(fields: [workOrderId], references: [id])
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  labelTemplate String                 @default("Retail Label")
+  printer       String                 @default("Unknown")
+  type          PrintJobType           @default(INITIAL)
   labelTasks    LabelApplicationTask[]
+  User          User                   @relation(fields: [printedById], references: [id])
+  WorkOrder     WorkOrder              @relation(fields: [workOrderId], references: [id])
 }
 
 model LabelApplicationTask {
-  id                String    @id @default(uuid())
+  id                String        @id @default(uuid())
   woId              String
-  workOrder         WorkOrder @relation(fields: [woId], references: [id])
   printJobId        String
-  printJob          LabelPrintJob  @relation(fields: [printJobId], references: [id])
   operatorId        String
-  operator          User      @relation("AssignedTasks", fields: [operatorId], references: [id])
   assignedById      String
-  assignedBy        User      @relation("TasksAssignedBy", fields: [assignedById], references: [id])
   requiredQuantity  Float
-  appliedQuantity   Float     @default(0)
+  appliedQuantity   Float         @default(0)
   remainingQuantity Float
-  status            TaskStatus @default(ASSIGNED)
-  assignedAt        DateTime  @default(now())
+  status            TaskStatus    @default(ASSIGNED)
+  assignedAt        DateTime      @default(now())
   startedAt         DateTime?
   completedAt       DateTime?
+  assignedBy        User          @relation("TasksAssignedBy", fields: [assignedById], references: [id])
+  operator          User          @relation("AssignedTasks", fields: [operatorId], references: [id])
+  printJob          LabelPrintJob @relation(fields: [printJobId], references: [id])
+  workOrder         WorkOrder     @relation(fields: [woId], references: [id])
 }
 
 enum ProductType {
@@ -336,13 +335,13 @@ enum WoStatus {
   PACKING_STARTED
   PACKING_IN_PROGRESS
   PACKING_COMPLETED
-  LABEL_APPLICATION_ASSIGNED
-  LABEL_APPLICATION_IN_PROGRESS
-  LABELS_APPLIED
   QC_PENDING
   QC_PASSED
   COMPLETED
   CANCELLED
+  LABEL_APPLICATION_ASSIGNED
+  LABEL_APPLICATION_IN_PROGRESS
+  LABELS_APPLIED
 }
 
 enum WoPriority {

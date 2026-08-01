@@ -4,6 +4,8 @@ import { qcTasksService } from '../services/qcTasksService';
 import type { QCInspection } from '../../../shared/types';
 import { Search, Filter, History, Clock, CheckCircle, AlertTriangle, ArrowRight, X } from 'lucide-react';
 
+import { qualityCheckService } from '../../../api/qualityCheckService';
+
 export const QCHistory: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,15 +21,29 @@ export const QCHistory: React.FC = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await qcTasksService.getWorkOrders();
-        // Show both passed and failed work orders in history
-        const completedJobs = response.data.filter((wo: any) => 
-          wo.status === 'QC_PASSED' || wo.status === 'PACKING_STARTED' || wo.status === 'FAILED'
-        );
+        const [woRes, qcRes] = await Promise.all([
+          qcTasksService.getWorkOrders(),
+          qualityCheckService.getQualityChecks()
+        ]);
+        const orders = woRes.data || [];
+        const rawQCs = qcRes.data || [];
+
+        const mappedFromQCs = rawQCs.map((q: any) => ({
+          id: q.id,
+          woNumber: q.workOrder?.woNumber || '—',
+          product: q.workOrder?.product || { name: 'Product' },
+          batchNumber: q.workOrder?.batchNumber || 'N/A',
+          status: (q.result === 'PASS' || q.result === 'PARTIAL_PASS') ? 'QC_PASSED' : 'FAILED',
+          actualProduced: q.checkedQty || 0,
+          completedAt: q.createdAt,
+          updatedAt: q.createdAt,
+        }));
+
+        const completedWOs = orders.filter((wo: any) => wo.status === 'QC_PASSED' || wo.status === 'COMPLETED');
+        const combined = [...mappedFromQCs, ...completedWOs.filter((w: any) => !mappedFromQCs.some((q: any) => q.woNumber === w.woNumber))];
         
-        // Sort latest completed first (using updatedAt as fallback for failed jobs)
-        completedJobs.sort((a: any, b: any) => new Date(b.completedAt || b.updatedAt || 0).getTime() - new Date(a.completedAt || a.updatedAt || 0).getTime());
-        setJobs(completedJobs);
+        combined.sort((a: any, b: any) => new Date(b.completedAt || b.updatedAt || 0).getTime() - new Date(a.completedAt || a.updatedAt || 0).getTime());
+        setJobs(combined as any);
       } catch (err) {
         console.error('Failed to fetch history', err);
       } finally {

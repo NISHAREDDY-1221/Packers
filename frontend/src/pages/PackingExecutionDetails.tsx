@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useApp, type WorkOrder } from "../context/AppContext";
 import {
   AlertCircle,
@@ -58,7 +58,7 @@ export const PackingExecutionDetails: React.FC = () => {
 
   const [apiWorkOrders, setApiWorkOrders] = useState<WorkOrder[]>([]);
 
-  useEffect(() => {
+  const fetchWorkOrders = useCallback(() => {
     workOrderService.getWorkOrders({ limit: 500 }).then(res => {
       const formatStatus = (s: string) => {
         if (!s) return s;
@@ -81,8 +81,16 @@ export const PackingExecutionDetails: React.FC = () => {
         supervisor: getSupervisorName(wo.supervisor)
       }));
       setApiWorkOrders(mapped);
+      if (id) {
+        const currentWO = mapped.find((w: any) => w.id === id);
+        if (currentWO) setActiveWO(currentWO);
+      }
     }).catch(console.error);
-  }, []);
+  }, [id]);
+
+  useEffect(() => {
+    fetchWorkOrders();
+  }, [fetchWorkOrders]);
 
   const workOrders = apiWorkOrders;
 
@@ -166,9 +174,11 @@ export const PackingExecutionDetails: React.FC = () => {
     try {
       setActionLoading(true);
       await workOrderService.startPacking(selectedWO.id);
-    } catch (error) {
+      fetchWorkOrders();
+    } catch (error: any) {
       console.error(error);
-      alert("Failed to start packing");
+      const msg = error.response?.data?.message || error.message || "Failed to start packing";
+      alert(msg);
     } finally {
       setActionLoading(false);
     }
@@ -184,9 +194,11 @@ export const PackingExecutionDetails: React.FC = () => {
         rejected: actualRejected
       });
       setIsCompleting(false);
-    } catch (error) {
+      fetchWorkOrders();
+    } catch (error: any) {
       console.error(error);
-      alert("Failed to complete packing");
+      const msg = error.response?.data?.message || error.message || "Failed to complete packing";
+      alert(msg);
     } finally {
       setActionLoading(false);
     }
@@ -698,7 +710,7 @@ export const PackingExecutionDetails: React.FC = () => {
                 </button>
 
                 {/* ACTION BUTTONS */}
-                {selectedWO.status === "Material Issued" && (
+                {(selectedWO.status === "Material Issued" || selectedWO.status === "Approved") && (
                   <button
                     onClick={handleStartPacking}
                     disabled={actionLoading}

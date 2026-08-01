@@ -125,31 +125,37 @@ export const PackingExecution: React.FC = () => {
     }
   };
 
+  const fmtDateTime = (dStr?: string) => {
+    if (!dStr) return '—';
+    const d = new Date(dStr);
+    if (isNaN(d.getTime())) return dStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${day}-${month}-${year} ${time}`;
+  };
+
   const columns = [
     {
       key: 'woNumber', label: 'WORK ORDER NO.', sortable: true,
-      render: (wo: any) => <div className="text-center font-medium text-xs">{wo.woNumber}</div>
+      render: (wo: any) => <div className="text-center font-mono font-semibold text-xs text-gray-900">{wo.woNumber}</div>
     },
     {
       key: 'productName', label: 'PRODUCT', sortable: true,
-      render: (wo: any) => <div className="text-center text-xs line-clamp-1">{wo.productName}</div>
-    },
-    {
-      key: 'assignedTeam', label: 'ASSIGNED TEAM',
-      render: () => <div className="text-center text-xs text-gray-500">Packing A</div>
+      render: (wo: any) => <div className="text-center font-semibold text-xs text-gray-900 line-clamp-1">{wo.productName}</div>
     },
     {
       key: 'supervisorName', label: 'OPERATOR', sortable: true,
-      render: (wo: any) => <div className="text-center text-xs">{wo.supervisorName}</div>
+      render: (wo: any) => <div className="text-center text-xs font-medium text-gray-700">{wo.supervisorName}</div>
     },
-
     {
       key: 'requiredQty', label: 'REQ. QTY', sortable: true,
-      render: (wo: any) => <div className="text-center text-xs font-semibold">{wo.requiredQty}</div>
+      render: (wo: any) => <div className="text-center text-xs font-bold text-gray-900">{wo.requiredQty}</div>
     },
     {
       key: 'actualProduced', label: 'PACKED QTY', sortable: true,
-      render: (wo: any) => <div className="text-center text-xs font-semibold">{wo.actualProduced || 0}</div>
+      render: (wo: any) => <div className="text-center text-xs font-bold text-gray-900">{wo.actualProduced || 0}</div>
     },
     {
       key: 'progress', label: 'PROGRESS', sortable: true,
@@ -158,7 +164,7 @@ export const PackingExecution: React.FC = () => {
           <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-[#00891D]" style={{ width: `${wo.progress}%` }}></div>
           </div>
-          <span className="text-xs text-gray-500">{wo.progress}%</span>
+          <span className="text-xs font-semibold text-gray-600">{wo.progress}%</span>
         </div>
       )
     },
@@ -166,7 +172,7 @@ export const PackingExecution: React.FC = () => {
       key: 'priority', label: 'PRIORITY', sortable: true,
       render: (wo: any) => (
         <div className="text-center">
-          <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${getPriorityColor(wo.priority)}`}>
+          <span className={`px-2 py-0.5 text-[11px] rounded-full font-semibold whitespace-nowrap ${getPriorityColor(wo.priority)}`}>
             {wo.priority}
           </span>
         </div>
@@ -176,7 +182,7 @@ export const PackingExecution: React.FC = () => {
       key: 'status', label: 'STATUS', sortable: true,
       render: (wo: any) => (
         <div className="text-center">
-          <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${getStatusColor(wo.statusLabel)}`}>
+          <span className={`px-2 py-0.5 text-[11px] rounded-full font-bold whitespace-nowrap ${getStatusColor(wo.statusLabel)}`}>
             {wo.statusLabel}
           </span>
         </div>
@@ -185,8 +191,8 @@ export const PackingExecution: React.FC = () => {
     {
       key: 'startedAt', label: 'START DATE & TIME', sortable: true,
       render: (wo: any) => (
-        <div className="text-center text-xs text-gray-500">
-          {wo.startedAt ? new Date(wo.startedAt).toLocaleString() : '-'}
+        <div className="text-center text-xs font-mono text-gray-600">
+          {fmtDateTime(wo.startedAt || wo.updatedAt || wo.createdAt)}
         </div>
       )
     },

@@ -40,9 +40,19 @@ export class ApprovalService {
       },
     });
     
+    // Fetch related Work Orders to populate product names dynamically
+    const woIds = approvals.filter((a: any) => a.type === 'WORK_ORDER' && a.relatedEntityId).map((a: any) => a.relatedEntityId);
+    const workOrders = woIds.length > 0 ? await prisma.workOrder.findMany({
+      where: { id: { in: woIds } },
+      include: { product: true }
+    }) : [];
+
+    const woMap = new Map(workOrders.map((w: any) => [w.id, w.product?.name]));
+    
     // Map data to match frontend requirements
     return approvals.map((app: any) => ({
       ...app,
+      productName: app.productName || woMap.get(app.relatedEntityId) || 'Standard Product',
       requestedBy: app.requestedBy.name,
       history: app.history.map((h: any) => ({
         ...h,
