@@ -62,9 +62,6 @@ export const WorkOrders: React.FC = () => {
     try {
       const ops = await authService.getOperators();
       setApiOperators(ops);
-      if (ops.length > 0) {
-        setFormOperatorName(ops[0].id);
-      }
     } catch(e) {
       console.error(e);
     }

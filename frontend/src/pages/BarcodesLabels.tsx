@@ -202,7 +202,6 @@ export const BarcodesLabels: React.FC = () => {
       try {
         const ops = await authService.getOperators();
         setOperators(ops);
-        if (ops.length > 0) setAssignedOperatorId(ops[0].id);
       } catch (err) {
         console.error('Failed to fetch operators', err);
       }
