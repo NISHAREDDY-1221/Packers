@@ -45,8 +45,8 @@ export const Dashboard: React.FC = () => {
     { label: 'Issues Reported', value: issuesReported || 0, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-100', path: '/operator/report-issue' },
   ];
 
-  const activeJobs = workOrders.filter((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS' || wo.status === 'MATERIAL_ISSUED');
-  const activeJob = activeJobs.find((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS') || activeJobs.find((wo: any) => wo.status === 'MATERIAL_ISSUED');
+  const activeJobs = workOrders.filter((wo: any) => wo.status === 'MATERIAL_ISSUED');
+  const activeJob = activeJobs.length > 0 ? activeJobs[0] : null;
 
   const slaRiskJobs = workOrders.filter((wo: any) => wo.expectedDate && wo.expectedDate <= today && !completedStatuses.includes(wo.status));
 
@@ -139,7 +139,7 @@ export const Dashboard: React.FC = () => {
                     onClick={() => navigate('/operator/active-packing')}
                     className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
                   >
-                    Resume Packing <ArrowRight size={18} className="ml-2" />
+                    Start Packing <ArrowRight size={18} className="ml-2" />
                   </button>
                 </>
               ) : (

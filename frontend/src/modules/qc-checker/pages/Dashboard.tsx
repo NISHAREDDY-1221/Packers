@@ -44,7 +44,7 @@ export const Dashboard: React.FC = () => {
           delayed: failedTodayCount,
           issues: 0
         });
-        const active = orders.find((o: any) => QC_STATUSES.includes(o.status));
+        const active = orders.find((o: any) => o.status === 'QC_PENDING');
         setActiveJob(active || null);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
@@ -189,7 +189,7 @@ export const Dashboard: React.FC = () => {
                     onClick={() => navigate('/qc/active-inspection')}
                     className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
                   >
-                    Resume QC <ArrowRight size={18} className="ml-2" />
+                    Start QC <ArrowRight size={18} className="ml-2" />
                   </button>
                 </>
               ) : (
