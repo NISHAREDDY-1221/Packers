@@ -14,6 +14,8 @@ import {
 import { approvalService } from '../api/approvalService';
 import type { ApprovalRequest, ApprovalType, ApprovalStatus, Priority } from '../types/approvals';
 
+import toast from 'react-hot-toast';
+
 export const Approvals: React.FC = () => {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,10 +76,10 @@ export const Approvals: React.FC = () => {
       const updated = await approvalService.processApproval(selectedRequest.id, 'APPROVE');
       setApprovals(prev => prev.map(a => a.id === updated.id ? { ...a, status: updated.status, history: updated.history } : a));
       setSelectedRequest(null);
-      alert('Request approved successfully!');
+      toast.success('Request approved successfully!');
     } catch (error: any) {
       console.error('Failed to approve request:', error);
-      alert(`Failed to approve: ${error.response?.data?.message || error.message}`);
+      toast.error(`Failed to approve: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -88,10 +90,10 @@ export const Approvals: React.FC = () => {
       setApprovals(prev => prev.map(a => a.id === updated.id ? { ...a, status: updated.status, history: updated.history } : a));
       setRejectionReason('');
       setSelectedRequest(null);
-      alert('Request rejected.');
+      toast.error('Request rejected.');
     } catch (error: any) {
       console.error('Failed to reject request:', error);
-      alert(`Failed to reject: ${error.response?.data?.message || error.message}`);
+      toast.error(`Failed to reject: ${error.response?.data?.message || error.message}`);
     }
   };
 

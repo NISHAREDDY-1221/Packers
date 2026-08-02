@@ -88,8 +88,8 @@ export const repackingService = {
         qcs.filter(qc => ['REJECT', 'REWORK', 'DISCARD'].includes(qc.result)).map(qc => qc.woId)
       );
 
-      // 4. Return only Work Orders that have a failed QC
-      return orders.filter(wo => failedWoIds.has(wo.id));
+      // 4. Return only Work Orders that have a failed QC and are NOT completed (since repacking marks them completed)
+      return orders.filter(wo => failedWoIds.has(wo.id) && wo.status !== 'COMPLETED');
     } catch (e) {
       console.error('Failed to fetch pending repack work orders', e);
       return [];

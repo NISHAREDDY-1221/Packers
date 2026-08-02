@@ -8,6 +8,8 @@ import { qualityCheckService } from '../api/qualityCheckService';
 import { workOrderService } from '../api/workOrderService';
 import type { QCRecord, PendingQCWorkOrder, QCUser } from '../api/qualityCheckService';
 
+import toast from 'react-hot-toast';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (dateStr?: string) => {
   if (!dateStr) return '—';
@@ -252,12 +254,12 @@ export const QualityCheck: React.FC = () => {
     try {
       const wo = pendingWOs.find(w => w.id === assignWO);
       if (!wo) return;
-      await workOrderService.updateWorkOrderStatus(assignWO, wo.status, { 
+      await workOrderService.updateWorkOrderStatus(assignWO, 'QC_PENDING', { 
         inspectorId: assignTo, 
         priority: assignPriority 
       });
       const assignedInspector = inspectors.find(i => i.id === assignTo);
-      alert(`Inspection task assigned to ${assignedInspector?.name || 'QC Inspector'}. It will reflect in their QC portal.`);
+      toast.success(`Inspection task assigned to ${assignedInspector?.name || 'QC Inspector'}. It will reflect in their QC portal.`);
       setAssignWO('');
       setAssignTo('');
       loadAll(false);

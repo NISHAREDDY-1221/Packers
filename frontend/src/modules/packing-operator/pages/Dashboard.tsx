@@ -98,7 +98,7 @@ export const Dashboard: React.FC = () => {
             <div className="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
             <div className="p-5 md:p-6">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Current Active Job</h2>
+                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">New jobs</h2>
                 {(activeJob?.status === 'PACKING_STARTED' || activeJob?.status === 'PACKING_IN_PROGRESS') && (
                   <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center shadow-sm">
                     <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>

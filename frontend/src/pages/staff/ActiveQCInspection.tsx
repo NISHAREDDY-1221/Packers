@@ -31,13 +31,16 @@ export const ActiveQCInspection: React.FC = () => {
   
   // Modals state
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [overallRemarks, setOverallRemarks] = useState('');
 
   const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
 
   const fetchActiveJob = async () => {
     try {
       const response = await workOrderService.getWorkOrders({ limit: 500 });
-      const job = (response.data || []).find((wo) => QC_STATUSES.includes(wo.status));
+      const job = (response.data || []).find((wo) => 
+        wo.status === 'QC_PENDING' && (wo as any).inspectorId === user?.id
+      );
       setActiveJob(job || null);
     } catch (err) {
       console.error('Failed to fetch active job', err);
@@ -175,8 +178,29 @@ export const ActiveQCInspection: React.FC = () => {
 
   const handleComplete = async () => {
     try {
-      // Create photos payload (simulated base64 or just URLs for now)
       const photoPayload = photos.map(p => p.file.name); 
+
+      // Format for Admin Portal's QualityCheck.tsx
+      const flatChecksPayload: Record<string, boolean> = {};
+      const appendedRemarks: string[] = [];
+
+      for (const check of checklists) {
+        const state = checksState[check.id];
+        // Convert label "Packaging Quality" to "packagingQuality" so it formats cleanly
+        const camelKey = check.label.replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) => {
+          return index === 0 ? word.toLowerCase() : word.toUpperCase();
+        }).replace(/\s+/g, '');
+        
+        flatChecksPayload[camelKey] = state.status === 'PASS';
+        if (state.remarks) {
+          appendedRemarks.push(`- ${check.label}: ${state.remarks}`);
+        }
+      }
+
+      const finalRemarks = [
+        overallRemarks,
+        appendedRemarks.length > 0 ? "Checklist Remarks:\n" + appendedRemarks.join('\n') : ""
+      ].filter(Boolean).join('\n\n');
 
       // Submit Quality Check
       const payload = {
@@ -185,9 +209,9 @@ export const ActiveQCInspection: React.FC = () => {
         result: failedItems > 0 ? 'REWORK' : 'PASS',
         severity: failedItems > 0 ? 'MAJOR' : undefined,
         failureReason: failedItems > 0 ? 'Failed QC Checkpoints' : undefined,
-        remarks: 'Submitted from App',
-        checksPayload: checksState,
-        photoUrls: photoPayload // We simulate passing photo names
+        remarks: finalRemarks || 'No remarks',
+        checksPayload: flatChecksPayload,
+        photoUrls: photoPayload
       };
 
       await apiClient.post('/workflows/quality-checks', payload);
@@ -396,6 +420,8 @@ export const ActiveQCInspection: React.FC = () => {
             )}
             <div className="mt-4">
               <textarea 
+                value={overallRemarks}
+                onChange={e => setOverallRemarks(e.target.value)}
                 placeholder="Additional overall remarks (optional)..."
                 className="w-full text-sm border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-green-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 min-h-[80px]"
               />

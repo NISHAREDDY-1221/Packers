@@ -50,7 +50,7 @@ export const MaterialIssue: React.FC = () => {
       const matchesSearch = 
         item.woNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.product?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.recipe?.name.toLowerCase().includes(searchQuery.toLowerCase());
+        (item.operator?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = statusFilter === 'ALL' || item.status === statusFilter;
 
@@ -72,10 +72,10 @@ export const MaterialIssue: React.FC = () => {
       render: (row: WorkOrder) => row.product?.name || row.productId 
     },
     { 
-      key: 'recipe',
-      label: 'Recipe', 
+      key: 'operator',
+      label: 'Operator', 
       className: 'w-[20%] text-center',
-      render: (row: WorkOrder) => row.recipe?.name || row.recipeId 
+      render: (row: WorkOrder) => <span className="font-medium text-gray-700">{row.operator?.name || row.supervisor?.name || row.operatorId || 'Unassigned'}</span> 
     },
     { 
       key: 'reqQty',
@@ -184,7 +184,7 @@ export const MaterialIssue: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500" size={18} />
             <input
               type="text"
-              placeholder="Search by WO No, Product, or Recipe..."
+              placeholder="Search by WO No, Product, or Operator..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00891D] focus:border-transparent dark:bg-gray-900 dark:text-white"

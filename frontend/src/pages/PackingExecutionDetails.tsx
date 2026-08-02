@@ -21,6 +21,8 @@ import { workOrderService } from "../api/workOrderService";
 
 import { useParams, useNavigate } from 'react-router-dom';
 
+import toast from 'react-hot-toast';
+
 export const PackingExecutionDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();

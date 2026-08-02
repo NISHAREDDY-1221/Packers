@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
+import apiClient from '../api/axios';
 import { useApp } from '../context/AppContext';
 import type { FinishedGoods as IFG } from '../context/AppContext';
 import { Package, Filter, Archive, CheckCircle, Clock, X, Calculator, DollarSign } from 'lucide-react';
@@ -35,7 +37,7 @@ export const FinishedGoods: React.FC = () => {
   const [transportation, setTransportation] = useState(80);
   const [miscellaneous, setMiscellaneous] = useState(50);
 
-  const pendingFG_WOs = workOrders.filter(w => w.status === 'QC Passed');
+  const pendingFG_WOs = workOrders.filter(w => ['QC Passed', 'QC_PASSED', 'Completed'].includes(w.status || ''));
 
   const totalCost = rawCost + packagingCost + employeeCost + electricity + machineCost + transportation + miscellaneous;
   const costPerUnit = formPostedQty > 0 ? Number((totalCost / formPostedQty).toFixed(2)) : 0;
@@ -59,41 +61,53 @@ export const FinishedGoods: React.FC = () => {
     }
   };
 
-  const handlePostSubmit = (e: React.FormEvent) => {
+  const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formWoNo) return;
 
     const wo = workOrders.find(w => w.woNo === formWoNo)!;
+    const batchNumber = `BATCH-2026-${wo.woNo.split('-').pop()}`;
 
-    const fgEntry: IFG = {
-      id: `FG-${Date.now().toString().slice(-4)}`,
-      woNo: formWoNo,
-      productName: wo.productName,
-      batchNo: `BATCH-2026-${wo.woNo.split('-').pop()}`,
-      postedQty: formPostedQty,
-      destination: formDestination,
-      postedAt: new Date().toLocaleString(),
-      costs: {
-        rawMaterial: rawCost,
-        packaging: packagingCost,
-        employee: employeeCost,
-        electricity,
-        machine: machineCost,
-        transportation,
-        miscellaneous,
-        total: totalCost,
-        costPerUnit,
-        profitMargin
-      }
-    };
+    try {
+      const res = await apiClient.post('/workflows/finished-goods', {
+        woId: wo.id,
+        batchNumber: batchNumber,
+        postedQty: formPostedQty,
+        destination: formDestination
+      });
 
-    addFinishedGoods(fgEntry);
-    setIsPostOpen(false);
-    
-    alert('Batch has been successfully posted to Finished Goods.');
-    
-    // Reset Form
-    setFormWoNo('');
+      const fgEntry: IFG = {
+        id: res.data?.data?.id || `FG-${Date.now().toString().slice(-4)}`,
+        woNo: formWoNo,
+        productName: wo.productName,
+        batchNo: batchNumber,
+        postedQty: formPostedQty,
+        destination: formDestination,
+        postedAt: new Date().toLocaleString(),
+        costs: {
+          rawMaterial: rawCost,
+          packaging: packagingCost,
+          employee: employeeCost,
+          electricity,
+          machine: machineCost,
+          transportation,
+          miscellaneous,
+          total: totalCost,
+          costPerUnit,
+          profitMargin
+        }
+      };
+
+      addFinishedGoods(fgEntry);
+      setIsPostOpen(false);
+      
+      toast.success('Batch has been successfully posted to Finished Goods.');
+      
+      // Reset Form
+      setFormWoNo('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to post to finished goods');
+    }
   };
 
   const [statusFilter, setStatusFilter] = useState('');

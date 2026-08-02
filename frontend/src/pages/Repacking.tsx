@@ -9,6 +9,8 @@ import { workOrderService } from '../api/workOrderService';
 import type { RepackingLog, PendingRepackWorkOrder } from '../api/repackingService';
 import type { QCUser } from '../api/qualityCheckService';
 
+import toast from 'react-hot-toast';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (dateStr?: string) => {
   if (!dateStr) return '—';
@@ -159,7 +161,7 @@ export const Repacking: React.FC = () => {
         priority: assignPriority
       });
       const assignedUser = operators.find(o => o.id === assignTo);
-      alert(`Repacking task assigned to ${assignedUser?.name || 'Team Member'}.`);
+      toast.success(`Repacking task assigned to ${assignedUser?.name || 'Team Member'}.`);
       setAssignWO('');
       setAssignTo('');
       loadAll();

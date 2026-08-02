@@ -125,11 +125,38 @@ const router = createBrowserRouter([
   },
 });
 
+import { Toaster } from 'react-hot-toast';
+
 export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <AppProvider>
+          <Toaster 
+            position="top-center" 
+            toastOptions={{
+              className: 'text-sm font-semibold rounded-xl border border-gray-200 shadow-xl',
+              duration: 3000,
+              success: {
+                iconTheme: {
+                  primary: '#00891D',
+                  secondary: '#fff',
+                },
+                style: {
+                  border: '1px solid #c8e6c9',
+                  background: '#e8f5ea',
+                  color: '#005212',
+                },
+              },
+              error: {
+                style: {
+                  border: '1px solid #fecaca',
+                  background: '#fef2f2',
+                  color: '#991b1b',
+                },
+              }
+            }}
+          />
           <RouterProvider router={router} future={{ v7_startTransition: true }} />
         </AppProvider>
       </AuthProvider>

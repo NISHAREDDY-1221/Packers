@@ -7,6 +7,8 @@ import type { User } from '../api/authService';
 import { workOrderService } from '../api/workOrderService';
 import { barcodeService } from '../api/barcodeService';
 
+import toast from 'react-hot-toast';
+
 const PRINTERS = [
   'Zebra ZD420 (Thermal)',
   'TSC TE244 (Thermal)',
@@ -421,7 +423,7 @@ export const BarcodesLabels: React.FC = () => {
 
     const printWindow = iframe.contentWindow;
     if (!printWindow) {
-      alert("Could not initialize print mechanism.");
+      toast.error("Could not initialize print mechanism.");
       document.body.removeChild(iframe);
       return;
     }
@@ -591,7 +593,7 @@ export const BarcodesLabels: React.FC = () => {
     const reason = prompt('Please enter the reprint reason:');
     if (reason === null) return; // cancelled
     if (!reason.trim()) {
-      alert('Reprint reason is required.');
+      toast.error('Reprint reason is required.');
       return;
     }
 

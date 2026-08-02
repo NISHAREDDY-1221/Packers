@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Package, Clock, Filter, AlertTriangle, Play, CheckCircle } from 'lucide-react';
+import { Package, Clock, Filter, AlertTriangle, Play, CheckCircle, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { packingJobsService } from '../services/packingJobsService';
 import type { PackingJob } from '../../../shared/types';
@@ -9,6 +9,10 @@ export const MyJobs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'ready' | 'in-progress' | 'labels'>('ready');
   const [tasks, setTasks] = useState<PackingJob[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [labelModalOpen, setLabelModalOpen] = useState(false);
+  const [labelJobId, setLabelJobId] = useState('');
+  const [labelsApplied, setLabelsApplied] = useState('');
 
   useEffect(() => {
     fetchTasks();
@@ -63,23 +67,26 @@ export const MyJobs: React.FC = () => {
   };
 
   const handleCompleteLabeling = async (id: string) => {
-    const applied = prompt('Enter the number of labels successfully applied:');
-    if (applied === null) return;
-    const num = parseInt(applied, 10);
+    setLabelJobId(id);
+    setLabelsApplied('');
+    setLabelModalOpen(true);
+  };
+
+  const submitLabelsApplied = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = parseInt(labelsApplied, 10);
     if (isNaN(num) || num < 0) {
-      alert('Please enter a valid positive number.');
+      toast.error('Please enter a valid positive number.');
       return;
     }
     try {
-      // Need to use packingJobsService or workOrderService to update extra fields
-      // packingJobsService currently probably only takes status, but we can try
-      // Or we can just use apiClient directly if needed. 
-      // Let's assume packingJobsService.updateWorkOrderStatus accepts extra.
-      await packingJobsService.updateWorkOrderStatus(id, 'LABELS_APPLIED', { labelsApplied: num } as any);
+      await packingJobsService.updateWorkOrderStatus(labelJobId, 'LABELS_APPLIED', { labelsApplied: num } as any);
       fetchTasks();
+      setLabelModalOpen(false);
+      toast.success('Labels successfully recorded.');
     } catch (error) {
       console.error('Error completing labeling', error);
-      alert('Failed to complete labeling.');
+      toast.error('Failed to complete labeling.');
     }
   };
 
@@ -284,6 +291,60 @@ export const MyJobs: React.FC = () => {
           <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto text-sm font-medium">
             There are currently no tasks in this category. Check back later or select a different tab.
           </p>
+        </div>
+      )}
+
+      {/* Labeling Completion Modal */}
+      {labelModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-xs flex justify-center items-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-sm overflow-hidden">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+              <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                <CheckCircle size={18} className="text-[#00891D]" />
+                Complete Labeling
+              </h3>
+              <button 
+                onClick={() => setLabelModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={submitLabelsApplied} className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
+                  Labels Successfully Applied *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00891D]/50 bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-bold"
+                  value={labelsApplied}
+                  onChange={(e) => setLabelsApplied(e.target.value)}
+                  placeholder="Enter quantity..."
+                  autoFocus
+                />
+              </div>
+              
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setLabelModalOpen(false)}
+                  className="flex-1 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#00891D] hover:bg-[#007518] text-white rounded-lg font-bold shadow-sm transition-colors cursor-pointer"
+                >
+                  Confirm
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

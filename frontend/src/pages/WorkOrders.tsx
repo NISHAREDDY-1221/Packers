@@ -12,6 +12,7 @@ import { masterDataService } from '../api/masterDataService';
 import type { Recipe } from '../api/masterDataService';
 import { authService } from '../api/authService';
 import type { User } from '../api/authService';
+import toast from 'react-hot-toast';
 
 const KANBAN_COLUMNS: WoStatus[] = [
   'DRAFT',
@@ -212,13 +213,17 @@ export const WorkOrders: React.FC = () => {
       case 'PENDING': return 'bg-orange-50 text-orange-700 border-orange-200';
       case 'APPROVED': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'MATERIAL_ISSUED': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'PACKING_STARTED': return 'bg-green-50 text-green-700 border-green-200';
+      case 'PACKING_STARTED': 
+      case 'PACKING_IN_PROGRESS': return 'bg-green-50 text-green-700 border-green-200';
+      case 'PACKING_COMPLETED': return 'bg-teal-50 text-teal-700 border-teal-200';
+      case 'LABEL_APPLICATION_ASSIGNED':
+      case 'LABEL_APPLICATION_IN_PROGRESS':
+      case 'LABELS_APPLIED': return 'bg-cyan-50 text-cyan-700 border-cyan-200';
       case 'QC_PENDING': return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'QC_PASSED':
-      case 'COMPLETED':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'QC_PASSED': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'COMPLETED': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
       case 'CANCELLED': return 'bg-red-50 text-red-700 border-red-200';
-      
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
@@ -253,7 +258,7 @@ export const WorkOrders: React.FC = () => {
       setFormQty(100);
       setFormPriority('MEDIUM');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Error creating Work Order');
+      toast.error(err.response?.data?.message || 'Error creating Work Order');
     }
   };
 
@@ -270,12 +275,17 @@ export const WorkOrders: React.FC = () => {
     e.preventDefault();
     if (!isEditOpen) return;
     try {
-      await workOrderService.updateWorkOrderStatus(isEditOpen.id, isEditOpen.rawStatus || isEditOpen.status);
+      await workOrderService.updateWorkOrderStatus(isEditOpen.id, isEditOpen.rawStatus || isEditOpen.status, {
+        requiredQty: editQty,
+        priority: editPriority,
+        operatorId: editSupervisor,
+        expectedDate: editExpectedCompletion ? new Date(editExpectedCompletion).toISOString() : undefined
+      });
       setIsEditOpen(null);
       showToast('Work order updated successfully.');
       fetchWorkOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Error updating Work Order');
+      toast.error(err.response?.data?.message || 'Error updating Work Order');
     }
   };
 
@@ -581,7 +591,7 @@ export const WorkOrders: React.FC = () => {
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-normal whitespace-nowrap ${getStatusColor(wo.status)}`}>
-                        {wo.status}
+                        {wo.status ? wo.status.replace(/_/g, ' ') : ''}
                       </span>
                     </td>
                     <td className="p-3 text-gray-600 font-mono">{wo.expectedDate ? new Date(wo.expectedDate).toLocaleDateString() : ''}</td>
@@ -753,7 +763,7 @@ export const WorkOrders: React.FC = () => {
                 <div className="flex justify-between p-2.5">
                   <span className="text-gray-505 font-medium">Status</span>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${getStatusColor(selectedWO.status)}`}>
-                    {selectedWO.status}
+                    {selectedWO.status ? selectedWO.status.replace(/_/g, ' ') : ''}
                   </span>
                 </div>
                 <div className="flex justify-between p-2.5">

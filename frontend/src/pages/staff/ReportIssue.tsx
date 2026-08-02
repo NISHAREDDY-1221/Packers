@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { issueService } from '../../api/issueService';
 import { workOrderService } from '../../api/workOrderService';
 
+import toast from 'react-hot-toast';
+
 const issueTypes = [
   'MACHINE_ISSUE',
   'MATERIAL_SHORTAGE',
@@ -54,7 +56,7 @@ export const ReportIssue: React.FC = () => {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       if (photos.length >= 3) {
-        alert('Maximum 3 images allowed.');
+        toast.error('Maximum 3 images allowed.');
         return;
       }
       
@@ -93,7 +95,7 @@ export const ReportIssue: React.FC = () => {
       setSuccessResponse(res.data?.issue);
     } catch (error) {
       console.error('Failed to report issue', error);
-      alert('Failed to submit issue. Please try again.');
+      toast.error('Failed to submit issue. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

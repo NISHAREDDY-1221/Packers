@@ -61,16 +61,18 @@ export const PackingExecution: React.FC = () => {
         return s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
       };
       
-      const getSupervisorName = (supervisor: any) => {
-        if (!supervisor) return 'Unassigned';
+      const getOperatorName = (operator: any, supervisor: any) => {
+        if (operator && operator.name) return operator.name;
+        if (supervisor && supervisor.name) return supervisor.name;
+        if (typeof operator === 'string') return operator;
         if (typeof supervisor === 'string') return supervisor;
-        return supervisor.name || 'Unassigned';
+        return 'Unassigned';
       };
 
       const mapped = (res.data || []).map((wo: any) => ({
         ...wo,
         statusLabel: formatStatus(wo.status),
-        supervisorName: getSupervisorName(wo.supervisor),
+        operatorName: getOperatorName(wo.operator, wo.supervisor),
         productName: wo.product?.name || 'Unknown Product',
         progress: wo.actualProduced ? Math.round((wo.actualProduced / wo.requiredQty) * 100) : 0
       }));
@@ -95,7 +97,7 @@ export const PackingExecution: React.FC = () => {
         if (
           !wo.woNumber?.toLowerCase().includes(term) &&
           !wo.productName?.toLowerCase().includes(term) &&
-          !wo.supervisorName?.toLowerCase().includes(term)
+          !wo.operatorName?.toLowerCase().includes(term)
         ) return false;
       }
       return true;
@@ -146,8 +148,8 @@ export const PackingExecution: React.FC = () => {
       render: (wo: any) => <div className="text-center font-semibold text-xs text-gray-900 line-clamp-1">{wo.productName}</div>
     },
     {
-      key: 'supervisorName', label: 'OPERATOR', sortable: true,
-      render: (wo: any) => <div className="text-center text-xs font-medium text-gray-700">{wo.supervisorName}</div>
+      key: 'operatorName', label: 'OPERATOR', sortable: true,
+      render: (wo: any) => <div className="text-center text-xs font-medium text-gray-700">{wo.operatorName}</div>
     },
     {
       key: 'requiredQty', label: 'REQ. QTY', sortable: true,

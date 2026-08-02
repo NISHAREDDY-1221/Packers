@@ -5,6 +5,8 @@ import { workOrderService } from '../../api/workOrderService';
 import type { WoStatus } from '../../api/workOrderService';
 import { ArrowLeft, CheckCircle, ScanBarcode, CheckSquare, Square } from 'lucide-react';
 
+import toast from 'react-hot-toast';
+
 export const TaskExecution: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -37,7 +39,7 @@ export const TaskExecution: React.FC = () => {
       await workOrderService.updateWorkOrderStatus(id!, status);
       navigate('/operator/jobs');
     } catch (err) {
-      alert('Failed to update task');
+      toast.error('Failed to update task');
     }
   };
 
@@ -47,7 +49,7 @@ export const TaskExecution: React.FC = () => {
       await workOrderService.updateWorkOrderStatus(id!, status);
       navigate('/operator/jobs');
     } catch (err) {
-      alert('Failed to submit QC');
+      toast.error('Failed to submit QC');
     }
   };
 

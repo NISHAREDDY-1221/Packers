@@ -45,8 +45,8 @@ export const Dashboard: React.FC = () => {
   const activeLinesCount = workOrders.filter(w => ['PACKING_STARTED', 'PACKING_IN_PROGRESS', 'LABEL_APPLICATION_IN_PROGRESS'].includes(w.status)).length;
   const machineUtil = Math.min(100, Math.round((activeLinesCount / Math.max(1, workOrders.length)) * 100)) || (pendingWOs > 0 ? 65 : 0);
 
-  // Active work orders (excluding completed and cancelled for the compact queue widget)
-  const activeWOs = workOrders.filter(w => w.status !== 'COMPLETED' && w.status !== 'CANCELLED').slice(0, 5);
+  // Active work orders (excluding cancelled for the compact queue widget, but keeping COMPLETED so user can see status update)
+  const activeWOs = workOrders.filter(w => w.status !== 'CANCELLED').slice(0, 5);
 
   // Group by category for category-wise packing
   const categoriesMap: Record<string, number> = {};
@@ -299,7 +299,7 @@ export const Dashboard: React.FC = () => {
                       <td colSpan={6} className="p-4 text-center text-slate-400 text-xs font-medium">No active work orders.</td>
                     </tr>
                   ) : (
-                    activeWOs.map((wo) => (
+                    activeWOs.slice(0, 5).map((wo) => (
                       <tr key={wo.id} className="hover:bg-slate-50/50 text-[11px]">
                         <td className="p-2 font-mono font-bold text-slate-800">{wo.woNumber || wo.woNo}</td>
                         <td className="p-2 font-semibold text-slate-700 max-w-[120px] truncate" title={wo.product?.name || wo.productName}>{wo.product?.name || wo.productName}</td>
@@ -349,7 +349,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {activeWOs.filter(w => ['PACKING_STARTED', 'PACKING_IN_PROGRESS', 'LABEL_APPLICATION_IN_PROGRESS'].includes(w.status)).map(lineWO => (
+                  {activeWOs.filter(w => ['PACKING_STARTED', 'PACKING_IN_PROGRESS', 'LABEL_APPLICATION_IN_PROGRESS'].includes(w.status)).slice(0, 3).map(lineWO => (
                     <div key={lineWO.id} className="p-2.5 bg-green-50/60 border border-green-200 rounded-lg text-xs space-y-1">
                       <div className="flex justify-between items-center font-bold text-slate-800">
                         <span>{lineWO.woNumber || lineWO.woNo}</span>

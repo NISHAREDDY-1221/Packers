@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
+import toast from 'react-hot-toast';
 import {
   Filter, Download, GitCommit,
   CheckCircle, RefreshCw, UserCheck, DollarSign, AlertTriangle,
@@ -98,7 +99,7 @@ export const Reports: React.FC = () => {
   ];
 
   const handleExport = (type: 'Excel' | 'PDF') => {
-    alert(`Exporting current report (${activeTab.toUpperCase()}) as ${type}. Feature coming soon.`);
+    toast.success(`Exporting current report (${activeTab.toUpperCase()}) as ${type}. Feature coming soon.`);
   };
 
   const EmptyRow = ({ cols, message = 'No records found.' }: { cols: number; message?: string }) => (

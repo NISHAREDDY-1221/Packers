@@ -106,11 +106,13 @@ export class WorkOrderService {
     }
 
     const updateData: any = { status };
-    if (extra?.operatorId) updateData.operatorId = extra.operatorId;
+    if (extra?.operatorId !== undefined) updateData.operatorId = extra.operatorId || null;
     if (extra?.inspectorId) updateData.inspectorId = extra.inspectorId;
     if (extra?.priority) updateData.priority = extra.priority;
     if (extra?.labelsPrinted !== undefined) updateData.labelsPrinted = extra.labelsPrinted;
     if (extra?.labelsApplied !== undefined) updateData.labelsApplied = extra.labelsApplied;
+    if (extra?.requiredQty !== undefined) updateData.requiredQty = extra.requiredQty;
+    if (extra?.expectedDate !== undefined) updateData.expectedDate = extra.expectedDate;
 
     const updatedWO = await prisma.workOrder.update({
       where: { id },

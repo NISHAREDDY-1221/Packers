@@ -127,12 +127,16 @@ export const StaffDashboard: React.FC = () => {
             })}
           </div>
 
-          {/* Current Active Job Unified View */}
+          {/* Current Active Job / QC Task Unified View */}
           <div className="pt-2">
-            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 uppercase tracking-wider">Current Active Job</h2>
+            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 uppercase tracking-wider">{isQC ? 'Current QC Task' : 'New jobs'}</h2>
             {(() => {
-              const activeJobs = workOrders.filter(wo => wo.status === 'PACKING_STARTED' || wo.status === 'MATERIAL_ISSUED');
-              const activeJob = activeJobs.find(wo => wo.status === 'PACKING_STARTED') || activeJobs.find(wo => wo.status === 'MATERIAL_ISSUED');
+              const activeJobs = isQC 
+                ? workOrders.filter(wo => wo.status === 'QC_IN_PROGRESS' || (wo.status as any) === 'LABEL_APPLICATION_IN_PROGRESS')
+                : workOrders.filter(wo => wo.status === 'PACKING_STARTED' || wo.status === 'MATERIAL_ISSUED');
+              const activeJob = isQC 
+                ? (activeJobs.find(wo => wo.status === 'QC_IN_PROGRESS') || activeJobs.find(wo => (wo.status as any) === 'LABEL_APPLICATION_IN_PROGRESS'))
+                : (activeJobs.find(wo => wo.status === 'PACKING_STARTED') || activeJobs.find(wo => wo.status === 'MATERIAL_ISSUED'));
 
               if (!activeJob) {
                 return (

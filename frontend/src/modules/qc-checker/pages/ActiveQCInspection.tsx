@@ -6,6 +6,8 @@ import type { QCInspection } from '../../../shared/types';
 import { Package, AlertCircle, CheckCircle, ListTodo, Camera, X, Image as ImageIcon, Check, XCircle } from 'lucide-react';
 import apiClient from '../../../api/axios';
 
+import toast from 'react-hot-toast';
+
 interface QcChecklist {
   id: string;
   label: string;
@@ -155,18 +157,18 @@ export const ActiveQCInspection: React.FC = () => {
 
   const saveProgress = () => {
     // We can simply persist local state or send to backend if we had an intermediate save API
-    alert('Progress saved locally.');
+    toast.success('Progress saved locally.');
   };
 
   const validateCompletion = () => {
     for (const check of checklists) {
       const state = checksState[check.id];
       if (check.required && state.status === null) {
-        alert(`Mandatory check "${check.label}" is missing.`);
+        toast.error(`Mandatory check "${check.label}" is missing.`);
         return false;
       }
       if (state.status === 'FAIL' && !state.remarks.trim()) {
-        alert(`Remarks are required for failed check "${check.label}".`);
+        toast.error(`Remarks are required for failed check "${check.label}".`);
         return false;
       }
     }
@@ -193,7 +195,7 @@ export const ActiveQCInspection: React.FC = () => {
       await apiClient.post('/workflows/quality-checks', payload);
 
       setShowCompleteModal(false);
-      alert('QC Inspection completed successfully.');
+      toast.success('QC Inspection completed successfully.');
       navigate('/qc/tasks');
     } catch (e: any) {
       const msg = e.response?.data?.message || e.message || 'Failed to complete inspection';

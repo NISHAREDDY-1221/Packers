@@ -5,6 +5,8 @@ import { packingJobsService } from '../services/packingJobsService';
 import type { PackingJob } from '../../../shared/types';
 import { Package, AlertCircle, Play, Pause, CheckCircle, Plus, X, ListTodo } from 'lucide-react';
 
+import toast from 'react-hot-toast';
+
 export const ActivePacking: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -91,7 +93,7 @@ export const ActivePacking: React.FC = () => {
   const handleUpdateQuantity = async () => {
     const inputPacked = Number(addPacked) || 0;
     const inputRejected = Number(addRejected) || 0;
-    if (inputPacked < 0 || inputRejected < 0) return alert('Cannot add negative quantities');
+    if (inputPacked < 0 || inputRejected < 0) return toast.error('Cannot add negative quantities');
     
     // Determine target cumulative produced & rejected:
     // If input quantity is >= current packedQty or equals requiredQty, treat as cumulative total target; otherwise treat as incremental amount to add.
@@ -104,7 +106,7 @@ export const ActivePacking: React.FC = () => {
 
     const totalNew = targetPacked + targetRejected;
     if (totalNew > requiredQty) {
-      return alert(`Total produced + rejected quantity (${totalNew}) cannot exceed required quantity (${requiredQty}). Current packed: ${packedQty}, remaining capacity to add: ${Math.max(0, requiredQty - packedQty - rejectedQty)}.`);
+      return toast.error(`Total produced + rejected quantity (${totalNew}) cannot exceed required quantity (${requiredQty}). Current packed: ${packedQty}, remaining capacity to add: ${Math.max(0, requiredQty - packedQty - rejectedQty)}.`);
     }
 
     try {

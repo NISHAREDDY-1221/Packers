@@ -3,6 +3,7 @@ import { workOrderService } from '../api/workOrderService';
 import { qualityCheckService } from '../api/qualityCheckService';
 import { repackingService } from '../api/repackingService';
 import apiClient from '../api/axios';
+import { useAuth } from './AuthContext';
 
 export interface RecipeConfig {
   id: string;
@@ -185,6 +186,8 @@ const INITIAL_WORK_ORDERS: WorkOrder[] = [];
 const INITIAL_MATERIAL_ISSUES: MaterialIssue[] = [];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token } = useAuth();
+
   const [recipes, setRecipes] = useState<RecipeConfig[]>(INITIAL_RECIPES);
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(INITIAL_WORK_ORDERS);
@@ -200,6 +203,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   useEffect(() => {
+    if (!token) return;
+
     const fetchApiData = async () => {
       try {
         const [woRes, qcRes, fgRes, rpRes] = await Promise.allSettled([
@@ -291,7 +296,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchApiData();
     const interval = setInterval(fetchApiData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [token]);
 
   const addRecipe = (recipe: RecipeConfig) => {
     setRecipes((prev) => [recipe, ...prev]);
