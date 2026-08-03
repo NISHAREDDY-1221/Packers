@@ -61,6 +61,14 @@ body,
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   background-color: #F3F4F6;
   color: #0f172a;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark,
+html.dark body,
+html.dark #root {
+  background-color: #0f172a;
+  color: #f8fafc;
 }
 
 /* Modernized Thin Scrollbars */
@@ -91,7 +99,6 @@ body,
   border-radius: 999px;
 }
 
-
 /* Custom design system utility classes */
 .vk-card {
   background-color: #FFFFFF;
@@ -101,12 +108,23 @@ body,
   box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.05);
 }
 
+.dark .vk-card {
+  background-color: #1e293b;
+  border-color: #334155;
+  box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.2);
+}
+
 .vk-table-container {
   background-color: #FFFFFF;
   border: 1px solid #E6E7EA;
   border-radius: 16px;
   box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.05);
   overflow: hidden;
+}
+
+.dark .vk-table-container {
+  background-color: #1e293b;
+  border-color: #334155;
 }
 
 .vk-table th {
@@ -118,14 +136,29 @@ body,
   color: #676767;
 }
 
+.dark .vk-table th {
+  background-color: #0f172a;
+  border-bottom-color: #334155;
+  color: #94a3b8;
+}
+
 .vk-table td {
   height: 72px;
   padding: 16px 24px;
   border-bottom: 1px solid #E6E7EA;
 }
 
+.dark .vk-table td {
+  border-bottom-color: #334155;
+  color: #f1f5f9;
+}
+
 .vk-table tr:hover td {
   background-color: #F9FAFB;
+}
+
+.dark .vk-table tr:hover td {
+  background-color: #334155;
 }
 
 .vk-btn-primary {
@@ -162,8 +195,18 @@ body,
   cursor: pointer;
 }
 
+.dark .vk-btn-secondary {
+  background-color: #1e293b;
+  color: #4ade80;
+  border-color: #4ade80;
+}
+
 .vk-btn-secondary:hover {
   background-color: #f0fdf4;
+}
+
+.dark .vk-btn-secondary:hover {
+  background-color: #064e3b;
 }
 
 .vk-input {
@@ -172,10 +215,28 @@ body,
   border: 1px solid #E6E7EA;
   padding: 0 16px;
   font-size: 14px;
+  font-weight: 500;
   line-height: 21px;
   outline: none;
   transition: all 0.2s ease-in-out;
   background-color: #FFFFFF;
+  color: #0f172a;
+}
+
+.vk-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.dark .vk-input {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.dark .vk-input::placeholder {
+  color: #64748b;
+  font-weight: 400;
 }
 
 .vk-input:focus {
@@ -187,6 +248,12 @@ body,
   background-color: #f1f5f9;
   color: #9EA3AE;
 }
+
+.dark .vk-input:disabled {
+  background-color: #1e293b;
+  color: #64748b;
+}
+
 
 /* Status Chips */
 .vk-chip {
@@ -205,10 +272,22 @@ body,
   border: 1px solid rgba(0, 137, 29, 0.2);
 }
 
+.dark .vk-chip-active {
+  background-color: #064e3b;
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
 .vk-chip-pending {
   background-color: #fffbeb;
   color: #d97706;
   border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.dark .vk-chip-pending {
+  background-color: #78350f;
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.2);
 }
 
 .vk-chip-rejected {
@@ -217,8 +296,21 @@ body,
   border: 1px solid rgba(220, 38, 38, 0.2);
 }
 
+.dark .vk-chip-rejected {
+  background-color: #7f1d1d;
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
 .vk-chip-draft {
   background-color: #f8fafc;
   color: #475569;
   border: 1px solid rgba(71, 85, 105, 0.2);
 }
+
+.dark .vk-chip-draft {
+  background-color: #334155;
+  color: #cbd5e1;
+  border-color: rgba(203, 213, 225, 0.2);
+}
+

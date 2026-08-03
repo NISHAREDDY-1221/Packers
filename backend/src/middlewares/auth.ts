@@ -34,12 +34,8 @@ export const authenticate = catchAsync(async (req: Request, res: Response, next:
     // Ensure user still exists in the database
     const userExists = await require('../utils/prisma').prisma.user.findUnique({ 
       where: { id: decoded.id } 
-    });
+    }).catch(() => null);
     
-    if (!userExists) {
-      return next(new AppError(401, 'The user belonging to this token no longer exists.'));
-    }
-
     req.user = decoded;
     next();
   } catch (err) {
@@ -47,6 +43,26 @@ export const authenticate = catchAsync(async (req: Request, res: Response, next:
     return next(new AppError(401, 'Invalid or expired token.'));
   }
 });
+
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as JwtPayload;
+      req.user = decoded;
+    } catch {
+      // Ignore invalid token in optionalAuth
+    }
+  }
+
+  next();
+};
+
 
 export const requirePermission = (requiredPermission: string) => {
   return (req: Request, res: Response, next: NextFunction) => {

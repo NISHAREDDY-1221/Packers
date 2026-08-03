@@ -13,7 +13,15 @@ export const apiClient = axios.create({
 // Request Interceptor: Attach JWT Token if available
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const path = window.location.pathname;
+    let tokenKey = 'token';
+    if (path.startsWith('/operator')) {
+      tokenKey = 'token_operator';
+    } else if (path.startsWith('/qc')) {
+      tokenKey = 'token_qc';
+    }
+
+    const token = localStorage.getItem(tokenKey) || localStorage.getItem('token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,6 +40,20 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       console.warn('Unauthorized access - please login again.');
+      
+      const path = window.location.pathname;
+      let tokenKey = 'token';
+      let userKey = 'user';
+      if (path.startsWith('/operator')) {
+        tokenKey = 'token_operator';
+        userKey = 'user_operator';
+      } else if (path.startsWith('/qc')) {
+        tokenKey = 'token_qc';
+        userKey = 'user_qc';
+      }
+
+      localStorage.removeItem(tokenKey);
+      localStorage.removeItem(userKey);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       

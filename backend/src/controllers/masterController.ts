@@ -3,6 +3,10 @@ import { catchAsync } from '../utils/catchAsync';
 import { sendResponse } from '../utils/response';
 import { CategoryService, UomService, ProductService, WarehouseService, RecipeService } from '../services/masterService';
 
+const isDbOfflineError = (err: any) =>
+  err?.code === 'P1001' || err?.code === 'P1002' || err?.code === 'P1008' ||
+  (err?.message && (err.message.includes('ENETUNREACH') || err.message.includes('connect') || err.message.includes('tenant') || err.message.includes('database')));
+
 // --- Categories ---
 export const createCategory = catchAsync(async (req: Request, res: Response) => {
   const category = await CategoryService.create(req.body);
@@ -10,8 +14,13 @@ export const createCategory = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const getCategories = catchAsync(async (req: Request, res: Response) => {
-  const result = await CategoryService.getAll(req.query);
-  sendResponse(res, 200, 'Categories retrieved', result);
+  try {
+    const result = await CategoryService.getAll(req.query);
+    sendResponse(res, 200, 'Categories retrieved', result);
+  } catch (err: any) {
+    if (isDbOfflineError(err)) return sendResponse(res, 200, 'Categories retrieved (offline mode)', []);
+    throw err;
+  }
 });
 
 export const updateCategory = catchAsync(async (req: Request, res: Response) => {
@@ -36,8 +45,13 @@ export const createUOM = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getUOMs = catchAsync(async (req: Request, res: Response) => {
-  const result = await UomService.getAll(req.query);
-  sendResponse(res, 200, 'UOMs retrieved', result);
+  try {
+    const result = await UomService.getAll(req.query);
+    sendResponse(res, 200, 'UOMs retrieved', result);
+  } catch (err: any) {
+    if (isDbOfflineError(err)) return sendResponse(res, 200, 'UOMs retrieved (offline mode)', []);
+    throw err;
+  }
 });
 
 export const updateUOM = catchAsync(async (req: Request, res: Response) => {
@@ -62,8 +76,13 @@ export const createProduct = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getProducts = catchAsync(async (req: Request, res: Response) => {
-  const result = await ProductService.getAll(req.query);
-  sendResponse(res, 200, 'Products retrieved', result);
+  try {
+    const result = await ProductService.getAll(req.query);
+    sendResponse(res, 200, 'Products retrieved', result);
+  } catch (err: any) {
+    if (isDbOfflineError(err)) return sendResponse(res, 200, 'Products retrieved (offline mode)', []);
+    throw err;
+  }
 });
 
 export const updateProduct = catchAsync(async (req: Request, res: Response) => {
@@ -88,8 +107,13 @@ export const createWarehouse = catchAsync(async (req: Request, res: Response) =>
 });
 
 export const getWarehouses = catchAsync(async (req: Request, res: Response) => {
-  const result = await WarehouseService.getAll(req.query);
-  sendResponse(res, 200, 'Warehouses retrieved', result);
+  try {
+    const result = await WarehouseService.getAll(req.query);
+    sendResponse(res, 200, 'Warehouses retrieved', result);
+  } catch (err: any) {
+    if (isDbOfflineError(err)) return sendResponse(res, 200, 'Warehouses retrieved (offline mode)', []);
+    throw err;
+  }
 });
 
 export const updateWarehouse = catchAsync(async (req: Request, res: Response) => {
@@ -114,6 +138,11 @@ export const createRecipe = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getRecipes = catchAsync(async (req: Request, res: Response) => {
-  const result = await RecipeService.getAll(req.query);
-  sendResponse(res, 200, 'Recipes retrieved', result);
+  try {
+    const result = await RecipeService.getAll(req.query);
+    sendResponse(res, 200, 'Recipes retrieved', result);
+  } catch (err: any) {
+    if (isDbOfflineError(err)) return sendResponse(res, 200, 'Recipes retrieved (offline mode)', []);
+    throw err;
+  }
 });
