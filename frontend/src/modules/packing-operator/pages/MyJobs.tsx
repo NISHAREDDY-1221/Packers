@@ -3,7 +3,7 @@ import { Package, Clock, Filter, AlertTriangle, Play, CheckCircle, X } from 'luc
 import { useNavigate } from 'react-router-dom';
 import { packingJobsService } from '../services/packingJobsService';
 import type { PackingJob } from '../../../shared/types';
-
+import toast from 'react-hot-toast';
 export const MyJobs: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'pending' | 'ready' | 'in-progress' | 'labels'>('ready');
@@ -48,7 +48,7 @@ export const MyJobs: React.FC = () => {
       navigate('/operator/active-packing');
     } catch (error) {
       console.error('Error starting packing', error);
-      alert('Failed to start packing job. Please try again.');
+      toast.error('Failed to start packing job. Please try again.');
     }
   };
 
@@ -62,7 +62,7 @@ export const MyJobs: React.FC = () => {
       fetchTasks();
     } catch (error) {
       console.error('Error starting labeling', error);
-      alert('Failed to start labeling. Please try again.');
+      toast.error('Failed to start labeling. Please try again.');
     }
   };
 

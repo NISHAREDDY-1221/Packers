@@ -5,6 +5,7 @@ type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
+  setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 }
 
@@ -23,7 +24,13 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider = ({ children }: ThemeProviderProps) => {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setThemeState] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem('theme') as Theme;
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      return savedTheme;
+    }
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -35,13 +42,18 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+  };
+
   const toggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
+    setThemeState((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
 };
+

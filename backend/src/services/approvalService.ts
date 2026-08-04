@@ -53,10 +53,10 @@ export class ApprovalService {
     return approvals.map((app: any) => ({
       ...app,
       productName: app.productName || woMap.get(app.relatedEntityId) || 'Standard Product',
-      requestedBy: app.requestedBy.name,
+      requestedBy: app.requestedBy?.name || 'Unknown',
       history: app.history.map((h: any) => ({
         ...h,
-        actionBy: h.actionBy.name,
+        actionBy: h.actionBy?.name || 'System',
       }))
     }));
   }
@@ -101,8 +101,8 @@ export class ApprovalService {
 
       return {
         ...updatedApproval,
-        requestedBy: updatedApproval.requestedBy.name,
-        history: history.map((h: any) => ({ ...h, actionBy: h.actionBy.name }))
+        requestedBy: updatedApproval.requestedBy?.name || 'Unknown',
+        history: history.map((h: any) => ({ ...h, actionBy: h.actionBy?.name || 'System' }))
       };
     }, {
       maxWait: 15000, // 15 seconds

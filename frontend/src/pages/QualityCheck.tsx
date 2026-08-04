@@ -265,7 +265,7 @@ export const QualityCheck: React.FC = () => {
       loadAll(false);
     } catch (err: any) {
       console.error('Failed to assign task', err);
-      alert(err.response?.data?.message || err.message || 'Failed to assign inspector task');
+      toast.error(err.response?.data?.message || err.message || 'Failed to assign inspector task');
     }
   };
 
@@ -310,7 +310,7 @@ export const QualityCheck: React.FC = () => {
       setIsFormOpen(false); setSelectedWO(null);
       setRefreshKey(k => k + 1);
     } catch (err: any) {
-      alert(err?.response?.data?.message ?? 'Failed to submit inspection.');
+      toast.error(err?.response?.data?.message ?? 'Failed to submit inspection.');
     } finally {
       setSubmitting(false);
     }

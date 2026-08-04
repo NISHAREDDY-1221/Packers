@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Home, PackageCheck, Package, History, UserCircle } from 'lucide-react';
+import { Home, PackageCheck, Package, History, UserCircle, Bell } from 'lucide-react';
 import { Sidebar } from '../../../shared/components/Sidebar';
 import type { NavItem } from '../../../shared/components/Sidebar';
 import { StaffHeader } from '../../../shared/components/StaffHeader';
@@ -12,6 +12,7 @@ const qcNavItems: NavItem[] = [
   { icon: PackageCheck, label: 'My QC Tasks', path: '/qc/tasks' },
   { icon: Package, label: 'Active QC', path: '/qc/active-inspection' },
   { icon: History, label: 'History', path: '/qc/history' },
+  { icon: Bell, label: 'Notifications', path: '/qc/notifications' },
   { icon: UserCircle, label: 'Profile', path: '/qc/profile' },
 ];
 

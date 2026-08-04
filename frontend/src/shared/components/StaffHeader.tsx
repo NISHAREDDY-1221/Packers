@@ -14,7 +14,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({ darkMode, setDarkMode,
   const { user } = useAuth();
   const navigate = useNavigate();
   const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
-  const tasksRoute = isQC ? '/qc/tasks' : '/operator/jobs';
+  const notificationsRoute = isQC ? '/qc/notifications' : '/operator/notifications';
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -52,7 +52,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({ darkMode, setDarkMode,
           >
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <button onClick={() => navigate(tasksRoute)} className="p-2 hover:bg-green-700 rounded-lg transition-colors relative">
+          <button onClick={() => navigate(notificationsRoute)} className="p-2 hover:bg-green-700 rounded-lg transition-colors relative">
             <Bell size={20} />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
@@ -70,7 +70,7 @@ export const StaffHeader: React.FC<StaffHeaderProps> = ({ darkMode, setDarkMode,
             >
               {darkMode ? <Sun size={24} /> : <Moon size={24} />}
             </button>
-            <button onClick={() => navigate(tasksRoute)} className="p-1 hover:bg-green-700 rounded-lg transition-colors relative">
+            <button onClick={() => navigate(notificationsRoute)} className="p-1 hover:bg-green-700 rounded-lg transition-colors relative">
               <Bell size={24} />
               <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-green-600 rounded-full"></span>
             </button>

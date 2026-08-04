@@ -34,7 +34,7 @@ export const ActiveQCInspection: React.FC = () => {
   // Modals state
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
-  const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
+  const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING', 'QC_IN_PROGRESS'];
 
   const fetchActiveJob = async () => {
     try {
@@ -199,7 +199,7 @@ export const ActiveQCInspection: React.FC = () => {
       navigate('/qc/tasks');
     } catch (e: any) {
       const msg = e.response?.data?.message || e.message || 'Failed to complete inspection';
-      alert(msg);
+      toast.error(msg);
     }
   };
 

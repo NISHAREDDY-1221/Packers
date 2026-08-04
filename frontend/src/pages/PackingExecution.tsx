@@ -138,7 +138,7 @@ export const PackingExecution: React.FC = () => {
     return `${day}-${month}-${year} ${time}`;
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: 'woNumber', label: 'WORK ORDER NO.', sortable: true,
       render: (wo: any) => <div className="text-center font-mono font-semibold text-xs text-gray-900">{wo.woNumber}</div>
@@ -211,7 +211,7 @@ export const PackingExecution: React.FC = () => {
         </div>
       )
     }
-  ];
+  ], [navigate]);
 
   const totalJobs = apiWorkOrders.length;
   const inProgress = apiWorkOrders.filter(w => w.status === 'PACKING_STARTED').length;

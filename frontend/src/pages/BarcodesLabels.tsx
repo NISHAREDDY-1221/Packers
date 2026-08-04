@@ -607,7 +607,7 @@ export const BarcodesLabels: React.FC = () => {
       });
 
       if (res.requiresApproval) {
-        alert(res.message || 'Reprint request sent for approval due to high quantity (> 100).');
+        toast.success(res.message || 'Reprint request sent for approval due to high quantity (> 100).');
         return;
       }
 

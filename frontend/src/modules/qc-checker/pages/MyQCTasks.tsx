@@ -42,10 +42,14 @@ export const MyQCTasks: React.FC = () => {
 
   const filteredTasks = getFilteredTasks();
 
-  const handleStartQC = async (_id: string) => {
-    // Assuming status changes to something like 'QC_IN_PROGRESS' in real app.
-    // For now, just navigate.
-    navigate('/qc/active-inspection');
+  const handleStartQC = async (id: string) => {
+    try {
+      await qcTasksService.updateWorkOrderStatus(id, 'QC_IN_PROGRESS');
+      navigate('/qc/active-inspection');
+    } catch (error) {
+      console.error('Error starting QC', error);
+      // maybe add a toast error if toast is imported
+    }
   };
 
   const getPriorityColor = (priority: string) => {

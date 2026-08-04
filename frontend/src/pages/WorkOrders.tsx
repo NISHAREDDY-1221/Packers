@@ -230,7 +230,7 @@ export const WorkOrders: React.FC = () => {
   // Priority colors utility
   const getPriorityStyle = (p: WorkOrder['priority']) => {
     switch (p) {
-      case 'URGENT': return 'bg-red-50 text-red-700 border-red-200 font-bold';
+      case 'CRITICAL': return 'bg-red-50 text-red-700 border-red-200 font-bold';
       case 'HIGH': return 'bg-orange-50 text-orange-750 border-orange-200';
       case 'MEDIUM': return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'LOW': return 'bg-slate-55 text-slate-700 border-slate-200';
@@ -460,7 +460,7 @@ export const WorkOrders: React.FC = () => {
               onChange={(e) => setFilterStatus(e.target.value)}
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D]"
             >
-              <option value="All">All Statuses</option>
+              <option value="All">Select...</option>
               {KANBAN_COLUMNS.map(col => <option key={col} value={col}>{col}</option>)}
             </select>
           </div>
@@ -472,11 +472,11 @@ export const WorkOrders: React.FC = () => {
               onChange={(e) => setFilterPriority(e.target.value)}
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
             >
-              <option value="All">All Priorities</option>
+              <option value="All">Select...</option>
               <option value="LOW">Low</option>
               <option value="MEDIUM">Medium</option>
               <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
+              <option value="CRITICAL">Critical</option>
             </select>
           </div>
 
@@ -487,7 +487,7 @@ export const WorkOrders: React.FC = () => {
               onChange={(e) => setFilterCategory(e.target.value)}
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
             >
-              <option value="All">All Categories</option>
+              <option value="All">Select...</option>
               {categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -499,7 +499,7 @@ export const WorkOrders: React.FC = () => {
               onChange={(e) => setFilterSupervisor(e.target.value)}
               className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
             >
-              <option value="All">All Operators</option>
+              <option value="All">Select...</option>
               {supervisors.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -1018,7 +1018,7 @@ export const WorkOrders: React.FC = () => {
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
                     <option value="HIGH">High</option>
-                    <option value="URGENT">Urgent</option>
+                    <option value="CRITICAL">Critical</option>
                   </select>
                 </div>
               </div>
@@ -1132,7 +1132,7 @@ export const WorkOrders: React.FC = () => {
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
                     <option value="HIGH">High</option>
-                    <option value="URGENT">Urgent</option>
+                    <option value="CRITICAL">Critical</option>
                   </select>
                 </div>
               </div>

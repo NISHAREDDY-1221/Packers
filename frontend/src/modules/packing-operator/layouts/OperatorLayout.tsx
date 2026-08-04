@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ListTodo, Package, History, AlertCircle, UserCircle } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Package, History, AlertCircle, UserCircle, Bell } from 'lucide-react';
 import { Sidebar } from '../../../shared/components/Sidebar';
 import type { NavItem } from '../../../shared/components/Sidebar';
 import { StaffHeader } from '../../../shared/components/StaffHeader';
@@ -12,6 +12,7 @@ const operatorNavItems: NavItem[] = [
   { icon: ListTodo, label: 'My Jobs', path: '/operator/jobs' },
   { icon: Package, label: 'Active Packing', path: '/operator/active-packing' },
   { icon: History, label: 'Packing History', path: '/operator/history' },
+  { icon: Bell, label: 'Notifications', path: '/operator/notifications' },
   { icon: AlertCircle, label: 'Report Issue', path: '/operator/report-issue' },
   { icon: UserCircle, label: 'Profile', path: '/operator/profile' },
 ];
@@ -69,3 +70,4 @@ export const OperatorLayout: React.FC = () => {
     </div>
   );
 };
+

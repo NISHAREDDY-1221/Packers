@@ -1,3 +1,6 @@
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -8,6 +11,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 
 dotenv.config();
+
 
 const app = express();
 
@@ -33,3 +37,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);
 });
+
+// Trigger nodemon restart

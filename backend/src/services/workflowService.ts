@@ -11,12 +11,12 @@ export class WorkflowService {
       .sort()
       .paginate();
 
-    apiFeatures.query = { 
-      ...apiFeatures.query, 
-      include: { 
-        workOrder: { include: { product: true, operator: true, supervisor: true } }, 
-        inspector: true 
-      } 
+    apiFeatures.query = {
+      ...apiFeatures.query,
+      include: {
+        workOrder: { include: { product: true, operator: true, supervisor: true } },
+        inspector: true
+      }
     };
 
     const [qcs, total] = await Promise.all([
@@ -55,7 +55,7 @@ export class WorkflowService {
 
     apiFeatures.query = {
       ...apiFeatures.query,
-      include: { 
+      include: {
         sourceWorkOrder: { include: { product: true } }
       },
     };
@@ -71,7 +71,7 @@ export class WorkflowService {
     const workOrder = await prisma.workOrder.findUnique({ where: { id: data.woId } });
     if (!workOrder) throw new AppError(404, 'Work Order not found');
 
-    if (!['PACKING_STARTED', 'PACKING_IN_PROGRESS', 'PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'].includes(workOrder.status)) {
+    if (!['PACKING_STARTED', 'PACKING_IN_PROGRESS', 'PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING', 'QC_IN_PROGRESS'].includes(workOrder.status)) {
       throw new AppError(400, 'Quality Check can only be performed on Work Orders that are active, packed, labeled, or in QC pending status');
     }
 
@@ -95,10 +95,10 @@ export class WorkflowService {
       // Transition WO status based on QC result
       const isPassed = (data.result === 'PASS' || data.result === 'PARTIAL_PASS');
       const newStatus = isPassed ? 'QC_PASSED' : (data.result === 'REWORK' ? 'PACKING_STARTED' : 'QC_PENDING');
-      
+
       const updatedWO = await tx.workOrder.update({
         where: { id: data.woId },
-        data: { 
+        data: {
           status: newStatus,
           ...(isPassed ? { completedAt: new Date() } : {})
         },
@@ -143,7 +143,7 @@ export class WorkflowService {
 
       const updatedWO = await tx.workOrder.update({
         where: { id: data.woId },
-        data: { 
+        data: {
           status: 'COMPLETED',
           completedAt: new Date(),
           actualProduced: data.postedQty,
@@ -161,13 +161,26 @@ export class WorkflowService {
         }
       });
 
+      // Submit for Approval now that it is posted in Finished Goods
+      await tx.approvalRequest.create({
+        data: {
+          type: 'WORK_ORDER',
+          relatedEntityId: updatedWO.id,
+          relatedEntityName: `Finished Work Order #${updatedWO.woNumber}`,
+          requestedById: data.userId,
+          reason: 'Final approval for posted Finished Goods',
+          priority: updatedWO.priority as any,
+          status: 'PENDING',
+        }
+      });
+
       return { fg, updatedWO };
     });
   }
 
   // --- Repacking ---
   static async logRepacking(data: { sourceWoId: string; repackType: string; recoverableQty: number; wasteQty: number; targetRecipeId?: string; userId: string }) {
-    const sourceWO = await prisma.workOrder.findUnique({ 
+    const sourceWO = await prisma.workOrder.findUnique({
       where: { id: data.sourceWoId },
       include: { qualityChecks: { orderBy: { createdAt: 'desc' }, take: 1 } }
     });
@@ -200,7 +213,7 @@ export class WorkflowService {
       // Mark original WO as completed but with actual rejected/waste values
       await tx.workOrder.update({
         where: { id: data.sourceWoId },
-        data: { 
+        data: {
           status: 'COMPLETED',
           completedAt: new Date(),
           actualProduced: 0,
@@ -214,8 +227,8 @@ export class WorkflowService {
           productId: sourceWO.productId,
           recipeId: data.targetRecipeId || sourceWO.recipeId,
           requiredQty: data.recoverableQty,
-          priority: 'URGENT',
-          status: 'MATERIAL_ISSUED',
+          priority: 'CRITICAL',
+          status: 'APPROVED',
           supervisorId: sourceWO.supervisorId,
         }
       });

@@ -180,7 +180,7 @@ export const PackingExecutionDetails: React.FC = () => {
     } catch (error: any) {
       console.error(error);
       const msg = error.response?.data?.message || error.message || "Failed to start packing";
-      alert(msg);
+      toast.error(msg);
     } finally {
       setActionLoading(false);
     }
@@ -200,7 +200,7 @@ export const PackingExecutionDetails: React.FC = () => {
     } catch (error: any) {
       console.error(error);
       const msg = error.response?.data?.message || error.message || "Failed to complete packing";
-      alert(msg);
+      toast.error(msg);
     } finally {
       setActionLoading(false);
     }

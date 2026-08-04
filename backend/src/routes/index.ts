@@ -7,6 +7,9 @@ import reportRoutes from './reportRoutes';
 import approvalRoutes from './approvalRoutes';
 import issueRoutes from './issueRoutes';
 import barcodeRoutes from './barcodeRoutes';
+import settingsRoutes from './settingsRoutes';
+import notificationRoutes from './notificationRoutes';
+import userRoutes from './userRoutes';
 
 const router = Router();
 
@@ -22,5 +25,9 @@ router.use('/reports', reportRoutes);
 router.use('/approvals', approvalRoutes);
 router.use('/issues', issueRoutes);
 router.use('/barcodes', barcodeRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/users', userRoutes);
 
 export default router;
+

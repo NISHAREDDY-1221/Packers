@@ -33,9 +33,9 @@ export const StaffDashboard: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   if (isQC) {
-    const pendingInspection = workOrders.filter(wo => QC_STATUSES.includes(wo.status)).length;
-    const readyForQC = workOrders.filter(wo => QC_STATUSES.includes(wo.status)).length;
-    const qcInProgress = workOrders.filter(wo => QC_STATUSES.includes(wo.status)).length;
+    const pendingInspection = workOrders.filter(wo => wo.status === 'QC_PENDING').length;
+    const readyForQC = workOrders.filter(wo => ['PACKING_COMPLETED', 'LABELS_APPLIED', 'QC_PENDING'].includes(wo.status)).length;
+    const qcInProgress = workOrders.filter(wo => wo.status === 'QC_IN_PROGRESS' as any).length;
     const passedToday = workOrders.filter(wo => 
       wo.status === 'QC_PASSED' && (wo.completedAt?.startsWith(today) || wo.updatedAt?.startsWith(today))
     ).length;

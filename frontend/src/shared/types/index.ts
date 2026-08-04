@@ -47,6 +47,7 @@ export interface PackingJob extends BaseJob {
 
 export type QcWoStatus = 
   | 'QC_PENDING'
+  | 'QC_IN_PROGRESS'
   | 'QC_PASSED'
   | 'PACKING_STARTED'; // Used when rework/rejected sends it back
 

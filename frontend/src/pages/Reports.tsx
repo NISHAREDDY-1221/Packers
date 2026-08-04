@@ -451,7 +451,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Category</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-              <option value="All">All Categories</option>
+              <option value="All">Select...</option>
               <option>Staples</option><option>Festive</option><option>Spices</option><option>Dry Fruits</option>
             </select>
           </div>
@@ -459,7 +459,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Employee</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterEmployee} onChange={e => setFilterEmployee(e.target.value)}>
-              <option value="All">All Employees</option>
+              <option value="All">Select...</option>
               <option>Ramesh Kumar</option><option>Sita Sharma</option><option>Amit Patel</option>
             </select>
           </div>
@@ -467,7 +467,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Product</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterProduct} onChange={e => setFilterProduct(e.target.value)}>
-              <option value="All">All Products</option>
+              <option value="All">Select...</option>
               {productOptions.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
@@ -483,7 +483,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Work Order</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterWorkOrder} onChange={e => setFilterWorkOrder(e.target.value)}>
-              <option value="All">All WOs</option>
+              <option value="All">Select...</option>
               {finishedGoods.map(fg => fg.workOrder?.woNumber).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).map(wo => <option key={wo}>{wo}</option>)}
             </select>
           </div>
@@ -491,7 +491,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              <option value="All">All Statuses</option>
+              <option value="All">Select...</option>
               <option>COMPLETED</option><option>APPROVED</option><option>QC_PENDING</option><option>PACKING_STARTED</option>
             </select>
           </div>
@@ -499,7 +499,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Supervisor</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}>
-              <option value="All">All Supervisors</option>
+              <option value="All">Select...</option>
               <option>Suresh Kumar</option><option>Meena Sharma</option><option>Rajesh Varma</option>
             </select>
           </div>
@@ -507,7 +507,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Machine</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterMachine} onChange={e => setFilterMachine(e.target.value)}>
-              <option value="All">All Machines</option>
+              <option value="All">Select...</option>
               <option>Packer-A1</option><option>Packer-A2</option><option>Sealer-B1</option><option>Labeler-C1</option>
             </select>
           </div>
@@ -515,7 +515,7 @@ export const Reports: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase">Location</label>
             <select className="text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-green-600 focus:border-green-600 focus:outline-none" value={filterLocation} onChange={e => setFilterLocation(e.target.value)}>
-              <option value="All">All Locations</option>
+              <option value="All">Select...</option>
               <option>Hub #4</option><option value="Warehouse Racks">Warehouse Racks (Aisle D)</option><option>Silo A-1</option>
             </select>
           </div>

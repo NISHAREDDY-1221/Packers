@@ -12,7 +12,9 @@ import {
   RefreshCw,
   BarChart3,
   ClipboardCheck,
-  X
+  X,
+  Bell,
+  Settings
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -110,6 +112,18 @@ const sidebarConfig: MenuItem[] = [
     path: '/approvals',
     label: 'Approvals',
     icon: ClipboardCheck,
+  },
+  {
+    type: 'link',
+    path: '/notifications',
+    label: 'Notifications',
+    icon: Bell,
+  },
+  {
+    type: 'link',
+    path: '/settings',
+    label: 'Settings',
+    icon: Settings,
   },
   {
     type: 'section',

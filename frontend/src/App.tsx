@@ -32,6 +32,7 @@ import { ActivePacking } from './modules/packing-operator/pages/ActivePacking';
 import { PackingHistory } from './modules/packing-operator/pages/PackingHistory';
 import { Profile as OperatorProfile } from './modules/packing-operator/pages/Profile';
 import { ReportIssue as OperatorReportIssue } from './modules/packing-operator/pages/ReportIssue';
+import { Notifications as OperatorNotifications } from './modules/packing-operator/pages/Notifications';
 
 // QC Checker Pages
 import { QCLayout } from './modules/qc-checker/layouts/QCLayout';
@@ -41,6 +42,7 @@ import { ActiveQCInspection } from './modules/qc-checker/pages/ActiveQCInspectio
 import { QCHistory } from './modules/qc-checker/pages/QCHistory';
 import { Profile as QCProfile } from './modules/qc-checker/pages/Profile';
 import { ReportIssue as QCReportIssue } from './modules/qc-checker/pages/ReportIssue';
+import { Notifications as QCNotifications } from './modules/qc-checker/pages/Notifications';
 
 // Additional details pages for operator/qc if needed (can be ported or reused from staff for now, but not requested. Leaving them out or using the ones from staff if they exist... Wait, the prompt says "Do not change the existing UI, routes, behaviour, or business flow." Let's keep `TaskExecution` and `PackingHistoryDetails` if they were part of it. Wait, I didn't port them. Let me port them as well since they were in `/staff`)
 import { TaskExecution } from './pages/staff/TaskExecution';
@@ -91,6 +93,7 @@ const router = createBrowserRouter([
       { path: 'history', element: <PackingHistory /> },
       { path: 'history/:id', element: <PackingHistoryDetails /> },
       { path: 'active-packing', element: <ActivePacking /> },
+      { path: 'notifications', element: <OperatorNotifications /> },
       { path: 'profile', element: <OperatorProfile /> },
       { path: 'report-issue', element: <OperatorReportIssue /> },
     ],
@@ -109,10 +112,12 @@ const router = createBrowserRouter([
       { path: 'history', element: <QCHistory /> },
       { path: 'history/:id', element: <PackingHistoryDetails /> },
       { path: 'active-inspection', element: <ActiveQCInspection /> },
+      { path: 'notifications', element: <QCNotifications /> },
       { path: 'profile', element: <QCProfile /> },
       { path: 'report-issue', element: <QCReportIssue /> },
     ],
   },
+
 ], {
   future: {
     // @ts-ignore

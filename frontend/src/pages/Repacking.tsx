@@ -156,7 +156,7 @@ export const Repacking: React.FC = () => {
     try {
       const wo = pendingWOs.find(w => w.id === assignWO);
       if (!wo) return;
-      await workOrderService.updateWorkOrderStatus(assignWO, wo.status, {
+      await workOrderService.updateWorkOrderStatus(assignWO, 'MATERIAL_ISSUED', {
         operatorId: assignTo,
         priority: assignPriority
       });
@@ -167,7 +167,7 @@ export const Repacking: React.FC = () => {
       loadAll();
     } catch (err: any) {
       console.error('Failed to assign task', err);
-      alert(err?.response?.data?.message || err?.message || 'Failed to assign repacking task');
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to assign repacking task');
     }
   };
 
@@ -252,7 +252,7 @@ export const Repacking: React.FC = () => {
       setIsFormOpen(false); setSelectedWO(null);
       setRefreshKey(k => k + 1);
     } catch (err: any) {
-      alert(err?.response?.data?.message ?? 'Failed to submit repacking log.');
+      toast.error(err?.response?.data?.message ?? 'Failed to submit repacking log.');
     } finally {
       setSubmitting(false);
     }

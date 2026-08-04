@@ -63,6 +63,7 @@ export class WorkOrderService {
             'LABEL_APPLICATION_IN_PROGRESS',
             'LABELS_APPLIED',
             'QC_PENDING',
+            'QC_IN_PROGRESS'
           ] 
         },
         OR: [{ inspectorId: user.id }, { inspectorId: null }]
@@ -130,19 +131,7 @@ export class WorkOrderService {
       }
     });
 
-    if ((status === 'PENDING' || status === 'PENDING_APPROVAL') && workOrder.status !== 'PENDING' && workOrder.status !== 'PENDING_APPROVAL') {
-      await prisma.approvalRequest.create({
-        data: {
-          type: 'WORK_ORDER',
-          relatedEntityId: updatedWO.id,
-          relatedEntityName: `Work Order #${updatedWO.woNumber}`,
-          requestedById: userId,
-          reason: 'Submit for approval',
-          priority: updatedWO.priority as any,
-          status: 'PENDING',
-        }
-      });
-    }
+    // Approvals are now generated only when posted to Finished Goods
 
     return updatedWO;
   }

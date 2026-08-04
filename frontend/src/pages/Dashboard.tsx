@@ -425,7 +425,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500 font-medium">Completed Today</span>
-              <span className="font-bold text-green-600">{completedWOs} Jobs</span>
+              <span className="font-bold text-green-600">{workOrders.filter(w => (w.status === 'COMPLETED' || w.status === 'QC_PASSED' || w.status === 'PACKING_COMPLETED') && ((w.completedAt ? new Date(w.completedAt).toDateString() === new Date().toDateString() : false) || (w.updatedAt ? new Date(w.updatedAt).toDateString() === new Date().toDateString() : false))).length} Jobs</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500 font-medium">Pending QC Release</span>
