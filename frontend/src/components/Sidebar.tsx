@@ -113,12 +113,7 @@ const sidebarConfig: MenuItem[] = [
     label: 'Approvals',
     icon: ClipboardCheck,
   },
-  {
-    type: 'link',
-    path: '/notifications',
-    label: 'Notifications',
-    icon: Bell,
-  },
+
   {
     type: 'link',
     path: '/settings',
