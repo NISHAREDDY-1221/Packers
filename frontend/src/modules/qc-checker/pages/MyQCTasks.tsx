@@ -34,8 +34,8 @@ export const MyQCTasks: React.FC = () => {
   const getFilteredTasks = () => {
     switch(activeTab) {
       case 'ready': return tasks.filter(t => QC_STATUSES.includes(t.status));
-      case 'in-progress': return tasks.filter(t => QC_STATUSES.includes(t.status));
-      case 'pending': return tasks.filter(t => !QC_STATUSES.includes(t.status) && t.status !== 'QC_PASSED' && t.status !== 'COMPLETED');
+      case 'in-progress': return tasks.filter(t => t.status === 'QC_IN_PROGRESS');
+      case 'pending': return tasks.filter(t => !QC_STATUSES.includes(t.status) && t.status !== 'QC_PASSED' && t.status !== 'COMPLETED' && t.status !== 'QC_IN_PROGRESS');
       default: return tasks;
     }
   };

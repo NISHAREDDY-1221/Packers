@@ -39,7 +39,18 @@ export const ActiveQCInspection: React.FC = () => {
   const fetchActiveJob = async () => {
     try {
       const response = await qcTasksService.getWorkOrders();
-      const job = (response.data || []).find((wo) => QC_STATUSES.includes(wo.status));
+      const orders = response.data || [];
+      const job = orders.find((wo) => wo.status === 'QC_IN_PROGRESS') || orders.find((wo) => QC_STATUSES.includes(wo.status));
+      
+      if (job && job.status !== 'QC_IN_PROGRESS') {
+        try {
+          await qcTasksService.updateWorkOrderStatus(job.id, 'QC_IN_PROGRESS');
+          job.status = 'QC_IN_PROGRESS';
+        } catch (e) {
+          console.error('Failed to update status to QC_IN_PROGRESS', e);
+        }
+      }
+      
       setActiveJob(job || null);
     } catch (err) {
       console.error('Failed to fetch active job', err);

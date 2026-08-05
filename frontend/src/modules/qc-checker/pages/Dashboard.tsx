@@ -45,7 +45,7 @@ export const Dashboard: React.FC = () => {
           delayed: failedTodayCount,
           issues: 0
         });
-        const active = orders.find((o: any) => o.status === 'QC_IN_PROGRESS');
+        const active = orders.find((o: any) => o.status === 'QC_IN_PROGRESS') || orders.find((o: any) => QC_STATUSES.includes(o.status));
         setActiveJob(active || null);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
@@ -150,7 +150,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-5 md:p-6">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Active Jobs</h2>
-                {activeJob && QC_STATUSES.includes(activeJob.status) && (
+                {activeJob && activeJob.status === 'QC_IN_PROGRESS' && (
                   <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center shadow-sm">
                     <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
                     Inspecting
@@ -187,7 +187,16 @@ export const Dashboard: React.FC = () => {
                   </div>
 
                   <button 
-                    onClick={() => navigate('/qc/active-inspection')}
+                    onClick={async () => {
+                      if (activeJob.status !== 'QC_IN_PROGRESS') {
+                        try {
+                          await qcTasksService.updateWorkOrderStatus(activeJob.id, 'QC_IN_PROGRESS');
+                        } catch (err) {
+                          console.error('Failed to update status', err);
+                        }
+                      }
+                      navigate('/qc/active-inspection');
+                    }}
                     className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
                   >
                     Start QC <ArrowRight size={18} className="ml-2" />
