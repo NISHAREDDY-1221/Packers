@@ -79,7 +79,7 @@ export const MaterialIssueDetails: React.FC = () => {
       const prevMap = new Map(prev.map(p => [p.id, p.issueQty]));
       return [
         ...(selectedWO.recipe.items?.filter(i => !i.isPackaging) || []).map(item => {
-          const reqQty = item.requiredQty;
+          const reqQty = item.requiredQty * ratio;
           return {
             id: item.inputProductId,
             item: item.inputProduct?.name || item.inputProductId,
@@ -90,7 +90,7 @@ export const MaterialIssueDetails: React.FC = () => {
           };
         }),
         ...(selectedWO.recipe.items?.filter(i => i.isPackaging) || []).map(pkg => {
-          const reqQty = pkg.requiredQty;
+          const reqQty = pkg.requiredQty * ratio;
           return {
             id: pkg.inputProductId,
             item: pkg.inputProduct?.name || pkg.inputProductId,
