@@ -32,7 +32,7 @@ export const MyQCTasks: React.FC = () => {
   };
 
   const getFilteredTasks = () => {
-    switch(activeTab) {
+    switch (activeTab) {
       case 'ready': return tasks.filter(t => QC_STATUSES.includes(t.status));
       case 'in-progress': return tasks.filter(t => t.status === 'QC_IN_PROGRESS');
       case 'pending': return tasks.filter(t => !QC_STATUSES.includes(t.status) && t.status !== 'QC_PASSED' && t.status !== 'COMPLETED' && t.status !== 'QC_IN_PROGRESS');
@@ -69,7 +69,7 @@ export const MyQCTasks: React.FC = () => {
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">My QC Tasks</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">Manage and perform your assigned quality checks</p>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button className="flex items-center text-sm font-semibold bg-slate-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2.5 rounded-xl hover:bg-slate-200 dark:hover:bg-gray-600 transition-colors">
             <Filter size={16} className="mr-2" />
@@ -80,18 +80,16 @@ export const MyQCTasks: React.FC = () => {
 
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 p-1.5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex w-full md:w-fit overflow-x-auto">
-        <button 
+        <button
           onClick={() => setActiveTab('ready')}
-          className={`flex-1 md:flex-none px-6 py-2.5 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${
-            activeTab === 'ready' 
-              ? 'bg-blue-50 text-blue-700 shadow-sm' 
+          className={`flex-1 md:flex-none px-6 py-2.5 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${activeTab === 'ready'
+              ? 'bg-blue-50 text-blue-700 shadow-sm'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          }`}
+            }`}
         >
           Ready for QC
-          <span className={`ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] rounded-full ${
-            activeTab === 'ready' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'
-          }`}>
+          <span className={`ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] rounded-full ${activeTab === 'ready' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'
+            }`}>
             {tasks.filter(t => QC_STATUSES.includes(t.status)).length}
           </span>
         </button>
@@ -109,7 +107,7 @@ export const MyQCTasks: React.FC = () => {
               {task.priority === 'URGENT' && (
                 <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
               )}
-              
+
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -118,14 +116,14 @@ export const MyQCTasks: React.FC = () => {
                       {task.priority}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center text-sm font-semibold text-gray-600 dark:text-gray-300 mb-3">
                     <PackageCheck size={16} className="mr-2 text-gray-400" />
-                    {task.product?.name || 'Product'} 
-                    <span className="text-gray-400 mx-2">•</span> 
+                    {task.product?.name || 'Product'}
+                    <span className="text-gray-400 mx-2">•</span>
                     SKU: {task.product?.sku || 'N/A'}
                   </div>
-                  
+
                   <div className="flex flex-wrap gap-3">
                     <div className="flex items-center bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
                       <Clock size={14} className="text-gray-400 mr-1.5" />
@@ -135,9 +133,9 @@ export const MyQCTasks: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-row md:flex-col gap-3 justify-end md:w-40 shrink-0 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700 pt-4 md:pt-0 md:pl-5">
-                  <button 
+                  <button
                     onClick={() => handleStartQC(task.id)}
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 px-4 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center"
                   >
