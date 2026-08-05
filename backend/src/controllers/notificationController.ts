@@ -106,3 +106,31 @@ export const clearNotifications = catchAsync(async (req: Request, res: Response)
     sendResponse(res, 200, 'Notifications cleared', []);
   }
 });
+
+export const createNotification = catchAsync(async (req: Request, res: Response) => {
+  const { title, message, type, targetRole } = req.body;
+  if (!title || !message || !targetRole) {
+    return sendResponse(res, 400, 'Title, message, and targetRole are required', null);
+  }
+
+  const users = await prisma.user.findMany({
+    where: { role: { name: targetRole } }
+  });
+
+  if (users.length === 0) {
+    return sendResponse(res, 404, 'No users found for the selected role', null);
+  }
+
+  const notifications = users.map(u => ({
+    userId: u.id,
+    title,
+    message,
+    type: type || 'SYSTEM',
+    isRead: false,
+    link: ''
+  }));
+
+  await prisma.notification.createMany({ data: notifications });
+
+  sendResponse(res, 201, 'Notifications sent successfully', null);
+});

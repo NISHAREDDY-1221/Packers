@@ -13,7 +13,9 @@ import {
   ExternalLink,
   PackageCheck,
   AlertTriangle,
-  FileCheck
+  FileCheck,
+  Send,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -157,6 +159,13 @@ export const Notifications: React.FC<NotificationsProps> = ({ portal = 'admin' }
   const [filterType, setFilterType] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Broadcast Modal State
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastTarget, setBroadcastTarget] = useState('OPERATOR');
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
   // Portal-specific category tabs configuration
   const categories = React.useMemo(() => {
     if (portal === 'operator') {
@@ -241,6 +250,31 @@ export const Notifications: React.FC<NotificationsProps> = ({ portal = 'admin' }
     }
   };
 
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      toast.error('Title and message are required.');
+      return;
+    }
+    setIsBroadcasting(true);
+    try {
+      await apiClient.post('/notifications', {
+        title: broadcastTitle,
+        message: broadcastMessage,
+        type: 'SYSTEM',
+        targetRole: broadcastTarget,
+      });
+      toast.success(`Notification sent to ${broadcastTarget === 'OPERATOR' ? 'Operators' : 'QC Inspectors'}`);
+      setShowBroadcastModal(false);
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+    } catch (err) {
+      toast.error('Failed to send broadcast');
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'JOBS':
@@ -303,7 +337,15 @@ export const Notifications: React.FC<NotificationsProps> = ({ portal = 'admin' }
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {portal === 'admin' && (
+            <button
+              onClick={() => setShowBroadcastModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 h-9 rounded-xl flex items-center gap-1.5 font-semibold transition-colors w-full md:w-auto justify-center"
+            >
+              <Send size={15} /> Send Broadcast
+            </button>
+          )}
           {unreadCount > 0 && (
             <button
               onClick={() => handleMarkAsRead('all')}
@@ -428,6 +470,81 @@ export const Notifications: React.FC<NotificationsProps> = ({ portal = 'admin' }
           </div>
         )}
       </div>
+
+      {/* Broadcast Modal for Admins */}
+      {showBroadcastModal && portal === 'admin' && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Send size={18} className="text-blue-600" />
+                Broadcast Notification
+              </h3>
+              <button 
+                onClick={() => setShowBroadcastModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleBroadcast} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Target Portal</label>
+                <select 
+                  value={broadcastTarget}
+                  onChange={(e) => setBroadcastTarget(e.target.value)}
+                  className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg p-2.5 focus:ring-1 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="OPERATOR">Packing Operators</option>
+                  <option value="QC_INSPECTOR">QC Checkers</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                <input 
+                  type="text"
+                  value={broadcastTitle}
+                  onChange={(e) => setBroadcastTitle(e.target.value)}
+                  placeholder="e.g. System Maintenance"
+                  className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg p-2.5 focus:ring-1 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Message</label>
+                <textarea 
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  placeholder="Type your message here..."
+                  className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg p-2.5 focus:ring-1 focus:ring-blue-600 min-h-[100px] resize-none dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setShowBroadcastModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-sm font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isBroadcasting}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isBroadcasting ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                  {isBroadcasting ? 'Sending...' : 'Send Broadcast'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -34,7 +34,13 @@ export const Reports: React.FC = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'packing';
-  const handleTabChange = (tabId: string) => setSearchParams({ tab: tabId });
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+  
+  const handleTabChange = (tabId: string) => {
+    setSearchParams({ tab: tabId });
+    setCurrentPage(1);
+  };
 
   // Filters
   const [filterDate,       setFilterDate]       = useState('');
@@ -53,6 +59,7 @@ export const Reports: React.FC = () => {
     setFilterStatus('All'); setFilterCategory('All'); setFilterEmployee('All');
     setFilterWorkOrder('All'); setFilterSupervisor('All');
     setFilterMachine('All'); setFilterLocation('All');
+    setCurrentPage(1);
   };
 
   // Derived filter options from real data
@@ -110,6 +117,20 @@ export const Reports: React.FC = () => {
     <tr><td colSpan={cols} className="p-6 text-center text-slate-400 text-xs animate-pulse">Loading...</td></tr>
   );
 
+  const renderPagination = (totalItems: number) => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex justify-between items-center px-4 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500">
+        <div>Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} of {totalItems} entries</div>
+        <div className="flex gap-1">
+          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 bg-white border border-slate-200 rounded disabled:opacity-50">Prev</button>
+          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2 py-1 bg-white border border-slate-200 rounded disabled:opacity-50">Next</button>
+        </div>
+      </div>
+    );
+  };
+
   const renderReportContent = () => {
     switch (activeTab) {
 
@@ -135,7 +156,7 @@ export const Reports: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loadingFG ? <LoadingRow cols={7} /> : filteredFG.length === 0 ? <EmptyRow cols={7} /> :
-                    filteredFG.map(fg => (
+                    filteredFG.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(fg => (
                       <tr key={fg.id} className="hover:bg-slate-50/50">
                         <td className="p-3 text-slate-500">{fmt(fg.createdAt)}</td>
                         <td className="p-3 font-mono font-semibold text-slate-500">{fg.fgNumber || '—'}</td>
@@ -149,6 +170,7 @@ export const Reports: React.FC = () => {
                   }
                 </tbody>
               </table>
+              {renderPagination(filteredFG.length)}
             </div>
           </div>
         );
@@ -175,7 +197,7 @@ export const Reports: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loadingRP ? <LoadingRow cols={7} /> : filteredRP.length === 0 ? <EmptyRow cols={7} /> :
-                    filteredRP.map(rp => (
+                    filteredRP.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(rp => (
                       <tr key={rp.id} className="hover:bg-slate-50/50">
                         <td className="p-3 font-mono font-semibold text-slate-500">{rp.rpNumber}</td>
                         <td className="p-3 text-slate-500">{fmt(rp.createdAt)}</td>
@@ -189,6 +211,7 @@ export const Reports: React.FC = () => {
                   }
                 </tbody>
               </table>
+              {renderPagination(filteredRP.length)}
             </div>
           </div>
         );
@@ -216,7 +239,7 @@ export const Reports: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loadingQC ? <LoadingRow cols={8} /> : rejectedQCs.length === 0 ? <EmptyRow cols={8} message="No rejection records found." /> :
-                    rejectedQCs.map(qc => (
+                    rejectedQCs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(qc => (
                       <tr key={qc.id} className="hover:bg-slate-50/50">
                         <td className="p-3 font-mono font-semibold text-slate-500">{qc.qcNumber}</td>
                         <td className="p-3 text-slate-500">{fmt(qc.createdAt)}</td>
@@ -238,6 +261,7 @@ export const Reports: React.FC = () => {
                   }
                 </tbody>
               </table>
+              {renderPagination(rejectedQCs.length)}
             </div>
           </div>
         );
@@ -309,7 +333,7 @@ export const Reports: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loadingFG ? <LoadingRow cols={5} /> : filteredFG.length === 0 ? <EmptyRow cols={5} message="No cost records found. Post batches to Finished Goods first." /> :
-                    filteredFG.map(fg => (
+                    filteredFG.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(fg => (
                       <tr key={fg.id} className="hover:bg-slate-50/50">
                         <td className="p-3 text-slate-500">{fmt(fg.createdAt)}</td>
                         <td className="p-3 font-semibold text-slate-700">{fg.product?.name || '—'}</td>
@@ -321,6 +345,7 @@ export const Reports: React.FC = () => {
                   }
                 </tbody>
               </table>
+              {renderPagination(filteredFG.length)}
             </div>
           </div>
         );
@@ -353,7 +378,7 @@ export const Reports: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {loadingQC ? <LoadingRow cols={5} /> : rows.length === 0 ? <EmptyRow cols={5} /> :
-                        rows.map(row => (
+                        rows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(row => (
                           <tr key={row.name} className="hover:bg-slate-50/50">
                             <td className="p-3 font-semibold text-slate-800">{row.name}</td>
                             <td className="p-3 text-center font-bold">{row.count}</td>
@@ -369,6 +394,7 @@ export const Reports: React.FC = () => {
                       }
                     </tbody>
                   </table>
+                  {renderPagination(rows.length)}
                 </div>
               );
             })()}
@@ -397,7 +423,7 @@ export const Reports: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loadingRP ? <LoadingRow cols={7} /> : filteredRP.length === 0 ? <EmptyRow cols={7} message="No waste records. Repacking not yet logged." /> :
-                    filteredRP.map(rp => {
+                    filteredRP.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(rp => {
                       const total = (rp.recoverableQty || 0) + (rp.wasteQty || 0);
                       const wasteRate = total > 0 ? Math.round((rp.wasteQty / total) * 100) : 0;
                       return (
@@ -417,6 +443,7 @@ export const Reports: React.FC = () => {
                   }
                 </tbody>
               </table>
+              {renderPagination(filteredRP.length)}
             </div>
           </div>
         );
