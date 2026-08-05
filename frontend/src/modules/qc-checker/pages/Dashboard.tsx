@@ -18,7 +18,7 @@ export const Dashboard: React.FC = () => {
     issues: 0
   });
 
-  const [activeJob, setActiveJob] = useState<QCInspection | null>(null);
+  const [activeJobs, setActiveJobs] = useState<QCInspection[]>([]);
 
   const QC_STATUSES = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING'];
 
@@ -45,8 +45,11 @@ export const Dashboard: React.FC = () => {
           delayed: failedTodayCount,
           issues: 0
         });
-        const active = orders.find((o: any) => o.status === 'QC_IN_PROGRESS') || orders.find((o: any) => QC_STATUSES.includes(o.status));
-        setActiveJob(active || null);
+        let activeList = orders.filter((o: any) => o.status === 'QC_IN_PROGRESS');
+        if (activeList.length === 0) {
+          activeList = orders.filter((o: any) => QC_STATUSES.includes(o.status));
+        }
+        setActiveJobs(activeList);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
       }
@@ -150,7 +153,7 @@ export const Dashboard: React.FC = () => {
             <div className="p-5 md:p-6">
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Active Jobs</h2>
-                {activeJob && activeJob.status === 'QC_IN_PROGRESS' && (
+                {activeJobs.some(j => j.status === 'QC_IN_PROGRESS') && (
                   <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center shadow-sm">
                     <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
                     Inspecting
@@ -158,50 +161,54 @@ export const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              {activeJob ? (
-                <>
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div>
-                      <h3 className="text-2xl font-black text-gray-800 dark:text-gray-100 tracking-tight">{activeJob.woNumber}</h3>
-                      <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mt-1">{activeJob.product?.name || 'Loading Product...'}</p>
-                    </div>
-                    <div className="flex flex-row md:flex-col gap-4 md:gap-1 text-sm font-medium">
-                      <div className="flex items-center text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
-                        <PackageCheck size={16} className="mr-2 text-green-600" />
-                        Target: <span className="font-bold text-gray-800 dark:text-gray-100 ml-1">{activeJob.requiredQty} units</span>
+              {activeJobs.length > 0 ? (
+                <div className="space-y-8">
+                  {activeJobs.map((activeJob, index) => (
+                    <div key={activeJob.id} className={index !== activeJobs.length - 1 ? "border-b border-gray-100 dark:border-gray-700 pb-8" : ""}>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <div>
+                          <h3 className="text-2xl font-black text-gray-800 dark:text-gray-100 tracking-tight">{activeJob.woNumber}</h3>
+                          <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mt-1">{activeJob.product?.name || 'Loading Product...'}</p>
+                        </div>
+                        <div className="flex flex-row md:flex-col gap-4 md:gap-1 text-sm font-medium">
+                          <div className="flex items-center text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
+                            <PackageCheck size={16} className="mr-2 text-green-600" />
+                            Target: <span className="font-bold text-gray-800 dark:text-gray-100 ml-1">{activeJob.requiredQty} units</span>
+                          </div>
+                          <div className="flex items-center text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
+                            <CheckCircle size={16} className="mr-2 text-blue-600" />
+                            Packed: <span className="font-bold text-gray-800 dark:text-gray-100 ml-1">{activeJob.actualProduced || 0} units</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
-                        <CheckCircle size={16} className="mr-2 text-blue-600" />
-                        Packed: <span className="font-bold text-gray-800 dark:text-gray-100 ml-1">{activeJob.actualProduced || 0} units</span>
+
+                      <div className="w-full bg-gray-100 rounded-full h-3 mb-6 overflow-hidden">
+                        <div 
+                          className="bg-green-500 h-3 rounded-full relative" 
+                          style={{ width: `${Math.min(100, ((activeJob.actualProduced || 0) / activeJob.requiredQty) * 100)}%` }}
+                        >
+                          <div className="absolute top-0 right-0 bottom-0 left-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[progress_1s_linear_infinite]"></div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="w-full bg-gray-100 rounded-full h-3 mb-6 overflow-hidden">
-                    <div 
-                      className="bg-green-500 h-3 rounded-full relative" 
-                      style={{ width: `${Math.min(100, ((activeJob.actualProduced || 0) / activeJob.requiredQty) * 100)}%` }}
-                    >
-                      <div className="absolute top-0 right-0 bottom-0 left-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[progress_1s_linear_infinite]"></div>
+                      <button 
+                        onClick={async () => {
+                          if (activeJob.status !== 'QC_IN_PROGRESS') {
+                            try {
+                              await qcTasksService.updateWorkOrderStatus(activeJob.id, 'QC_IN_PROGRESS');
+                            } catch (err) {
+                              console.error('Failed to update status', err);
+                            }
+                          }
+                          navigate('/qc/active-inspection');
+                        }}
+                        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
+                      >
+                        Start QC <ArrowRight size={18} className="ml-2" />
+                      </button>
                     </div>
-                  </div>
-
-                  <button 
-                    onClick={async () => {
-                      if (activeJob.status !== 'QC_IN_PROGRESS') {
-                        try {
-                          await qcTasksService.updateWorkOrderStatus(activeJob.id, 'QC_IN_PROGRESS');
-                        } catch (err) {
-                          console.error('Failed to update status', err);
-                        }
-                      }
-                      navigate('/qc/active-inspection');
-                    }}
-                    className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
-                  >
-                    Start QC <ArrowRight size={18} className="ml-2" />
-                  </button>
-                </>
+                  ))}
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8">
                   <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-full mb-4">

@@ -200,9 +200,13 @@ export const Notifications: React.FC<NotificationsProps> = ({ portal = 'admin' }
     try {
       const res = await apiClient.get('/notifications');
       if (res.data && Array.isArray(res.data.data)) {
-        setNotifications(res.data.data);
+        if (res.data.data.length > 0) {
+          setNotifications(res.data.data);
+        } else {
+          setNotifications(defaultList);
+        }
       } else {
-        setNotifications([]);
+        setNotifications(defaultList);
       }
     } catch (err) {
       setNotifications(defaultList);

@@ -56,7 +56,18 @@ export const Approvals: React.FC = () => {
 
   // Filtered Data
   const filteredApprovals = useMemo(() => {
-    return approvals.filter(a => {
+    // 1. Deduplicate by type + relatedEntityId (keep the latest)
+    const map = new Map<string, ApprovalRequest>();
+    const sorted = [...approvals].sort((a, b) => new Date(b.requestedDate).getTime() - new Date(a.requestedDate).getTime());
+    for (const app of sorted) {
+      const key = `${app.type}-${app.relatedEntityId}`;
+      if (!map.has(key)) {
+        map.set(key, app);
+      }
+    }
+    const uniqueApprovals = Array.from(map.values());
+
+    return uniqueApprovals.filter(a => {
       const reqByStr = typeof a.requestedBy === 'string' ? a.requestedBy : (a.requestedBy as any)?.name || '';
       const matchesSearch = 
         a.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
