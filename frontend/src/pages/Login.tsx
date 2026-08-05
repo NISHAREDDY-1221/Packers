@@ -92,7 +92,7 @@ export const Login: React.FC = () => {
               <input
                 type="text"
                 required
-                className="block w-full px-4 py-3 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-[#00891D] focus:ring-1 focus:ring-[#00891D] bg-white transition-colors"
+                className="block w-full px-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#00891D] focus:ring-1 focus:ring-[#00891D] bg-white transition-colors"
                 placeholder="uniquepartner@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -107,7 +107,7 @@ export const Login: React.FC = () => {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  className="block w-full px-4 py-3 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-[#00891D] focus:ring-1 focus:ring-[#00891D] bg-white transition-colors"
+                  className="block w-full px-4 py-3 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#00891D] focus:ring-1 focus:ring-[#00891D] bg-white transition-colors"
                   placeholder="••••••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
