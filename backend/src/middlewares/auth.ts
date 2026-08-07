@@ -36,6 +36,10 @@ export const authenticate = catchAsync(async (req: Request, res: Response, next:
       where: { id: decoded.id } 
     }).catch(() => null);
     
+    if (!userExists) {
+      return next(new AppError(401, 'The user belonging to this token does no longer exist. Please log in again.'));
+    }
+    
     req.user = decoded;
     next();
   } catch (err) {

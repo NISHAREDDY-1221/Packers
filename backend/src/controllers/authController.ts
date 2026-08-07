@@ -96,7 +96,7 @@ export const getUsers = catchAsync(async (req: Request, res: Response) => {
 
 export const getQCInspectors = catchAsync(async (req: Request, res: Response) => {
   const inspectors = await prisma.user.findMany({
-    where: { role: { name: { in: ['QC_INSPECTOR', 'QC_CHECKER', 'ADMIN', 'MANAGER'] } } },
+    where: { role: { name: { in: ['QC', 'QC_INSPECTOR', 'QC_CHECKER'] } } },
     select: { id: true, name: true, email: true, role: { select: { name: true } } },
     orderBy: { name: 'asc' },
   });

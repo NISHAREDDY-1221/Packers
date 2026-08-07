@@ -121,7 +121,7 @@ export const createNotification = catchAsync(async (req: Request, res: Response)
     return sendResponse(res, 404, 'No users found for the selected role', null);
   }
 
-  const notifications = users.map(u => ({
+  const notifications = users.map((u: any) => ({
     userId: u.id,
     title,
     message,
