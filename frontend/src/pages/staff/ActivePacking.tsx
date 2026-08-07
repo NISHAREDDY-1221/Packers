@@ -15,7 +15,7 @@ export const ActivePacking: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
-  const isQC = userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
+  const isQC = userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
 
   if (isQC) {
     return <ActiveQCInspection />;

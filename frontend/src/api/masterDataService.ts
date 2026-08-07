@@ -99,9 +99,8 @@ export const masterDataService = {
     await apiClient.delete(`/master-data/uom/${id}`);
   },
 
-  // Products
   async getProducts(): Promise<Product[]> {
-    const res = await apiClient.get<any>('/master-data/products');
+    const res = await apiClient.get<any>('/master-data/products?limit=1000');
     return res.data.data.data || res.data.data;
   },
   async createProduct(data: Partial<Product>): Promise<Product> {

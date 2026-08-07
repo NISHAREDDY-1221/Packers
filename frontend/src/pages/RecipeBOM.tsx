@@ -22,8 +22,8 @@ export const RecipeBOM: React.FC = () => {
   const [formOutputQty, setFormOutputQty] = useState(1);
 
   // BOM Items (Raw Materials)
-  const [bomItems, setBomItems] = useState<{ inputProductId: string, requiredQty: number, tolerancePct: number }[]>([
-    { inputProductId: '', requiredQty: 1, tolerancePct: 0 }
+  const [bomItems, setBomItems] = useState<{ inputProductId: string, requiredQty: number, tolerancePct: number, materialType: string }[]>([
+    { inputProductId: '', requiredQty: 1, tolerancePct: 0, materialType: 'RAW_MATERIAL' }
   ]);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export const RecipeBOM: React.FC = () => {
   };
 
   const handleAddBOMItem = () => {
-    setBomItems([...bomItems, { inputProductId: '', requiredQty: 1, tolerancePct: 0 }]);
+    setBomItems([...bomItems, { inputProductId: '', requiredQty: 1, tolerancePct: 0, materialType: 'RAW_MATERIAL' }]);
   };
 
   const handleRemoveBOMItem = (index: number) => {
@@ -69,7 +69,7 @@ export const RecipeBOM: React.FC = () => {
     setFormName('');
     setFormOutputProductId('');
     setFormOutputQty(1);
-    setBomItems([{ inputProductId: '', requiredQty: 1, tolerancePct: 0 }]);
+    setBomItems([{ inputProductId: '', requiredQty: 1, tolerancePct: 0, materialType: 'RAW_MATERIAL' }]);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -93,7 +93,7 @@ export const RecipeBOM: React.FC = () => {
           inputProductId: item.inputProductId,
           requiredQty: Number(item.requiredQty),
           tolerancePct: Number(item.tolerancePct),
-          isPackaging: false
+          isPackaging: item.materialType === 'PACKAGING'
         }))
       });
 
@@ -242,22 +242,35 @@ export const RecipeBOM: React.FC = () => {
                     <thead>
                       <tr className="bg-slate-100/80 text-slate-500 font-bold border-b border-slate-200">
                         <th className="p-3">Input Material</th>
+                        <th className="p-3 text-left">Type</th>
                         <th className="p-3 text-center">Required Qty</th>
+                        <th className="p-3 text-center">UOM</th>
                         <th className="p-3 text-center">Tolerance %</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {selectedRecipe.items?.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-100/50">
-                          <td className="p-3 font-semibold text-slate-900">
-                            {products.find(p => p.id === item.inputProductId)?.name || item.inputProductId}
-                          </td>
-                          <td className="p-3 text-center font-medium">{item.requiredQty}</td>
-                          <td className="p-3 text-center text-slate-500">±{item.tolerancePct}%</td>
-                        </tr>
-                      ))}
+                      {selectedRecipe.items?.map((item, idx) => {
+                        const product = products.find(p => p.id === item.inputProductId);
+                        return (
+                          <tr key={idx} className="hover:bg-slate-100/50">
+                            <td className="p-3 font-semibold text-slate-900">
+                              {product?.name || item.inputProductId}
+                            </td>
+                            <td className="p-3 text-left">
+                              <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700 px-2 py-1 rounded-md">
+                                {product?.type ? product.type.replace('_', ' ') : 'UNKNOWN'}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-medium">{item.requiredQty}</td>
+                            <td className="p-3 text-center text-slate-600 font-mono text-xs">
+                              {product?.uom?.abbreviation || '-'}
+                            </td>
+                            <td className="p-3 text-center text-slate-500">±{item.tolerancePct}%</td>
+                          </tr>
+                        );
+                      })}
                       {!selectedRecipe.items?.length && (
-                        <tr><td colSpan={3} className="p-4 text-center text-slate-400">No items mapped.</td></tr>
+                        <tr><td colSpan={5} className="p-4 text-center text-slate-400">No items mapped.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -344,7 +357,7 @@ export const RecipeBOM: React.FC = () => {
                         onChange={(e) => setFormOutputProductId(e.target.value)}
                       >
                         <option value="">Select Target Product</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+                        {products.filter(p => p.type === 'FINISHED_GOOD').map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                       </select>
                     )}
                   </div>
@@ -377,9 +390,31 @@ export const RecipeBOM: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
-                    {bomItems.map((item, index) => (
+                    {bomItems.map((item, index) => {
+                      const selectedProduct = products.find(p => p.id === item.inputProductId);
+                      return (
                       <div key={index} className="flex flex-wrap md:flex-nowrap items-end gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                        <div className="flex-1 min-w-[200px]">
+                        <div className="w-32">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Material Type *</label>
+                          <select
+                            required
+                            className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none"
+                            value={item.materialType}
+                            onChange={(e) => {
+                              const updated = [...bomItems];
+                              updated[index] = {
+                                ...updated[index],
+                                materialType: e.target.value,
+                                inputProductId: ''
+                              };
+                              setBomItems(updated);
+                            }}
+                          >
+                            <option value="RAW_MATERIAL">Raw Material</option>
+                            <option value="PACKAGING">Packaging Material</option>
+                          </select>
+                        </div>
+                        <div className="flex-1 min-w-[150px]">
                           <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Input Material *</label>
                           {products.length === 0 ? (
                             <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
@@ -393,11 +428,11 @@ export const RecipeBOM: React.FC = () => {
                               onChange={(e) => handleBOMItemChange(index, 'inputProductId', e.target.value)}
                             >
                               <option value="">Select Material</option>
-                              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              {products.filter(p => p.type === item.materialType).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                           )}
                         </div>
-                        <div className="w-24">
+                        <div className="w-20">
                           <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Req. Qty *</label>
                           <input
                             type="number"
@@ -409,7 +444,17 @@ export const RecipeBOM: React.FC = () => {
                             onChange={(e) => handleBOMItemChange(index, 'requiredQty', Number(e.target.value))}
                           />
                         </div>
-                        <div className="w-24">
+                        <div className="w-16">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">UOM</label>
+                          <input
+                            type="text"
+                            readOnly
+                            className="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-slate-100 text-slate-500 focus:outline-none cursor-not-allowed"
+                            value={selectedProduct?.uom?.abbreviation || ''}
+                            placeholder="-"
+                          />
+                        </div>
+                        <div className="w-20">
                           <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tolerance %</label>
                           <input
                             type="number"
@@ -428,9 +473,11 @@ export const RecipeBOM: React.FC = () => {
                           >
                             <Trash2 size={16} />
                           </button>
+
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </form>

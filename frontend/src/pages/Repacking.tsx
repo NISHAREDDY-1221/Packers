@@ -4,6 +4,7 @@ import {
   Users, ChevronDown, Loader2, Scissors
 } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
+import { StatCard } from '../components/ui';
 import { repackingService } from '../api/repackingService';
 import { workOrderService } from '../api/workOrderService';
 import type { RepackingLog, PendingRepackWorkOrder } from '../api/repackingService';
@@ -91,12 +92,12 @@ export const Repacking: React.FC = () => {
 
   // ── filters ──
   const [filterProduct]   = useState('');
-  const [search,          setSearch]          = useState('');
-  const [filterStatus,    setFilterStatus]    = useState('');
-  const [filterOperator,  setFilterOperator]  = useState('');
-  const [filterPriority,  setFilterPriority]  = useState('');
-  const [filterBatch,     setFilterBatch]     = useState('');
-  const [filterWO,        setFilterWO]        = useState('');
+  const [search]          = useState('');
+  const [filterStatus]    = useState('');
+  const [filterOperator]  = useState('');
+  const [filterPriority]  = useState('');
+  const [filterBatch]     = useState('');
+  const [filterWO]        = useState('');
 
   // ── assign bar ──
   const [assignWO,       setAssignWO]       = useState('');
@@ -190,7 +191,7 @@ export const Repacking: React.FC = () => {
       _type: 'COMPLETED', id: rp.id, woId: rp.sourceWoId,
       woNumber: rp.sourceWorkOrder?.woNumber ?? '—',
       productName: rp.sourceWorkOrder?.product?.name ?? '—',
-      batchNumber: rp.batchNumber || rp.sourceWorkOrder?.batchNumber || (rp.sourceWorkOrder?.woNumber ? `BATCH-${rp.sourceWorkOrder.woNumber}` : '—'),
+      batchNumber: (rp as any).newBatchNumber || rp.sourceWorkOrder?.batchNumber || (rp.sourceWorkOrder?.woNumber ? `BATCH-${rp.sourceWorkOrder.woNumber}` : '-'),
       repackTime: rp.createdAt,
       assignedTo: rp.loggedBy?.name ?? '—',
       displayStatus: 'Repacked',
@@ -269,24 +270,13 @@ export const Repacking: React.FC = () => {
         <Breadcrumbs />
       </div>
 
-      {/* ── KPI Cards ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-        {[
-          { label: 'Pending Repack',    value: loading ? '…' : pendingWOs.length,       icon: <AlertTriangle size={20}/>, bg: 'bg-orange-100', color: 'text-orange-600' },
-          { label: 'Active Operators',  value: loading ? '…' : operators.length,        icon: <Users size={20}/>,         bg: 'bg-blue-100',   color: 'text-blue-600' },
-          { label: 'Total Repacked',    value: loading ? '…' : completedRPs.length,     icon: <CheckCircle size={20}/>,   bg: 'bg-green-100',  color: 'text-green-600' },
-          { label: 'Repacked Today',    value: loading ? '…' : repackedToday,           icon: <Clock size={20}/>,         bg: 'bg-indigo-100', color: 'text-indigo-600' },
-          { label: 'Yield Recovered',   value: loading ? '…' : totalRecovered,          icon: <Package size={20}/>,       bg: 'bg-purple-100', color: 'text-purple-600' },
-          { label: 'Total Waste',       value: loading ? '…' : totalWaste,              icon: <Scissors size={20}/>,      bg: 'bg-red-100',    color: 'text-red-500' },
-        ].map(c => (
-          <div key={c.label} className="bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-3 flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${c.bg} ${c.color}`}>{c.icon}</div>
-            <div className="min-w-0">
-              <div className="text-[10px] text-gray-500 font-medium leading-tight truncate">{c.label}</div>
-              <div className="text-lg font-bold text-gray-900 leading-tight">{c.value}</div>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-5 max-w-full">
+        <StatCard title="Pending Repack" value={pendingWOs.length} icon={AlertTriangle} variant="yellow" />
+        <StatCard title="Active Operators" value={operators.length} icon={Users} variant="blue" />
+        <StatCard title="Total Repacked" value={completedRPs.length} icon={CheckCircle} variant="green" />
+        <StatCard title="Repacked Today" value={repackedToday} icon={Clock} variant="blue" />
+        <StatCard title="Yield Recovered" value={totalRecovered} icon={Package} variant="purple" />
+        <StatCard title="Total Waste" value={totalWaste} icon={Scissors} variant="red" />
       </div>
 
       {/* ── Assign Task Bar ────────────────────────────────────────── */}

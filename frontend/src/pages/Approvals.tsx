@@ -179,54 +179,60 @@ export const Approvals: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters and Table Area */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col h-[500px]">
-        
-        {/* Filters */}
-        <div className="p-4 border-b border-slate-200 dark:border-gray-700 flex flex-wrap gap-4 items-center justify-between bg-slate-50 dark:bg-gray-800/50">
-          <div className="flex gap-4 flex-wrap">
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Actions Bar */}
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center mb-6">
+          
+          {/* Filters Group */}
+          <div className="flex items-center bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm h-10 overflow-x-auto w-full xl:w-auto">
+            <div className="flex items-center gap-2 px-3 border-r border-gray-200 dark:border-gray-600 shrink-0">
+              <Filter size={16} className="text-gray-400" />
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Filters:</span>
+            </div>
+            
+            <select 
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+              className="px-3 py-2 text-xs font-medium bg-transparent border-none focus:outline-none focus:ring-0 cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 border-r border-gray-200 dark:border-gray-600 min-w-[140px]"
+            >
+              <option value="ALL">All Types</option>
+              <option value="WORK_ORDER">Work Order</option>
+              <option value="MATERIAL_ISSUE">Material Issue</option>
+              <option value="PACKING_VARIANCE">Packing Variance</option>
+              <option value="QC_REWORK">QC Rework</option>
+              <option value="REPACKING">Repacking</option>
+            </select>
+
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="px-3 py-2 text-xs font-medium bg-transparent border-none focus:outline-none focus:ring-0 cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 border-r border-gray-200 dark:border-gray-600 min-w-[140px]"
+            >
+              <option value="ALL">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </div>
+
+          {/* Right side: Search */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <input 
                 type="text" 
                 placeholder="Search requests..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-1 focus:ring-green-600 focus:border-green-600 dark:bg-gray-700 dark:text-white"
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all shadow-sm"
               />
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Filter size={16} className="text-gray-400" />
-              <select 
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as any)}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-green-600 focus:border-green-600 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="ALL">All Types</option>
-                <option value="WORK_ORDER">Work Order</option>
-                <option value="MATERIAL_ISSUE">Material Issue</option>
-                <option value="PACKING_VARIANCE">Packing Variance</option>
-                <option value="QC_REWORK">QC Rework</option>
-                <option value="REPACKING">Repacking</option>
-              </select>
-            </div>
-
-            <select 
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-green-600 focus:border-green-600 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="ALL">All Status</option>
-                <option value="PENDING">Pending</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
-              </select>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-auto flex-1 table-scrollbar">
+        {/* Filters and Table Area */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col h-[500px]">
+          {/* Table */}
+          <div className="overflow-auto flex-1 table-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-slate-50 dark:bg-gray-800 shadow-sm z-10">
               <tr className="border-b border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-500 dark:text-gray-400 uppercase">

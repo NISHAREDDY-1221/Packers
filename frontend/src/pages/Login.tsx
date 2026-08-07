@@ -17,7 +17,7 @@ export const Login: React.FC = () => {
     const userRole = typeof user.role === 'string' ? user.role : (user.role as any)?.name;
     if (userRole === 'ADMIN' || userRole === 'MANAGER') {
       return <Navigate to="/" replace />;
-    } else if (userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
+    } else if (userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
       return <Navigate to="/qc/dashboard" replace />;
     } else if (userRole === 'OPERATOR') {
       return <Navigate to="/operator/dashboard" replace />;

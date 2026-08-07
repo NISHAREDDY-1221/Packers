@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (userRole === 'OPERATOR') {
       localStorage.setItem('token_operator', token);
       localStorage.setItem('user_operator', JSON.stringify(user));
-    } else if (userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
+    } else if (userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
       localStorage.setItem('token_qc', token);
       localStorage.setItem('user_qc', JSON.stringify(user));
     }

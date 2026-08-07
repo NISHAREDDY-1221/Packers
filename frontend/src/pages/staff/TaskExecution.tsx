@@ -65,7 +65,7 @@ export const TaskExecution: React.FC = () => {
     return <div className="p-4 text-center text-gray-500 dark:text-gray-400">Task not found</div>;
   }
 
-  const isQC = user?.role === 'QC_INSPECTOR';
+  const isQC = user?.role === 'QC' || user?.role === 'QC_INSPECTOR' || user?.role === 'QC_CHECKER';
 
   return (
     <div className="space-y-4 font-sans pb-4 max-w-3xl mx-auto w-full">

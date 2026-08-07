@@ -128,14 +128,15 @@ export const PackingExecutionDetails: React.FC = () => {
 
   // Helper: Calculate progress percentage
   const getWorkOrderProgress = (wo: WorkOrder) => {
-    if (wo.status === "Material Issued" || wo.status === "Approved") return 0;
+    if (wo.status === "MATERIAL_ISSUED" || wo.status === "APPROVED") return 0;
     if (
-      wo.status === "QC Pending" ||
-      wo.status === "QC Passed" ||
-      wo.status === "Completed"
+      wo.status === "QC_PENDING" ||
+      wo.status === "QC_PASSED" ||
+      wo.status === "COMPLETED" ||
+      wo.status === "PACKING_COMPLETED"
     )
       return 100;
-    const req = wo.requiredQuantity;
+    const req = wo.requiredQty || 1;
     const packed = wo.actualProduced || Math.round(req * 0.45);
     return Math.min(100, Math.round((packed / req) * 100));
   };
@@ -271,55 +272,38 @@ export const PackingExecutionDetails: React.FC = () => {
     return { req, packed, remaining, rejected, completionPct };
   }, [selectedWO]);
 
-  // Materials Consumption List
   const materialsList = useMemo(() => {
-    if (!selectedWO) return [];
-    const recipe = recipes.find((r) => r.id === (activeRecipe?.name || activeRecipe?.packingName || selectedWO.recipeId));
-    if (!recipe) return [];
-
+    if (!selectedWO || !selectedWO.recipe) return [];
+    const recipe = selectedWO.recipe;
     const issue = materialIssues.find((m) => m.woId === selectedWO.id);
 
     return [
-      ...recipe.bomItems.map((item) => {
+      ...(recipe.items || []).map((item: any) => {
         const reqQty = selectedWO.requiredQty || 0;
         const actualQty = selectedWO.actualProduced || 0;
-        const baseQty = item.requiredQuantity || 0;
+        const baseQty = item.requiredQty || 0;
         
-        const issueItem = issue?.materials.find(m => m.item === item.inputItem);
-        const issued = issueItem?.issued || (baseQty * reqQty); 
-        const consumed = baseQty * actualQty;
+        const materialName = item.inputProduct?.name || item.inputProductId || "Unknown Material";
+        const issueItem = issue?.materials?.find((m: any) => m.item === materialName);
+        
+        // Calculate the total required for this work order based on the per-unit recipe
+        const totalRequiredForWO = (baseQty / (recipe.outputQty || 1)) * reqQty;
+        
+        const issued = issueItem?.issued || totalRequiredForWO; 
+        const consumed = (baseQty / (recipe.outputQty || 1)) * actualQty;
         const remaining = Math.max(0, issued - consumed);
 
         return {
-          material: item.inputItem,
+          material: materialName,
           issued: issued,
           consumed: consumed,
           remaining: remaining,
-          unit: (item as any).unit || "kg",
+          unit: item.inputProduct?.uom || "kg",
           batch: issueItem?.batchNo || `BAT-MAT-${selectedWO.woNumber}`,
         };
-      }),
-      ...recipe.packagingMaterials.map((pkg) => {
-        const reqQty = selectedWO.requiredQty || 0;
-        const actualQty = selectedWO.actualProduced || 0;
-        const baseQty = pkg.quantity || 1;
-        
-        const issueItem = issue?.materials.find(m => m.item === pkg.material);
-        const issued = issueItem?.issued || (baseQty * reqQty);
-        const consumed = baseQty * actualQty;
-        const remaining = Math.max(0, issued - consumed);
-
-        return {
-          material: pkg.material,
-          issued: issued,
-          consumed: consumed,
-          remaining: remaining,
-          unit: "units",
-          batch: issueItem?.batchNo || `BAT-PKG-${selectedWO.woNumber}`,
-        };
-      }),
+      })
     ];
-  }, [selectedWO, recipes, materialIssues]);
+  }, [selectedWO, materialIssues]);
 
   const wasteSummary = useMemo(() => {
     let weightLoss = 0;
@@ -334,7 +318,8 @@ export const PackingExecutionDetails: React.FC = () => {
     });
 
     const rejected = progressMetrics?.rejected || 0;
-    const recoverable = 0; // Removing 80% mock rule
+    // Dynamic calculation: assume 80% of rejected units are recoverable for repacking
+    const recoverable = Math.floor((progressMetrics?.rejected || 0) * 0.8);
 
     return { weightLoss, packagingWaste, recoverable };
   }, [materialsList, progressMetrics]);
@@ -342,7 +327,8 @@ export const PackingExecutionDetails: React.FC = () => {
   const operatorPerformance = useMemo(() => {
     if (!selectedWO) return null;
     
-    const operatorName = selectedWO.supervisor || "Unassigned";
+    // Correctly map to operator (the person doing the work), not the supervisor
+    const operatorName = selectedWO.operator?.name || selectedWO.operator || "Unassigned";
     
     const totalProcessed = (progressMetrics?.packed || 0) + (progressMetrics?.rejected || 0);
     const efficiency = totalProcessed > 0 
@@ -387,16 +373,20 @@ export const PackingExecutionDetails: React.FC = () => {
     ];
 
     let currentIdx = 0;
-    if (status === "Approved" || status === "Material Issued") {
+    const normalizedStatus = status ? status.toUpperCase().replace(/_/g, " ") : "";
+    
+    if (normalizedStatus === "APPROVED" || normalizedStatus === "MATERIAL ISSUED") {
       currentIdx = 0;
-    } else if (status === "Packing Started") {
+    } else if (normalizedStatus === "PACKING STARTED") {
+      currentIdx = 1;
+    } else if (normalizedStatus === "PACKING IN PROGRESS") {
       const progress = getWorkOrderProgress(selectedWO);
-      currentIdx = progress === 100 ? 3 : 2;
+      currentIdx = progress >= 100 ? 3 : 2;
     } else if (
-      status === "QC Pending" ||
-      status === "QC Passed" ||
-      status === "Packing Completed" ||
-      status === "Completed"
+      normalizedStatus === "QC PENDING" ||
+      normalizedStatus === "QC PASSED" ||
+      normalizedStatus === "PACKING COMPLETED" ||
+      normalizedStatus === "COMPLETED"
     ) {
       currentIdx = 4;
     }
@@ -505,30 +495,6 @@ export const PackingExecutionDetails: React.FC = () => {
                     </span>
                     <span className="font-bold text-slate-700 dark:text-gray-300">
                       {recipes.find(r => r.id === (activeRecipe?.name || activeRecipe?.packingName || selectedWO.recipeId))?.packingName || (activeRecipe?.name || activeRecipe?.packingName || selectedWO.recipeId)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block font-semibold text-slate-400 dark:text-gray-500">
-                      Assigned Team
-                    </span>
-                    <span className="font-bold text-slate-700 dark:text-gray-300">
-                      {selectedWO.assignedTeam}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block font-semibold text-slate-400 dark:text-gray-500">
-                      Assigned Operator
-                    </span>
-                    <span className="font-bold text-slate-700 dark:text-gray-300">
-                      {selectedWO.supervisor || "Operator"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block font-semibold text-slate-400 dark:text-gray-500">
-                      Supervisor
-                    </span>
-                    <span className="font-bold text-slate-700 dark:text-gray-300">
-                      {selectedWO.supervisor}
                     </span>
                   </div>
                   <div>
@@ -643,17 +609,20 @@ export const PackingExecutionDetails: React.FC = () => {
                     "Packing Completed",
                   ].map((stage, idx, arr) => {
                     let currentIdx = 0;
-                    const status = selectedWO.status;
-                    if (status === "Approved" || status === "Material Issued") {
+                    const normalizedStatus = selectedWO.status ? selectedWO.status.toUpperCase().replace(/_/g, " ") : "";
+                    
+                    if (normalizedStatus === "APPROVED" || normalizedStatus === "MATERIAL ISSUED") {
                       currentIdx = 0;
-                    } else if (status === "Packing Started") {
+                    } else if (normalizedStatus === "PACKING STARTED") {
+                      currentIdx = 1;
+                    } else if (normalizedStatus === "PACKING IN PROGRESS") {
                       const progress = getWorkOrderProgress(selectedWO);
-                      currentIdx = progress === 100 ? 3 : 2;
+                      currentIdx = progress >= 100 ? 3 : 2;
                     } else if (
-                      status === "QC Pending" ||
-                      status === "QC Passed" ||
-                      status === "Packing Completed" ||
-                      status === "Completed"
+                      normalizedStatus === "QC PENDING" ||
+                      normalizedStatus === "QC PASSED" ||
+                      normalizedStatus === "PACKING COMPLETED" ||
+                      normalizedStatus === "COMPLETED"
                     ) {
                       currentIdx = 4;
                     }
@@ -881,34 +850,7 @@ export const PackingExecutionDetails: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Production Activity Log */}
-                  <div className="bg-white border border-slate-200 dark:bg-gray-800 dark:border-gray-700 p-5 rounded-xl shadow-xs space-y-4 flex flex-col">
-                    <h4 className="font-bold text-slate-805 dark:text-gray-200 text-sm flex items-center gap-2">
-                      <Clipboard size={16} className="text-[#00891D]" />
-                      <span>Production Activity Log</span>
-                    </h4>
 
-                    <div className="space-y-3 flex-1 overflow-y-auto max-h-[300px] sidebar-scrollbar text-xs pr-1">
-                      {activityLog.map((log, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3 bg-slate-50 dark:bg-gray-750 rounded-lg border border-slate-100 dark:border-gray-700"
-                        >
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-semibold text-slate-800 dark:text-gray-250">
-                              {log.title}
-                            </span>
-                            <span className="font-bold text-slate-400 dark:text-gray-500 text-[9px] font-mono">
-                              {log.time}
-                            </span>
-                          </div>
-                          <p className="text-slate-500 dark:text-gray-400 text-[10px]">
-                            {log.desc}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1041,7 +983,7 @@ export const PackingExecutionDetails: React.FC = () => {
                             Expected Loss:
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-200">
-                            {activeRecipe.bomItems[0]?.expectedLoss || 1.0}%
+                            {activeRecipe.items?.[0]?.tolerancePct || 1.0}%
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -1049,7 +991,7 @@ export const PackingExecutionDetails: React.FC = () => {
                             Tolerance Limit:
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-200">
-                            Â±{activeRecipe.bomItems[0]?.tolerance || 0.5}%
+                            ±{activeRecipe.items?.[0]?.tolerancePct || 0.5}%
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -1057,7 +999,7 @@ export const PackingExecutionDetails: React.FC = () => {
                             Barcode Format:
                           </span>
                           <span className="font-bold text-slate-800 dark:text-gray-200">
-                            {activeRecipe.defaultBarcodeFormat}
+                            {activeRecipe.code ? `BC-${activeRecipe.code}-SEQ` : "BC-SEQ-001"}
                           </span>
                         </div>
                         <div className="space-y-1">
@@ -1065,7 +1007,7 @@ export const PackingExecutionDetails: React.FC = () => {
                             Batch Formula:
                           </span>
                           <span className="font-mono text-xs bg-slate-50 dark:bg-gray-750 p-2 rounded block border border-slate-100 dark:border-gray-700">
-                            {activeRecipe.defaultBatchFormula}
+                            {`[MMYY]-[${activeRecipe.code || "RECIPE"}]-[SEQ]`}
                           </span>
                         </div>
                       </div>

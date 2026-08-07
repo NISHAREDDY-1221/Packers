@@ -23,15 +23,15 @@ export const Dashboard: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   // Packing Operator metrics
-  const completedStatuses = ['PACKING_COMPLETED', 'LABELS_GENERATED', 'LABELS_PRINTED', 'QC_PENDING', 'QC_IN_PROGRESS', 'QC_PASSED', 'QC_FAILED', 'FINISHED_GOODS', 'COMPLETED'];
-  
+  const completedStatuses = ['PACKING_COMPLETED', 'LABEL_APPLICATION_ASSIGNED', 'LABEL_APPLICATION_IN_PROGRESS', 'LABELS_APPLIED', 'QC_PENDING', 'QC_IN_PROGRESS', 'QC_PASSED', 'QC_FAILED', 'FINISHED_GOODS', 'COMPLETED'];
+
   const pendingJobs = workOrders.filter((wo: any) => ['APPROVED'].includes(wo.status)).length;
   const readyToStart = workOrders.filter((wo: any) => wo.status === 'MATERIAL_ISSUED').length;
   const packingInProgress = workOrders.filter((wo: any) => wo.status === 'PACKING_STARTED' || wo.status === 'PACKING_IN_PROGRESS').length;
-  const completedToday = workOrders.filter((wo: any) => 
+  const completedToday = workOrders.filter((wo: any) =>
     completedStatuses.includes(wo.status) && ((wo.completedAt ? new Date(wo.completedAt).toDateString() === new Date().toDateString() : false) || (wo.updatedAt ? new Date(wo.updatedAt).toDateString() === new Date().toDateString() : false))
   ).length;
-  const delayedJobs = workOrders.filter((wo: any) => 
+  const delayedJobs = workOrders.filter((wo: any) =>
     wo.expectedDate && wo.expectedDate < today && !completedStatuses.includes(wo.status)
   ).length;
   const issuesReported = 0; // Hardcoded until backend API is available
@@ -70,8 +70,8 @@ export const Dashboard: React.FC = () => {
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div 
-              key={index} 
+            <div
+              key={index}
               onClick={() => navigate(stat.path)}
               className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between h-full transition-transform hover:-translate-y-1 cursor-pointer"
             >
@@ -91,7 +91,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Main Grid area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left Column (Active Job) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden relative group">
@@ -127,19 +127,19 @@ export const Dashboard: React.FC = () => {
                   </div>
 
                   <div className="w-full bg-gray-100 rounded-full h-3 mb-6 overflow-hidden">
-                    <div 
-                      className="bg-green-500 h-3 rounded-full relative" 
+                    <div
+                      className="bg-green-500 h-3 rounded-full relative"
                       style={{ width: `${Math.min(100, ((activeJob.actualProduced || 0) / activeJob.requiredQty) * 100)}%` }}
                     >
                       <div className="absolute top-0 right-0 bottom-0 left-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[progress_1s_linear_infinite]"></div>
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => navigate('/operator/active-packing')}
                     className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
                   >
-                    Start Packing <ArrowRight size={18} className="ml-2" />
+                    Resume Packing <ArrowRight size={18} className="ml-2" />
                   </button>
                 </>
               ) : (
@@ -148,7 +148,7 @@ export const Dashboard: React.FC = () => {
                     <Package size={48} className="text-gray-300 dark:text-gray-500" />
                   </div>
                   <p className="text-gray-500 dark:text-gray-400 font-medium mb-4">No active packing job.</p>
-                  <button 
+                  <button
                     onClick={() => navigate('/operator/jobs')}
                     className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm active:scale-95"
                   >
@@ -165,7 +165,7 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide border-b border-gray-100 dark:border-gray-700 pb-3 mb-4">Quick Actions</h2>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => navigate('/operator/active-packing')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-green-50 hover:text-green-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-green-200 group"
               >
@@ -174,8 +174,8 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-green-700">Resume Packing</span>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => navigate('/operator/jobs')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-blue-200 group"
               >
@@ -184,8 +184,8 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-blue-700">My Jobs</span>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => navigate('/operator/report-issue')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-red-50 hover:text-red-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-red-200 group"
               >

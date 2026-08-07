@@ -8,7 +8,7 @@ import { qualityCheckService } from '../../../api/qualityCheckService';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  
+
   const [stats, setStats] = useState({
     pending: 0,
     ready: 0,
@@ -31,89 +31,101 @@ export const Dashboard: React.FC = () => {
         ]);
         const orders = woRes.data || [];
         const qcs = qcRes.data || [];
-        
+
         const qcPendingOrders = orders.filter((o: any) => QC_STATUSES.includes(o.status));
+        const readyForQcOrders = orders.filter((o: any) => ['QC_PENDING', 'LABELS_APPLIED', 'PACKING_COMPLETED'].includes(o.status));
         const qcInProgressCount = orders.filter((o: any) => o.status === 'QC_IN_PROGRESS').length;
-        const passedTodayCount = qcs.filter((q: any) => q.result === 'PASS' || q.result === 'PARTIAL_PASS').length;
-        const failedTodayCount = qcs.filter((q: any) => q.result === 'REJECT' || q.result === 'DISCARD' || q.result === 'REWORK').length;
+        const todayStr = new Date().toDateString();
+        
+        const passedTodayCount = qcs.filter((q: any) => 
+          new Date(q.createdAt).toDateString() === todayStr && 
+          (q.result === 'PASS' || q.result === 'PARTIAL_PASS')
+        ).length;
+        
+        const failedTodayCount = qcs.filter((q: any) => 
+          new Date(q.createdAt).toDateString() === todayStr && 
+          (q.result === 'REJECT' || q.result === 'DISCARD' || q.result === 'REWORK')
+        ).length;
+        
+        const issuesTodayCount = qcs.filter((q: any) => 
+          new Date(q.createdAt).toDateString() === todayStr && 
+          (q.severity === 'CRITICAL' || q.severity === 'MAJOR')
+        ).length;
 
         setStats({
           pending: qcPendingOrders.length,
-          ready: qcPendingOrders.length,
-          inProgress: qcInProgressCount, 
+          ready: readyForQcOrders.length,
+          inProgress: qcInProgressCount,
           completed: passedTodayCount,
           delayed: failedTodayCount,
-          issues: 0
+          issues: issuesTodayCount
         });
         let activeList = orders.filter((o: any) => o.status === 'QC_IN_PROGRESS');
-        if (activeList.length === 0) {
-          activeList = orders.filter((o: any) => QC_STATUSES.includes(o.status));
-        }
         setActiveJobs(activeList);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
       }
     };
-    
+
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
   const kpis = [
-    { 
-      title: 'Pending Inspection', 
-      value: stats.pending.toString(), 
-      icon: Clock, 
-      color: 'text-gray-500', 
-      bg: 'bg-gray-100', 
+    {
+      title: 'Pending Inspection',
+      value: stats.pending.toString(),
+      icon: Clock,
+      color: 'text-gray-500',
+      bg: 'bg-gray-100',
       border: 'border-gray-200',
       onClick: () => navigate('/qc/tasks', { state: { filter: 'pending' } })
     },
-    { 
-      title: 'Ready for QC', 
-      value: stats.ready.toString(), 
-      icon: PackageCheck, 
-      color: 'text-blue-600', 
-      bg: 'bg-blue-50', 
+    {
+      title: 'Ready for QC',
+      value: stats.ready.toString(),
+      icon: PackageCheck,
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
       border: 'border-blue-100',
       onClick: () => navigate('/qc/tasks', { state: { filter: 'ready' } })
     },
-    { 
-      title: 'QC In Progress', 
-      value: stats.inProgress.toString(), 
-      icon: Play, 
-      color: 'text-orange-600', 
-      bg: 'bg-orange-50', 
+    {
+      title: 'QC In Progress',
+      value: stats.inProgress.toString(),
+      icon: Play,
+      color: 'text-orange-600',
+      bg: 'bg-orange-50',
       border: 'border-orange-100',
       onClick: () => navigate('/qc/active-inspection')
     },
-    { 
-      title: 'Passed Today', 
-      value: stats.completed.toString(), 
-      icon: CheckCircle, 
-      color: 'text-green-600', 
-      bg: 'bg-green-50', 
+    {
+      title: 'Passed Today',
+      value: stats.completed.toString(),
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
       border: 'border-green-100',
       onClick: () => navigate('/qc/history', { state: { status: 'passed', date: 'Today' } })
     },
-    { 
-      title: 'Failed Today', 
-      value: stats.delayed.toString(), 
-      icon: AlertTriangle, 
-      color: 'text-red-600', 
-      bg: 'bg-red-50', 
+    {
+      title: 'Failed Today',
+      value: stats.delayed.toString(),
+      icon: AlertTriangle,
+      color: 'text-red-600',
+      bg: 'bg-red-50',
       border: 'border-red-100',
       onClick: () => navigate('/qc/history', { state: { status: 'failed', date: 'Today' } })
     },
-    { 
-      title: 'Issues Reported', 
-      value: stats.issues.toString(), 
-      icon: AlertCircle, 
-      color: 'text-purple-600', 
-      bg: 'bg-purple-50', 
+    {
+      title: 'Issues Reported',
+      value: stats.issues.toString(),
+      icon: AlertCircle,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
       border: 'border-purple-100',
-      onClick: () => {} // On hold
+      onClick: () => { } // On hold
     },
   ];
 
@@ -124,8 +136,8 @@ export const Dashboard: React.FC = () => {
         {kpis.map((kpi, index) => {
           const Icon = kpi.icon;
           return (
-            <div 
-              key={index} 
+            <div
+              key={index}
               onClick={kpi.onClick}
               className={`bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between h-full transition-transform ${kpi.title !== 'Issues Reported' ? 'hover:-translate-y-1 cursor-pointer' : ''}`}
             >
@@ -145,7 +157,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Main Grid area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left Column (Active Job) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden relative group">
@@ -183,15 +195,15 @@ export const Dashboard: React.FC = () => {
                       </div>
 
                       <div className="w-full bg-gray-100 rounded-full h-3 mb-6 overflow-hidden">
-                        <div 
-                          className="bg-green-500 h-3 rounded-full relative" 
+                        <div
+                          className="bg-green-500 h-3 rounded-full relative"
                           style={{ width: `${Math.min(100, ((activeJob.actualProduced || 0) / activeJob.requiredQty) * 100)}%` }}
                         >
                           <div className="absolute top-0 right-0 bottom-0 left-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[progress_1s_linear_infinite]"></div>
                         </div>
                       </div>
 
-                      <button 
+                      <button
                         onClick={async () => {
                           if (activeJob.status !== 'QC_IN_PROGRESS') {
                             try {
@@ -204,7 +216,7 @@ export const Dashboard: React.FC = () => {
                         }}
                         className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center"
                       >
-                        Start QC <ArrowRight size={18} className="ml-2" />
+                        Resume QC <ArrowRight size={18} className="ml-2" />
                       </button>
                     </div>
                   ))}
@@ -215,7 +227,7 @@ export const Dashboard: React.FC = () => {
                     <PackageCheck size={48} className="text-gray-300 dark:text-gray-500" />
                   </div>
                   <p className="text-gray-500 dark:text-gray-400 font-medium mb-4">No active QC inspection.</p>
-                  <button 
+                  <button
                     onClick={() => navigate('/qc/tasks')}
                     className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm active:scale-95"
                   >
@@ -232,7 +244,7 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide border-b border-gray-100 dark:border-gray-700 pb-3 mb-4">Quick Actions</h2>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => navigate('/qc/active-inspection')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-green-50 hover:text-green-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-green-200 group"
               >
@@ -241,8 +253,8 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-green-700">Resume QC</span>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => navigate('/qc/tasks')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-blue-200 group"
               >
@@ -251,8 +263,8 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-blue-700">My QC Tasks</span>
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => navigate('/qc/report-issue')}
                 className="w-full flex items-center p-4 bg-slate-50 dark:bg-gray-900 rounded-xl hover:bg-red-50 hover:text-red-700 transition-colors border border-slate-100 dark:border-gray-700 hover:border-red-200 group"
               >

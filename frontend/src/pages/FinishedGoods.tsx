@@ -3,9 +3,9 @@ import toast from 'react-hot-toast';
 import apiClient from '../api/axios';
 import { useApp } from '../context/AppContext';
 import type { FinishedGoods as IFG } from '../context/AppContext';
-import { Package, Filter, Archive, CheckCircle, Clock, X, Calculator, DollarSign } from 'lucide-react';
+import { Package, Filter, Archive, CheckCircle, Clock, X, Calculator, DollarSign, Search, RotateCcw } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
-import { StatCard, DataTable, SearchInput, SelectInput } from '../components/ui';
+import { StatCard, DataTable } from '../components/ui';
 
 const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return '—';
@@ -172,22 +172,22 @@ export const FinishedGoods: React.FC = () => {
 
   const columns = [
     {
-      key: 'woNo', label: 'REF ID / WO NO', sortable: true,
+      key: 'woNo', label: 'WO NO', sortable: true, className: 'text-left',
       render: (row: any) => (
-        <div className="py-0.5">
-          <div className="font-mono text-xs font-bold text-gray-900">{row._type === 'POSTED' ? row.id : 'Pending Post'}</div>
-          <div className="font-mono text-[10px] font-semibold text-gray-400">{row.woNo}</div>
+        <div className="py-0.5 flex flex-col justify-start min-h-[32px]">
+          {row._type === 'POSTED' && <div className="font-mono text-[10px] font-bold text-gray-400 mb-0.5">{row.id}</div>}
+          <div className="font-mono text-xs font-bold text-gray-900">{row.woNo}</div>
         </div>
       )
     },
     {
-      key: 'productName', label: 'PRODUCT NAME', sortable: true,
+      key: 'productName', label: 'PRODUCT NAME', sortable: true, className: 'text-left',
       render: (row: any) => (
-        <div className="font-semibold text-xs text-gray-900 max-w-[220px] truncate">{row.productName}</div>
+        <div className="font-semibold text-xs text-gray-900 max-w-[220px] truncate text-left">{row.productName}</div>
       )
     },
     {
-      key: 'batchNo', label: 'BATCH NO', sortable: true,
+      key: 'batchNo', label: 'BATCH NO', sortable: true, className: 'text-left',
       render: (row: any) => (
         <span className="font-mono text-xs font-medium text-gray-700 bg-gray-100/80 px-2 py-0.5 rounded border border-gray-200/60">
           {row.batchNo}
@@ -195,13 +195,13 @@ export const FinishedGoods: React.FC = () => {
       )
     },
     {
-      key: 'postedQty', label: 'QTY', sortable: true,
+      key: 'postedQty', label: 'QTY', sortable: true, className: 'text-center',
       render: (row: any) => (
         <div className="font-bold text-center text-xs text-gray-900">{row.postedQty}</div>
       )
     },
     {
-      key: 'status', label: 'STATUS', sortable: true,
+      key: 'status', label: 'STATUS', sortable: true, className: 'text-center',
       render: (row: any) => (
         <div className="text-center">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${row._type === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
@@ -212,7 +212,7 @@ export const FinishedGoods: React.FC = () => {
       )
     },
     {
-      key: 'actions', label: 'ACTION', sortable: false,
+      key: 'actions', label: 'ACTION', sortable: false, className: 'text-right pr-2',
       render: (row: any) => (
         <div className="flex justify-end pr-2">
           {row._type === 'PENDING' ? (
@@ -247,52 +247,55 @@ export const FinishedGoods: React.FC = () => {
         <StatCard title="Avg Cost / Unit" value={`₹${avgCostPerUnit}`} icon={DollarSign} variant="blue" />
       </div>
 
-      <div className="mt-2 mb-6 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center divide-y sm:divide-y-0 sm:divide-x divide-gray-300 dark:divide-gray-600 w-full sm:w-auto overflow-hidden">
-          <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-center flex-shrink-0">
-            <Filter size={18} className="text-gray-700" />
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center mb-6">
+        {/* Filters Group */}
+        <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm h-10 overflow-x-auto w-full xl:w-auto">
+          <div className="px-3 flex items-center justify-center text-gray-500 shrink-0">
+            <Filter size={16} />
           </div>
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+          
+          <select
+            value={statusFilter}
+            onChange={(e: any) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-gray-700 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[120px] shrink-0"
+          >
+            <option value="">All Status</option>
+            <option value="Pending Post">Pending Post</option>
+            <option value="Posted">Posted</option>
+          </select>
 
-          <div className="px-3 sm:px-4 py-3 sm:py-4 w-[150px] relative flex-shrink-0">
-            <div className="[&_select]:border-0 [&_select]:bg-transparent [&_select]:focus:ring-0 [&_select]:text-xs sm:text-sm [&_select]:font-bold [&_select]:text-gray-900 [&_select]:w-full">
-              <SelectInput
-                value={statusFilter}
-                onChange={(e: any) => setStatusFilter(e.target.value)}
-                options={[
-                  { value: '', label: 'Status' },
-                  { value: 'Pending Post', label: 'Pending Post' },
-                  { value: 'Posted', label: 'Posted' }
-                ]}
-              />
-            </div>
-          </div>
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
 
-          <div className="px-3 sm:px-4 py-3 sm:py-4 flex-1 min-w-[200px]">
-            <SearchInput
+          <button
+            onClick={() => { setSearch(''); setStatusFilter(''); }}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors bg-transparent cursor-pointer shrink-0"
+          >
+            <RotateCcw size={14} />
+            Reset Filter
+          </button>
+        </div>
+
+        {/* Search bar & Action */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto items-stretch">
+          <div className="relative flex-1 sm:w-72">
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search FG ledger..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search FG ledger..."
-              className="border-0 bg-transparent p-0 h-auto focus:ring-0 text-sm w-full"
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#00891D]/20 focus:border-[#00891D] transition-all shadow-sm"
             />
           </div>
-
-          <div className="px-3 sm:px-4 py-3 sm:py-4 flex-shrink-0 bg-gray-50 flex items-center justify-center">
-            <button
-              onClick={() => { setSearch(''); setStatusFilter(''); }}
-              className="text-xs font-bold text-gray-500 hover:text-gray-900 uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-            >
-              Reset
-            </button>
-          </div>
+          <button
+            onClick={() => setIsPostOpen(true)}
+            className="bg-[#00891D] hover:bg-[#006b17] text-white font-bold px-4 py-2 rounded-lg text-xs transition-colors shadow-sm active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0 sm:w-auto w-full h-10"
+          >
+            <Archive size={16} />
+            Post Finished Goods
+          </button>
         </div>
-        
-        <button
-          onClick={() => setIsPostOpen(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 sm:py-4 rounded-xl text-sm font-bold shadow-md transition-colors whitespace-nowrap justify-center cursor-pointer flex-shrink-0"
-        >
-          <Archive size={18} />
-          <span>Post Finished Goods</span>
-        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden mb-6">

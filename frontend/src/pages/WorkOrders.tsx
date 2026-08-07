@@ -6,7 +6,8 @@ import {
   Plus, Search, Calendar, X,
   Check, Clipboard,
   RefreshCw, LayoutGrid, Table as TableIcon, Edit,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Filter, RotateCcw, Eye, Loader2,
+  ClipboardList, FileEdit, Clock, CheckCircle2, Package, Shield, CheckCircle
 } from 'lucide-react';
 import { masterDataService } from '../api/masterDataService';
 import type { Recipe } from '../api/masterDataService';
@@ -20,13 +21,14 @@ const KANBAN_COLUMNS: WoStatus[] = [
   'APPROVED',
   'MATERIAL_ISSUED',
   'PACKING_STARTED',
+  'PACKING_IN_PROGRESS',
   'PACKING_COMPLETED',
-  'LABELS_PRINTED',
+  'LABEL_APPLICATION_ASSIGNED',
+  'LABEL_APPLICATION_IN_PROGRESS',
+  'LABELS_APPLIED',
   'QC_PENDING',
+  'QC_IN_PROGRESS',
   'QC_PASSED',
-  'QC_FAILED',
-  'REPACKING',
-  'FINISHED_GOODS',
   'COMPLETED',
   'CANCELLED'
 ];
@@ -43,12 +45,17 @@ export const WorkOrders: React.FC = () => {
   const [apiWorkOrders, setApiWorkOrders] = useState<WorkOrder[]>([]);
   const workOrders = apiWorkOrders;
 
+  const [apiWorkOrdersLoading, setApiWorkOrdersLoading] = useState(true);
+
   const fetchWorkOrders = async () => {
+    setApiWorkOrdersLoading(true);
     try {
       const res = await workOrderService.getWorkOrders();
       setApiWorkOrders(res.data || []);
     } catch (e) {
       console.error(e);
+    } finally {
+      setApiWorkOrdersLoading(false);
     }
   };
 
@@ -98,7 +105,7 @@ export const WorkOrders: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterPriority, setFilterPriority] = useState('All');
-  const [filterCategory, setFilterCategory] = useState('All');
+  const [filterCategory] = useState('All');
   const [filterSupervisor, setFilterSupervisor] = useState('All');
   const [filterDate, setFilterDate] = useState('');
 
@@ -142,7 +149,7 @@ export const WorkOrders: React.FC = () => {
   };
 
   // Derived filter dropdown lists
-  const categories = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.product?.category?.name || 'Unknown'))), [workOrders]);
+  // const categories = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.product?.category?.name || 'Unknown'))), [workOrders]);
   const supervisors = useMemo(() => Array.from(new Set(workOrders.map(wo => wo.operator?.name || wo.supervisor?.name || wo.supervisorId))), [workOrders]);
 
   // Derived summaries for KPI Cards
@@ -230,7 +237,7 @@ export const WorkOrders: React.FC = () => {
   // Priority colors utility
   const getPriorityStyle = (p: WorkOrder['priority']) => {
     switch (p) {
-      case 'CRITICAL': return 'bg-red-50 text-red-700 border-red-200 font-bold';
+      case 'URGENT': return 'bg-red-50 text-red-700 border-red-200 font-bold';
       case 'HIGH': return 'bg-orange-50 text-orange-750 border-orange-200';
       case 'MEDIUM': return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'LOW': return 'bg-slate-55 text-slate-700 border-slate-200';
@@ -275,7 +282,7 @@ export const WorkOrders: React.FC = () => {
     e.preventDefault();
     if (!isEditOpen) return;
     try {
-      await workOrderService.updateWorkOrderStatus(isEditOpen.id, isEditOpen.rawStatus || isEditOpen.status, {
+      await workOrderService.updateWorkOrderStatus(isEditOpen.id, isEditOpen.status, {
         requiredQty: editQty,
         priority: editPriority,
         operatorId: editSupervisor,
@@ -387,17 +394,18 @@ export const WorkOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI CARDS (Exactly 7 cards matching status) */}
       <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
         {[
-          { key: 'all', title: 'Total Work Orders', count: summary.total },
-          { key: 'draft', title: 'DRAFT', count: summary.draft },
-          { key: 'pending', title: 'PENDING', count: summary.pending },
-          { key: 'approved', title: 'APPROVED', count: summary.approved },
-          { key: 'packing_started', title: 'PACKING_STARTED', count: summary.packingStarted },
-          { key: 'qc_pending', title: 'QC_PENDING', count: summary.qcPending },
-          { key: 'completed', title: 'COMPLETED', count: summary.completed }
-        ].map(card => (
+          { key: 'all', title: 'Total Work Orders', count: summary.total, icon: ClipboardList, color: 'text-gray-500' },
+          { key: 'draft', title: 'DRAFT', count: summary.draft, icon: FileEdit, color: 'text-gray-400' },
+          { key: 'pending', title: 'PENDING', count: summary.pending, icon: Clock, color: 'text-amber-500' },
+          { key: 'approved', title: 'APPROVED', count: summary.approved, icon: CheckCircle2, color: 'text-blue-500' },
+          { key: 'packing_started', title: 'PACKING STARTED', count: summary.packingStarted, icon: Package, color: 'text-indigo-500' },
+          { key: 'qc_pending', title: 'QC PENDING', count: summary.qcPending, icon: Shield, color: 'text-orange-500' },
+          { key: 'completed', title: 'COMPLETED', count: summary.completed, icon: CheckCircle, color: 'text-emerald-500' }
+        ].map(card => {
+          const Icon = card.icon;
+          return (
           <div
             key={card.key}
             onClick={() => setKpiFilter(prev => prev === card.key ? 'all' : card.key)}
@@ -407,134 +415,112 @@ export const WorkOrders: React.FC = () => {
                 : 'border-gray-200 bg-white'
             }`}
           >
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide truncate block">{card.title}</span>
-            <span className="text-lg font-bold text-gray-900 block mt-1">{card.count}</span>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide truncate block">{card.title}</span>
+              <Icon size={14} className={card.color} />
+            </div>
+            <span className="text-lg font-bold text-gray-900 block">{card.count}</span>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* SEARCH & FILTERS SECTION */}
-      <div className="bg-white p-4 border border-gray-200 rounded-lg space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
+        {/* Filters Group */}
+        <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm h-10 overflow-hidden w-full xl:w-auto">
+          <div className="px-3 flex items-center justify-center text-gray-500 shrink-0">
+            <Filter size={16} />
+          </div>
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+          
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-gray-700 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[100px] shrink-0"
+          >
+            <option value="All">Status</option>
+            {KANBAN_COLUMNS.map(col => <option key={col} value={col}>{col}</option>)}
+          </select>
+          
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+          
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-gray-700 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[100px] shrink-0"
+          >
+            <option value="All">Priority</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="URGENT">Urgent</option>
+          </select>
+
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+
+          <select
+            value={filterSupervisor}
+            onChange={(e) => setFilterSupervisor(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-gray-700 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[110px] shrink-0"
+          >
+            <option value="All">Operator</option>
+            {supervisors.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+
+          <button
+            onClick={() => {
+              setFilterStatus('All');
+              setFilterPriority('All');
+              setFilterSupervisor('All');
+              setFilterDate('');
+              setSearch('');
+              setKpiFilter('all');
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors bg-transparent cursor-pointer shrink-0"
+          >
+            <RotateCcw size={14} />
+            Reset Filter
+          </button>
+        </div>
+
+        {/* Right side: Search & View Switcher */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           {/* Search bar */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by WO Number, Product, Recipe/BOM..."
-              className="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D] focus:border-[#00891D]"
+              placeholder="Search WO, Product, Recipe..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#00891D]/20 focus:border-[#00891D] transition-all shadow-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
           {/* View Switcher */}
-          <div className="flex border border-gray-250 rounded-lg p-0.5 bg-gray-50">
+          <div className="flex border border-gray-250 rounded-lg p-1 bg-gray-50 h-[38px] w-full sm:w-auto">
             <button
               onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1 px-3.5 py-1 rounded-md text-xs font-semibold cursor-pointer ${
-                viewMode === 'table' ? 'bg-white shadow-xs text-[#00891D] font-bold' : 'text-gray-505'
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+                viewMode === 'table' ? 'bg-white shadow-xs text-[#00891D]' : 'text-gray-505 hover:bg-gray-100'
               }`}
             >
               <TableIcon size={14} />
-              <span>Table</span>
+              <span className="hidden sm:inline">Table</span>
             </button>
             <button
               onClick={() => setViewMode('kanban')}
-              className={`flex items-center gap-1 px-3.5 py-1 rounded-md text-xs font-semibold cursor-pointer ${
-                viewMode === 'kanban' ? 'bg-white shadow-xs text-[#00891D] font-bold' : 'text-gray-505'
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+                viewMode === 'kanban' ? 'bg-white shadow-xs text-[#00891D]' : 'text-gray-505 hover:bg-gray-100'
               }`}
             >
               <LayoutGrid size={14} />
-              <span>Kanban</span>
+              <span className="hidden sm:inline">Kanban</span>
             </button>
           </div>
         </div>
-
-        {/* Filter inputs */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D]"
-            >
-              <option value="All">Select...</option>
-              {KANBAN_COLUMNS.map(col => <option key={col} value={col}>{col}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Priority</label>
-            <select
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            >
-              <option value="All">Select...</option>
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-              <option value="CRITICAL">Critical</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Category</label>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            >
-              <option value="All">Select...</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Operator</label>
-            <select
-              value={filterSupervisor}
-              onChange={(e) => setFilterSupervisor(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            >
-              <option value="All">Select...</option>
-              {supervisors.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Date</label>
-            <input
-              type="date"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full p-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Clear Filters indicator */}
-        {(search || filterStatus !== 'All' || filterPriority !== 'All' || filterCategory !== 'All' || filterSupervisor !== 'All' || filterDate || kpiFilter !== 'all') && (
-          <div className="flex justify-between items-center text-[11px] text-gray-500 pt-1.5 border-t border-gray-100 font-medium">
-            <span>Showing {filteredWOs.length} of {workOrders.length} orders</span>
-            <button
-              onClick={() => {
-                setSearch('');
-                setFilterStatus('All');
-                setFilterPriority('All');
-                setFilterCategory('All');
-                setFilterSupervisor('All');
-                setFilterDate('');
-                setKpiFilter('all');
-              }}
-              className="text-[#00891D] hover:underline font-bold cursor-pointer"
-            >
-              Clear Filters
-            </button>
-          </div>
-        )}
       </div>
 
       {/* DATA VIEWS CONTAINER */}
@@ -574,7 +560,21 @@ export const WorkOrders: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {paginatedWOs.map(wo => (
+                {apiWorkOrdersLoading ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray-400">
+                        <Loader2 className="animate-spin mb-2" size={24} />
+                        <span>Loading work orders...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginatedWOs.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-gray-500 font-medium">No work orders found.</td>
+                  </tr>
+                ) : (
+                  paginatedWOs.map(wo => (
                   <tr
                     key={wo.id}
                     className="hover:bg-gray-50/50 transition-colors"
@@ -598,13 +598,15 @@ export const WorkOrders: React.FC = () => {
                     <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setSelectedWO(wo)}
-                        className="text-[#00891D] hover:underline font-bold text-[11px] cursor-pointer"
+                        className="text-gray-400 hover:text-[#00891D] transition-colors p-1.5 rounded-lg hover:bg-green-50 cursor-pointer inline-flex items-center justify-center"
+                        title="View Details"
                       >
-                        View Details
+                        <Eye size={16} />
                       </button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -921,7 +923,7 @@ export const WorkOrders: React.FC = () => {
                   </button>
                 )}
 
-                {(selectedWO.status === 'QC_PASSED' || selectedWO.status === 'FINISHED_GOODS' || selectedWO.status === 'COMPLETED') && (
+                {(selectedWO.status === 'QC_PASSED' || selectedWO.status === 'COMPLETED') && (
                   <>
                     <button
                       onClick={() => {

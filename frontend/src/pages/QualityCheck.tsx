@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ShieldCheck, X, Image as ImageIcon, Filter, Clock, CheckCircle, AlertTriangle,
-  Users, Search, ChevronDown, RefreshCw, Loader2, Package,
+  Users, Search, ChevronDown, Loader2, Package, RotateCcw, Eye
 } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
+import { StatCard } from '../components/ui';
 import { qualityCheckService } from '../api/qualityCheckService';
 import { workOrderService } from '../api/workOrderService';
 import type { QCRecord, PendingQCWorkOrder, QCUser } from '../api/qualityCheckService';
@@ -334,23 +335,13 @@ export const QualityCheck: React.FC = () => {
       </div>
 
       {/* ── KPI Cards ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-        {[
-          { label: 'Pending Assignment', value: loading ? '…' : pendingWOs.length,      icon: <Clock size={20}/>,        bg: 'bg-orange-100', color: 'text-orange-600' },
-          { label: 'QC Inspectors',      value: loading ? '…' : inspectors.length,      icon: <Users size={20}/>,        bg: 'bg-blue-100',   color: 'text-blue-600' },
-          { label: 'Rework',             value: loading ? '…' : reworkCount,            icon: <Package size={20}/>,      bg: 'bg-amber-100',  color: 'text-amber-600' },
-          { label: 'Passed Today',       value: loading ? '…' : passedToday,            icon: <CheckCircle size={20}/>,  bg: 'bg-green-100',  color: 'text-green-600' },
-          { label: 'Failed Today',       value: loading ? '…' : failedToday,            icon: <AlertTriangle size={20}/>,bg: 'bg-red-100',    color: 'text-red-500' },
-          { label: 'Total QC Done',      value: loading ? '…' : completedQCs.length,    icon: <ShieldCheck size={20}/>,  bg: 'bg-purple-100', color: 'text-purple-600' },
-        ].map(c => (
-          <div key={c.label} className="bg-white rounded-xl border border-gray-200 shadow-sm px-3 py-3 flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${c.bg} ${c.color}`}>{c.icon}</div>
-            <div className="min-w-0">
-              <div className="text-[10px] text-gray-500 font-medium leading-tight truncate">{c.label}</div>
-              <div className="text-lg font-bold text-gray-900 leading-tight">{c.value}</div>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-5 max-w-full">
+        <StatCard title="Pending Assignment" value={pendingWOs.length} icon={Clock} variant="yellow" />
+        <StatCard title="QC Inspectors" value={inspectors.length} icon={Users} variant="blue" />
+        <StatCard title="Rework" value={reworkCount} icon={Package} variant="yellow" />
+        <StatCard title="Passed Today" value={passedToday} icon={CheckCircle} variant="green" />
+        <StatCard title="Failed Today" value={failedToday} icon={AlertTriangle} variant="red" />
+        <StatCard title="Total QC Done" value={completedQCs.length} icon={ShieldCheck} variant="purple" />
       </div>
 
       {/* ── Assign Task Bar ────────────────────────────────────────── */}
@@ -412,18 +403,19 @@ export const QualityCheck: React.FC = () => {
       </div>
 
       {/* ── Filter Bar ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-4">
-        {/* header */}
-        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-          <Filter size={14} className="text-gray-500" />
-          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Filters</span>
-        </div>
-
-        {/* filter controls */}
-        <div className="px-4 py-3 flex flex-wrap gap-x-3 gap-y-3 items-end">
-
-          {/* Status */}
-          <Sel label="Status" value={filterStatus} onChange={setFilterStatus} className="w-36">
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center mb-4">
+        {/* Filters Group */}
+        <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm h-10 overflow-x-auto w-full xl:w-auto">
+          <div className="px-3 flex items-center justify-center text-gray-500 shrink-0">
+            <Filter size={16} />
+          </div>
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+          
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-gray-700 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[120px] shrink-0"
+          >
             <option value="">All Status</option>
             <option value="PENDING">Pending QC</option>
             <option value="COMPLETED">Completed</option>
@@ -432,68 +424,52 @@ export const QualityCheck: React.FC = () => {
             <option value="Failed">Failed</option>
             <option value="Rework">Rework</option>
             <option value="Discard">Discard</option>
-          </Sel>
+          </select>
 
-          {/* Inspector */}
-          <Sel label="Inspector" value={filterInspector} onChange={setFilterInspector} className="w-44">
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+
+          <select
+            value={filterInspector}
+            onChange={(e) => setFilterInspector(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-gray-700 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[140px] shrink-0"
+          >
             <option value="">All Inspectors</option>
             {inspectors.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-          </Sel>
+          </select>
 
-          {/* Priority */}
-          <Sel label="Priority" value={filterPriority} onChange={setFilterPriority} className="w-32">
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
+
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-gray-700 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[120px] shrink-0"
+          >
             <option value="">All Priority</option>
             {(['LOW','MEDIUM','HIGH','URGENT'] as const).map(p => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
-          </Sel>
+          </select>
 
-          {/* Batch No */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-gray-500 uppercase">Batch No</span>
-            <input value={filterBatch} onChange={e => setFilterBatch(e.target.value)}
-              placeholder="BATCH-…"
-              className="border border-gray-200 rounded-lg pl-3 pr-3 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D] w-32" />
-          </div>
+          <div className="w-px h-6 bg-gray-200 shrink-0" />
 
-          {/* Work Order */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-gray-500 uppercase">Work Order</span>
-            <input value={filterWO} onChange={e => setFilterWO(e.target.value)}
-              placeholder="WO-…"
-              className="border border-gray-200 rounded-lg pl-3 pr-3 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D] w-32" />
-          </div>
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors bg-transparent cursor-pointer shrink-0"
+          >
+            <RotateCcw size={14} />
+            Reset Filter
+          </button>
+        </div>
 
-          {/* Product */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-gray-500 uppercase">Product</span>
-            <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
-              placeholder="Product name"
-              className="border border-gray-200 rounded-lg pl-3 pr-3 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D] w-36" />
-          </div>
-
-          {/* Search */}
-          <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
-            <span className="text-[10px] font-semibold text-gray-500 uppercase">Search</span>
-            <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search orders, batches, products..."
-                className="w-full border border-gray-200 rounded-lg pl-7 pr-3 py-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#00891D]" />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-transparent select-none">Action</span>
-            <div className="flex gap-2">
-              <button onClick={resetFilters}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 cursor-pointer">
-                Reset
-              </button>
-              <button onClick={() => setRefreshKey(k => k + 1)}
-                className="px-3 py-2 bg-[#00891D] text-white rounded-lg text-xs font-bold hover:bg-[#006b17] cursor-pointer flex items-center gap-1">
-                <RefreshCw size={11} /> Refresh
-              </button>
-            </div>
+        {/* Search bar */}
+        <div className="flex gap-3 w-full xl:w-auto">
+          <div className="relative flex-1 xl:w-72">
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search orders, batches, products..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#00891D]/20 focus:border-[#00891D] transition-all shadow-sm"
+            />
           </div>
         </div>
       </div>
@@ -545,13 +521,13 @@ export const QualityCheck: React.FC = () => {
                     <td className="px-4 py-3 text-right">
                       {row._type === 'PENDING' ? (
                         <button onClick={() => row.rawWO && openForm(row.rawWO)}
-                          className="bg-[#00891D] hover:bg-[#006b17] text-white font-semibold px-3 py-1.5 rounded-lg text-[11px] transition-colors cursor-pointer">
-                          View Status
+                          className="text-gray-400 hover:text-[#00891D] transition-colors p-1 cursor-pointer inline-flex justify-center items-center" title="View Status">
+                          <Eye size={18} />
                         </button>
                       ) : (
                         <button onClick={() => row.rawQC && setSelectedQC(row.rawQC)}
-                          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold px-3 py-1.5 rounded-lg text-[11px] transition-colors cursor-pointer">
-                          View Details
+                          className="text-gray-400 hover:text-indigo-600 transition-colors p-1 cursor-pointer inline-flex justify-center items-center" title="View Details">
+                          <Eye size={18} />
                         </button>
                       )}
                     </td>

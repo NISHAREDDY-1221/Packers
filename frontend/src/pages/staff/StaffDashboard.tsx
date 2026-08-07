@@ -27,7 +27,7 @@ export const StaffDashboard: React.FC = () => {
   }, []);
 
   const userRole = typeof user?.role === 'string' ? user?.role : (user?.role as any)?.name;
-  const isQC = userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
+  const isQC = userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER';
 
   let stats: any[] = [];
   const today = new Date().toISOString().split('T')[0];

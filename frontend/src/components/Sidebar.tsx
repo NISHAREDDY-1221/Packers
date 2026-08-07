@@ -54,14 +54,14 @@ const sidebarConfig: MenuItem[] = [
     icon: ClipboardList,
   },
   {
+    type: 'section',
+    sectionTitle: 'OPERATIONS',
+  },
+  {
     type: 'link',
     path: '/work-orders',
     label: 'Work Orders',
     icon: Layers,
-  },
-  {
-    type: 'section',
-    sectionTitle: 'OPERATIONS',
   },
   {
     type: 'link',

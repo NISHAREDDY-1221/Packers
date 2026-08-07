@@ -32,7 +32,7 @@ export const RoleRoute: React.FC<{ children: React.ReactNode; allowedRoles: stri
       return <Navigate to="/" replace />;
     } else if (userRole === 'OPERATOR') {
       return <Navigate to="/operator/dashboard" replace />;
-    } else if (userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
+    } else if (userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
       return <Navigate to="/qc/dashboard" replace />;
     } else {
       return <Navigate to="/login" replace />;

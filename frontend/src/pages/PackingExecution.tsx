@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, ChevronDown, RotateCcw, Package, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Filter, RotateCcw, Package, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import { StatCard, DataTable, SearchInput, SelectInput, ViewIconButton } from '../components/ui';
 
@@ -214,7 +214,7 @@ export const PackingExecution: React.FC = () => {
   ], [navigate]);
 
   const totalJobs = apiWorkOrders.length;
-  const inProgress = apiWorkOrders.filter(w => w.status === 'PACKING_STARTED').length;
+  const inProgress = apiWorkOrders.filter(w => w.status === 'PACKING_STARTED' || w.status === 'PACKING_IN_PROGRESS').length;
   const completedToday = apiWorkOrders.filter(w => {
     if (w.status !== 'COMPLETED') return false;
     const date = new Date(w.updatedAt || w.createdAt || Date.now());
@@ -259,7 +259,6 @@ export const PackingExecution: React.FC = () => {
                 ]}
               />
             </div>
-            <ChevronDown size={16} className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500" />
           </div>
 
           <div className="px-3 sm:px-4 py-3 sm:py-4 w-[150px] relative flex-shrink-0">
@@ -276,7 +275,6 @@ export const PackingExecution: React.FC = () => {
                 ]}
               />
             </div>
-            <ChevronDown size={16} className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500" />
           </div>
 
           <div className="px-3 sm:px-4 py-3 sm:py-4 flex-shrink-0">

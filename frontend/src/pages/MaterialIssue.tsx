@@ -4,10 +4,10 @@ import { workOrderService } from '../api/workOrderService';
 import type { WorkOrder } from '../api/workOrderService';
 import DataTable from '../components/ui/Table/DataTable';
 import ViewIconButton from '../components/ui/Button/ViewIconButton';
-import StatusIcon from '../components/ui/StatusIcon/StatusIcon';
+
 
 import {
-  Package, Search, Filter, RefreshCw, AlertTriangle, Clock, Calendar
+  Package, Search, Filter, RefreshCw, AlertTriangle, Clock, Calendar, RotateCcw
 } from 'lucide-react';
 
 export const MaterialIssue: React.FC = () => {
@@ -103,11 +103,26 @@ export const MaterialIssue: React.FC = () => {
       key: 'status',
       label: 'Status', 
       className: 'w-[10%] text-center',
-      render: (row: WorkOrder) => (
-        <div className="flex justify-center">
-          <StatusIcon status={row.status === 'COMPLETED' ? 'success' : row.status === 'MATERIAL_ISSUED' ? 'info' : row.status === 'APPROVED' ? 'pending' : row.status === 'DRAFT' ? 'warning' : 'pending'} />
-        </div>
-      )
+      render: (row: WorkOrder) => {
+        let displayStatus = 'PENDING';
+        let colorClass = 'bg-orange-50 text-orange-600 border-orange-200';
+        
+        if (row.status === 'MATERIAL_ISSUED') {
+          displayStatus = 'ISSUED';
+          colorClass = 'bg-[#00891D]/10 text-[#00891D] border-[#00891D]/20';
+        } else if (row.status === 'COMPLETED') {
+          displayStatus = 'COMPLETED';
+          colorClass = 'bg-[#00891D]/10 text-[#00891D] border-[#00891D]/20';
+        }
+
+        return (
+          <div className="flex justify-center">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-normal whitespace-nowrap ${colorClass}`}>
+              {displayStatus}
+            </span>
+          </div>
+        );
+      }
     },
     { 
       key: 'expectedDate',
@@ -178,34 +193,52 @@ export const MaterialIssue: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500" size={18} />
-            <input
-              type="text"
-              placeholder="Search by WO No, Product, or Operator..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00891D] focus:border-transparent dark:bg-gray-900 dark:text-white"
-            />
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
+        {/* Filters Group */}
+        <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 shadow-sm h-10 overflow-hidden w-full xl:w-auto">
+          <div className="px-3 flex items-center justify-center text-slate-500 shrink-0">
+            <Filter size={16} />
           </div>
-          <div className="flex gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-48">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500" size={16} />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-gray-700 rounded-lg text-sm appearance-none bg-white dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00891D]"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="APPROVED">Pending (APPROVED)</option>
-                <option value="MATERIAL_ISSUED">Issued</option>
-              </select>
-            </div>
-          </div>
+          <div className="w-px h-6 bg-slate-200 dark:bg-gray-700 shrink-0" />
+          
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-gray-300 bg-transparent border-none focus:ring-0 outline-none cursor-pointer appearance-none min-w-[140px] shrink-0"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="APPROVED">Pending</option>
+            <option value="MATERIAL_ISSUED">Issued</option>
+          </select>
+
+          <div className="w-px h-6 bg-slate-200 dark:bg-gray-700 shrink-0" />
+
+          <button
+            onClick={() => {
+              setStatusFilter('APPROVED');
+              setSearchQuery('');
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-orange-500 hover:text-orange-600 transition-colors bg-transparent cursor-pointer shrink-0"
+          >
+            <RotateCcw size={14} />
+            Reset Filter
+          </button>
         </div>
 
+        {/* Search bar */}
+        <div className="relative w-full xl:w-72">
+          <Search className="absolute left-3 top-2.5 text-slate-400 dark:text-gray-500" size={18} />
+          <input
+            type="text"
+            placeholder="Search by WO No, Product, or Operator..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00891D]/20 focus:border-[#00891D] dark:text-white transition-all shadow-sm"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <DataTable 
           columns={columns} 
           data={filteredData} 

@@ -101,7 +101,7 @@ const router = createBrowserRouter([
   {
     path: '/qc',
     element: (
-      <RoleRoute allowedRoles={['QC_INSPECTOR', 'QC_CHECKER', 'ADMIN', 'MANAGER']}>
+      <RoleRoute allowedRoles={['QC', 'QC_INSPECTOR', 'QC_CHECKER', 'ADMIN', 'MANAGER']}>
         <QCLayout />
       </RoleRoute>
     ),
