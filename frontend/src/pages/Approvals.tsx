@@ -1,29 +1,23 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  ClipboardCheck, 
   Search, 
   Filter, 
-  CheckCircle, 
-  XCircle, 
   AlertTriangle, 
-  Eye,
-  X,
-  Check,
-  Clock
+  X, 
+  Check, 
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { approvalService } from '../api/approvalService';
-import type { ApprovalRequest, ApprovalType, ApprovalStatus, Priority } from '../types/approvals';
-
+import type { ApprovalRequest, ApprovalType, ApprovalStatus, Priority, InventoryValidationItem } from '../types/approvals';
 import toast from 'react-hot-toast';
 
 export const Approvals: React.FC = () => {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchApprovals();
-  }, []);
 
   const fetchApprovals = async () => {
     try {
@@ -38,41 +32,36 @@ export const Approvals: React.FC = () => {
       setIsLoading(false);
     }
   };
-  
-  // Filters
+
+  useEffect(() => {
+    fetchApprovals();
+  }, []);
+
+  // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<ApprovalType | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'ALL'>('ALL');
-  
-  // Modal State
+  const [typeFilter] = useState<ApprovalType | 'ALL'>('ALL');
+  const [statusFilter] = useState<ApprovalStatus | 'ALL'>('PENDING');
+
+  // Selected Request for Full Page Approval Review (Opens ONLY when 'Review' button is clicked)
   const [selectedRequest, setSelectedRequest] = useState<ApprovalRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [lastCheckedTime, setLastCheckedTime] = useState<string>(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
-  // KPIs
-  const pendingCount = approvals.filter(a => a.status === 'PENDING').length;
-  const approvedTodayCount = approvals.filter(a => a.status === 'APPROVED').length; // Mocking today logic
-  const rejectedTodayCount = approvals.filter(a => a.status === 'REJECTED').length;
-  const highPriorityCount = approvals.filter(a => a.status === 'PENDING' && (a.priority === 'HIGH' || a.priority === 'CRITICAL')).length;
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
-  // Filtered Data
+  // Filtered approvals list
   const filteredApprovals = useMemo(() => {
-    // 1. Deduplicate by type + relatedEntityId (keep the latest)
-    const map = new Map<string, ApprovalRequest>();
-    const sorted = [...approvals].sort((a, b) => new Date(b.requestedDate).getTime() - new Date(a.requestedDate).getTime());
-    for (const app of sorted) {
-      const key = `${app.type}-${app.relatedEntityId}`;
-      if (!map.has(key)) {
-        map.set(key, app);
-      }
-    }
-    const uniqueApprovals = Array.from(map.values());
+    return approvals.filter(a => {
+      const woNum = a.woDetails?.woNumber || a.relatedEntityName || a.id;
+      const prodName = a.woDetails?.outputProduct || a.productName || '';
+      const reqBy = a.woDetails?.requestedBy || a.requestedBy || '';
 
-    return uniqueApprovals.filter(a => {
-      const reqByStr = typeof a.requestedBy === 'string' ? a.requestedBy : (a.requestedBy as any)?.name || '';
       const matchesSearch = 
-        a.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        a.relatedEntityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        reqByStr.toLowerCase().includes(searchTerm.toLowerCase());
+        woNum.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        prodName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        reqBy.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesType = typeFilter === 'ALL' || a.type === typeFilter;
       const matchesStatus = statusFilter === 'ALL' || a.status === statusFilter;
@@ -81,177 +70,411 @@ export const Approvals: React.FC = () => {
     });
   }, [approvals, searchTerm, typeFilter, statusFilter]);
 
+  // If currently selected request is no longer pending/filtered, return to list
+  useEffect(() => {
+    if (selectedRequest && !filteredApprovals.find(a => a.id === selectedRequest.id)) {
+      setSelectedRequest(null);
+    }
+  }, [filteredApprovals, selectedRequest]);
+
+  const paginatedApprovals = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredApprovals.slice(start, start + pageSize);
+  }, [filteredApprovals, currentPage]);
+
+  const totalPages = Math.ceil(filteredApprovals.length / pageSize);
+
   const handleApprove = async () => {
     if (!selectedRequest) return;
     try {
-      const updated = await approvalService.processApproval(selectedRequest.id, 'APPROVE');
-      setApprovals(prev => prev.map(a => a.id === updated.id ? { ...a, status: updated.status, history: updated.history } : a));
+      await approvalService.processApproval(selectedRequest.id, 'APPROVE');
+      toast.success(`Work Order ${selectedRequest.woDetails?.woNumber || selectedRequest.relatedEntityName} approved!`);
+      const updated = approvals.filter(a => a.id !== selectedRequest.id);
+      setApprovals(updated);
       setSelectedRequest(null);
-      toast.success('Request approved successfully!');
-    } catch (error: any) {
-      console.error('Failed to approve request:', error);
-      toast.error(`Failed to approve: ${error.response?.data?.message || error.message}`);
+    } catch (err: any) {
+      console.error('Failed to approve request:', err);
+      toast.error(`Failed to approve: ${err.response?.data?.message || err.message}`);
     }
   };
 
   const handleReject = async () => {
-    if (!selectedRequest || !rejectionReason.trim()) return;
+    if (!selectedRequest || !rejectionReason.trim()) {
+      toast.error('Please enter a rejection reason.');
+      return;
+    }
     try {
-      const updated = await approvalService.processApproval(selectedRequest.id, 'REJECT', rejectionReason);
-      setApprovals(prev => prev.map(a => a.id === updated.id ? { ...a, status: updated.status, history: updated.history } : a));
+      await approvalService.processApproval(selectedRequest.id, 'REJECT', rejectionReason);
+      toast.error(`Work Order ${selectedRequest.woDetails?.woNumber || selectedRequest.relatedEntityName} rejected.`);
       setRejectionReason('');
+      const updated = approvals.filter(a => a.id !== selectedRequest.id);
+      setApprovals(updated);
       setSelectedRequest(null);
-      toast.error('Request rejected.');
-    } catch (error: any) {
-      console.error('Failed to reject request:', error);
-      toast.error(`Failed to reject: ${error.response?.data?.message || error.message}`);
+    } catch (err: any) {
+      console.error('Failed to reject request:', err);
+      toast.error(`Failed to reject: ${err.response?.data?.message || err.message}`);
     }
   };
 
-  const getTypeLabel = (type: ApprovalType) => {
-    return type.replace(/_/g, ' ');
-  };
-
   const getPriorityBadge = (priority: Priority) => {
-    const styles = {
-      LOW: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-      MEDIUM: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-      HIGH: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-      CRITICAL: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    };
-    return <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${styles[priority]}`}>{priority}</span>;
+    switch (priority) {
+      case 'URGENT':
+      case 'CRITICAL':
+        return <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 whitespace-nowrap inline-flex items-center">High</span>;
+      case 'HIGH':
+        return <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 whitespace-nowrap inline-flex items-center">High</span>;
+      case 'MEDIUM':
+        return <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap inline-flex items-center">Medium</span>;
+      default:
+        return <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 whitespace-nowrap inline-flex items-center">Low</span>;
+    }
   };
 
-  const getStatusBadge = (status: ApprovalStatus) => {
-    const styles = {
-      PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-      APPROVED: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-      REJECTED: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    };
-    return <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${styles[status]}`}>{status}</span>;
+  const renderInventoryStatusDot = (req: ApprovalRequest) => {
+    const status = req.inventoryStatus || 'NOT_CHECKED';
+    if (status === 'STOCK_AVAILABLE') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 whitespace-nowrap shrink-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+          Stock Available
+        </span>
+      );
+    }
+    if (status === 'STOCK_SHORTAGE') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap shrink-0">
+          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+          Stock Shortage
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-gray-750 text-gray-500 dark:text-gray-400 border border-slate-200 dark:border-gray-700 whitespace-nowrap shrink-0">
+        <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" />
+        Not Checked
+      </span>
+    );
   };
 
+  // ----------------------------------------------------------------------
+  // FULL PAGE VIEW 2: Work Order Approval Review (Triggered by Review button)
+  // ----------------------------------------------------------------------
+  if (selectedRequest) {
+    const validationItems = selectedRequest.inventoryValidation || [];
+    const shortageItems = validationItems.filter((item: InventoryValidationItem) => item.shortage > 0);
+    const totalShortageQty = shortageItems.reduce((sum, item) => sum + item.shortage, 0);
+    const shortageUnit = shortageItems[0]?.uom || 'PCS';
+    const hasShortage = shortageItems.length > 0;
+
+    return (
+      <div className="space-y-6 text-left select-none pb-12">
+        {/* Top Action Bar */}
+        <div className="flex flex-wrap justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl border border-slate-200 dark:border-gray-700 shadow-xs gap-3">
+          <div className="flex items-center gap-4 flex-wrap">
+            <button 
+              onClick={() => setSelectedRequest(null)}
+              className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-400 border border-slate-200 dark:border-gray-700 px-3.5 py-2 rounded-lg bg-slate-50 dark:bg-gray-750 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <ArrowLeft size={16} />
+              <span>Back to Pending Work Orders</span>
+            </button>
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
+                <span>Work Order Approval</span>
+                <span className="font-mono text-emerald-700 dark:text-emerald-400">({selectedRequest.woDetails?.woNumber || selectedRequest.relatedEntityName})</span>
+              </h1>
+            </div>
+          </div>
+          <button 
+            onClick={() => setSelectedRequest(null)}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 p-1.5 rounded-lg cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Full Page Review Layout */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+          
+          {/* Left Column (5 cols): Work Order Details & Decision Card */}
+          <div className="xl:col-span-5 space-y-6">
+            
+            {/* Details Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-xs p-6 space-y-4">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider border-b border-slate-100 dark:border-gray-700 pb-3">
+                Work Order Details
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-y-4 gap-x-6 text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">WO Number</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                    {selectedRequest.woDetails?.woNumber || selectedRequest.relatedEntityName}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Requested By</span>
+                  <span className="font-semibold text-slate-900 dark:text-white text-sm truncate block">
+                    {selectedRequest.woDetails?.requestedBy || selectedRequest.requestedBy}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Output Product</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm">
+                    {selectedRequest.woDetails?.outputProduct || selectedRequest.productName}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Requested On</span>
+                  <span className="font-medium text-slate-800 dark:text-gray-200 text-xs whitespace-nowrap">
+                    {new Date(selectedRequest.woDetails?.requestedDate || selectedRequest.requestedDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Recipe / BOM</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">
+                    {selectedRequest.woDetails?.recipeCode || 'REC-BOM'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Target Yield Qty</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {selectedRequest.woDetails?.targetYieldQty || 1}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Planned Quantity</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm whitespace-nowrap">
+                    {selectedRequest.woDetails?.targetQty || 100} Packs
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">UOM</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {selectedRequest.woDetails?.uomName || 'Pack'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Priority</span>
+                  <div>{getPriorityBadge(selectedRequest.priority)}</div>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block mb-1">Status</span>
+                  <span className="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 inline-flex items-center whitespace-nowrap">
+                    Pending Approval
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Decision Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-xs p-6 space-y-4">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider border-b border-slate-100 dark:border-gray-700 pb-3">
+                Approval Decision
+              </h3>
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-gray-300">
+                  Rejection Reason <span className="text-slate-400 font-normal">(Required if rejecting)</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter reason for rejection..."
+                  className="w-full border border-slate-200 dark:border-gray-700 rounded-xl p-3 text-xs bg-white dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 h-24 shadow-2xs resize-none"
+                />
+              </div>
+              <div className="flex justify-end items-center gap-3 pt-2">
+                <button
+                  onClick={handleReject}
+                  disabled={!rejectionReason.trim()}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-750 rounded-xl text-xs font-bold transition-colors shadow-2xs disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                >
+                  <X size={16} />
+                  Reject
+                </button>
+                <button
+                  onClick={handleApprove}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
+                >
+                  <Check size={16} />
+                  Approve
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Column (7 cols): Inventory Validation Table & Shortage Banner */}
+          <div className="xl:col-span-7 space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-xs p-6 space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 dark:border-gray-700 pb-3 flex-wrap gap-2">
+                <h3 className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                  Inventory Validation
+                </h3>
+                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-gray-400">
+                  <span>Last Checked: {lastCheckedTime}</span>
+                  <button 
+                    onClick={() => {
+                      setLastCheckedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                      fetchApprovals();
+                      toast.success('Stock levels refreshed!');
+                    }}
+                    className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer whitespace-nowrap"
+                  >
+                    <RefreshCw size={13} />
+                    Refresh Stock
+                  </button>
+                </div>
+              </div>
+
+              {/* Inventory Table */}
+              <div className="border border-slate-200 dark:border-gray-700 rounded-xl overflow-x-auto w-full shadow-2xs table-scrollbar">
+                <table className="w-full text-left text-xs border-collapse min-w-[640px]">
+                  <thead className="bg-slate-50 dark:bg-gray-700/50 border-b border-slate-200 dark:border-gray-700 text-slate-500 dark:text-gray-400 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="p-3.5 whitespace-nowrap">MATERIAL</th>
+                      <th className="p-3.5 whitespace-nowrap">TYPE</th>
+                      <th className="p-3.5 text-center whitespace-nowrap">REQUIRED QTY</th>
+                      <th className="p-3.5 whitespace-nowrap">UOM</th>
+                      <th className="p-3.5 text-center whitespace-nowrap">AVAILABLE STOCK</th>
+                      <th className="p-3.5 text-center whitespace-nowrap">SHORTAGE</th>
+                      <th className="p-3.5 text-center whitespace-nowrap">STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-gray-700">
+                    {validationItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-slate-500 font-medium">
+                          No materials listed in recipe.
+                        </td>
+                      </tr>
+                    ) : (
+                      validationItems.map(item => (
+                        <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-gray-750">
+                          <td className="p-3.5 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                            {item.materialName}
+                          </td>
+                          <td className="p-3.5 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 rounded text-[10px] font-bold whitespace-nowrap inline-block ${
+                              item.type === 'PACKAGING' 
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' 
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                            }`}>
+                              {item.type.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-center font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                            {item.requiredQty}
+                          </td>
+                          <td className="p-3.5 text-slate-600 dark:text-gray-400 font-mono text-xs whitespace-nowrap">
+                            {item.uom}
+                          </td>
+                          <td className="p-3.5 text-center font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                            {item.availableStock}
+                          </td>
+                          <td className={`p-3.5 text-center font-bold text-sm whitespace-nowrap ${item.shortage > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'}`}>
+                            {item.shortage}
+                          </td>
+                          <td className="p-3.5 text-center whitespace-nowrap">
+                            {item.shortage === 0 ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 whitespace-nowrap shrink-0">
+                                <Check size={12} /> Available
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap shrink-0">
+                                <AlertTriangle size={12} /> Insufficient
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Shortage Warning Box */}
+              {hasShortage && (
+                <div className="bg-orange-50/90 dark:bg-amber-950/30 border border-orange-200 dark:border-amber-800 rounded-xl p-5 flex items-start gap-4 text-orange-900 dark:text-amber-300">
+                  <AlertTriangle className="text-orange-600 dark:text-amber-400 shrink-0 mt-0.5" size={24} />
+                  <div>
+                    <h4 className="text-sm font-bold text-orange-800 dark:text-amber-300">
+                      Cannot approve this work order
+                    </h4>
+                    <p className="text-xs mt-1 text-orange-700 dark:text-amber-400 font-medium">
+                      Insufficient stock for {shortageItems.length} item(s). Total shortage: {totalShortageQty} {shortageUnit}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------------------------
+  // FULL PAGE VIEW 1: Pending Work Orders List Page (Default View)
+  // ----------------------------------------------------------------------
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 text-left select-none pb-10">
+      
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Approvals Dashboard</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Manage and review operational requests.</p>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Approvals</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Review and approve pending work orders</p>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pending</p>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-500 mt-1">{pendingCount}</p>
-          </div>
-          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-amber-600 dark:text-amber-500">
-            <Clock size={24} />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Approved Today</p>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-500 mt-1">{approvedTodayCount}</p>
-          </div>
-          <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-green-600 dark:text-green-500">
-            <CheckCircle size={24} />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Rejected Today</p>
-            <p className="text-2xl font-bold text-red-600 dark:text-red-500 mt-1">{rejectedTodayCount}</p>
-          </div>
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-500">
-            <XCircle size={24} />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">High Priority</p>
-            <p className="text-2xl font-bold text-orange-600 dark:text-orange-500 mt-1">{highPriorityCount}</p>
-          </div>
-          <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-600 dark:text-orange-500">
-            <AlertTriangle size={24} />
-          </div>
-        </div>
-      </div>
-
-      {/* Actions Bar */}
-      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center mb-6">
-          
-          {/* Filters Group */}
-          <div className="flex items-center bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm h-10 overflow-x-auto w-full xl:w-auto">
-            <div className="flex items-center gap-2 px-3 border-r border-gray-200 dark:border-gray-600 shrink-0">
-              <Filter size={16} className="text-gray-400" />
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Filters:</span>
-            </div>
-            
-            <select 
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
-              className="px-3 py-2 text-xs font-medium bg-transparent border-none focus:outline-none focus:ring-0 cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 border-r border-gray-200 dark:border-gray-600 min-w-[140px]"
-            >
-              <option value="ALL">All Types</option>
-              <option value="WORK_ORDER">Work Order</option>
-              <option value="MATERIAL_ISSUE">Material Issue</option>
-              <option value="PACKING_VARIANCE">Packing Variance</option>
-              <option value="QC_REWORK">QC Rework</option>
-              <option value="REPACKING">Repacking</option>
-            </select>
-
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 text-xs font-medium bg-transparent border-none focus:outline-none focus:ring-0 cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 border-r border-gray-200 dark:border-gray-600 min-w-[140px]"
-            >
-              <option value="ALL">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
-          </div>
-
-          {/* Right side: Search */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search requests..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600 transition-all shadow-sm"
-              />
-            </div>
-          </div>
+      {/* Pending Work Orders Table (Full Page) */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-xs overflow-hidden flex flex-col">
+        
+        {/* Table Header */}
+        <div className="p-4 border-b border-slate-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800">
+          <h2 className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+            Pending Work Orders ({filteredApprovals.length})
+          </h2>
         </div>
 
-        {/* Filters and Table Area */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col h-[500px]">
-          {/* Table */}
-          <div className="overflow-auto flex-1 table-scrollbar">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-slate-50 dark:bg-gray-800 shadow-sm z-10">
-              <tr className="border-b border-slate-200 dark:border-gray-700 text-xs font-bold text-slate-500 dark:text-gray-400 uppercase">
-                <th className="p-4 whitespace-nowrap">Request ID</th>
-                <th className="p-4 whitespace-nowrap">Type</th>
-                <th className="p-4 whitespace-nowrap">Related To</th>
-                <th className="p-4 whitespace-nowrap">Product Name</th>
-                <th className="p-4 whitespace-nowrap">Requested By</th>
-                <th className="p-4 whitespace-nowrap">Date</th>
-                <th className="p-4 whitespace-nowrap">Priority</th>
-                <th className="p-4 whitespace-nowrap">Status</th>
-                <th className="p-4 text-center whitespace-nowrap">Actions</th>
+        {/* Search and Filters Bar */}
+        <div className="p-3 border-b border-slate-100 dark:border-gray-700 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-gray-850 flex-wrap">
+          <div className="relative flex-1 max-w-sm min-w-[200px]">
+            <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search work orders..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 shadow-xs"
+            />
+          </div>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-xs font-semibold text-slate-700 dark:text-gray-300 hover:bg-slate-50 shadow-xs cursor-pointer whitespace-nowrap">
+            <Filter size={14} className="text-slate-500" />
+            <span>Filters</span>
+          </button>
+        </div>
+
+        {/* Table View */}
+        <div className="overflow-x-auto w-full min-h-[420px] table-scrollbar">
+          <table className="w-full text-left text-xs border-collapse min-w-[840px]">
+            <thead className="bg-slate-50 dark:bg-gray-700/50 border-b border-slate-200 dark:border-gray-700 text-slate-500 dark:text-gray-400 font-bold uppercase text-[10px]">
+              <tr>
+                <th className="p-4 whitespace-nowrap">WO NUMBER</th>
+                <th className="p-4 whitespace-nowrap">OUTPUT PRODUCT</th>
+                <th className="p-4 whitespace-nowrap">RECIPE / BOM</th>
+                <th className="p-4 text-center whitespace-nowrap">TARGET QTY</th>
+                <th className="p-4 whitespace-nowrap">PRIORITY</th>
+                <th className="p-4 whitespace-nowrap">INVENTORY STATUS</th>
+                <th className="p-4 whitespace-nowrap">REQUESTED ON</th>
+                <th className="p-4 text-center whitespace-nowrap">ACTION</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-700 text-sm">
+            <tbody className="divide-y divide-slate-100 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-500 dark:text-gray-400">
-                    Loading approvals...
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
+                    Loading pending work orders...
                   </td>
                 </tr>
               ) : error ? (
@@ -260,168 +483,89 @@ export const Approvals: React.FC = () => {
                     ⚠️ {error}
                   </td>
                 </tr>
-              ) : filteredApprovals.length === 0 ? (
+              ) : paginatedApprovals.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-500 dark:text-gray-400">
-                    No approval requests found matching your filters.
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
+                    No pending work orders found.
                   </td>
                 </tr>
               ) : (
-                filteredApprovals.map(req => (
-                  <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-gray-750 transition-colors">
-                    <td className="p-4 font-mono font-medium text-slate-700 dark:text-gray-200">{req.id}</td>
-                    <td className="p-4 text-slate-600 dark:text-gray-300 font-medium">{getTypeLabel(req.type)}</td>
-                    <td className="p-4 text-slate-600 dark:text-gray-300">{req.relatedEntityName}</td>
-                    <td className="p-4 text-slate-600 dark:text-gray-300 font-medium">{req.productName && req.productName !== '-' ? req.productName : 'Standard Product'}</td>
-                    <td className="p-4 text-slate-600 dark:text-gray-300">{req.requestedBy}</td>
-                    <td className="p-4 text-slate-600 dark:text-gray-400">{new Date(req.requestedDate).toLocaleDateString()}</td>
-                    <td className="p-4">{getPriorityBadge(req.priority)}</td>
-                    <td className="p-4">{getStatusBadge(req.status)}</td>
-                    <td className="p-4 text-center">
-                      <button 
-                        onClick={() => setSelectedRequest(req)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                        title="View Details"
-                      >
-                        <Eye size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                paginatedApprovals.map(req => {
+                  const woNo = req.woDetails?.woNumber || req.relatedEntityName || req.id;
+                  const prodName = req.woDetails?.outputProduct || req.productName || 'Standard Product';
+                  const recipeCode = req.woDetails?.recipeCode || 'REC-BOM';
+                  const targetQty = req.woDetails?.targetQty || 100;
+                  const requestedDate = req.woDetails?.requestedDate || req.requestedDate;
+
+                  return (
+                    <tr 
+                      key={req.id}
+                      className="hover:bg-slate-50/80 dark:hover:bg-gray-750 transition-colors"
+                    >
+                      <td className="p-4 font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                        {woNo}
+                      </td>
+                      <td className="p-4 font-semibold text-slate-800 dark:text-gray-200 whitespace-nowrap">
+                        {prodName}
+                      </td>
+                      <td className="p-4 text-slate-600 dark:text-gray-400 font-mono text-xs whitespace-nowrap">
+                        {recipeCode}
+                      </td>
+                      <td className="p-4 text-center font-semibold text-slate-800 dark:text-gray-200 whitespace-nowrap">
+                        {targetQty} Packs
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        {getPriorityBadge(req.priority)}
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        {renderInventoryStatusDot(req)}
+                      </td>
+                      <td className="p-4 text-slate-500 dark:text-gray-400 text-xs whitespace-nowrap">
+                        {new Date(requestedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="p-4 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => setSelectedRequest(req)}
+                          className="px-4 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
+                        >
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Details Modal */}
-      {selectedRequest && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh]">
-            <div className="p-5 border-b border-slate-200 dark:border-gray-700 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <ClipboardCheck size={20} className="text-green-600" />
-                Approval Request: {selectedRequest.id}
-              </h3>
-              <button 
-                onClick={() => { setSelectedRequest(null); setRejectionReason(''); }}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-6 overflow-y-auto flex-1 sidebar-scrollbar space-y-6">
-              
-              {/* Header Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Type</p>
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mt-1">{getTypeLabel(selectedRequest.type)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Related Entity</p>
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mt-1">{selectedRequest.relatedEntityName}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Requested By</p>
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mt-1">{selectedRequest.requestedBy}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase">Status</p>
-                  <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
-                </div>
-              </div>
-
-              {/* Reason */}
-              <div className="bg-slate-50 dark:bg-gray-700/50 p-4 rounded-lg border border-slate-100 dark:border-gray-600">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Reason for Request</p>
-                <p className="text-sm text-gray-800 dark:text-gray-200">{selectedRequest.reason}</p>
-                {selectedRequest.remarks && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 italic">"{selectedRequest.remarks}"</p>
-                )}
-              </div>
-
-              {/* Values Diff */}
-              {(selectedRequest.existingValues || selectedRequest.proposedValues) && (
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-white mb-3">Requested Changes</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="border border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-900/10 rounded-lg p-4">
-                      <p className="text-xs font-bold text-red-600 dark:text-red-400 mb-2 uppercase">Current Value</p>
-                      <pre className="text-sm text-gray-700 dark:text-gray-300 font-mono whitespace-pre-wrap">
-                        {JSON.stringify(selectedRequest.existingValues || {}, null, 2)}
-                      </pre>
-                    </div>
-                    <div className="border border-green-200 bg-green-50/50 dark:border-green-900/30 dark:bg-green-900/10 rounded-lg p-4">
-                      <p className="text-xs font-bold text-green-600 dark:text-green-400 mb-2 uppercase">Proposed Value</p>
-                      <pre className="text-sm text-gray-700 dark:text-gray-300 font-mono whitespace-pre-wrap">
-                        {JSON.stringify(selectedRequest.proposedValues || {}, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* History */}
-              <div>
-                <h4 className="text-sm font-bold text-slate-800 dark:text-white mb-3">History</h4>
-                <div className="space-y-3">
-                  {selectedRequest.history.map((h, i) => (
-                    <div key={i} className="flex gap-3 text-sm">
-                      <div className="flex flex-col items-center">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5" />
-                        {i !== selectedRequest.history.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700 my-1" />}
-                      </div>
-                      <div className="pb-3">
-                        <p className="font-medium text-gray-800 dark:text-gray-200">
-                          {h.action} <span className="font-normal text-gray-500 text-xs ml-2">{new Date(h.actionDate).toLocaleString()}</span>
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">by {h.actionBy}</p>
-                        {h.comments && <p className="text-gray-700 dark:text-gray-300 mt-1 italic">"{h.comments}"</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Actions (Only if PENDING) */}
-            {selectedRequest.status === 'PENDING' && (
-              <div className="p-5 border-t border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 rounded-b-xl space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-gray-400 mb-1">Rejection Reason (Required for Reject)</label>
-                  <textarea 
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Enter reason if rejecting..."
-                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-green-600 focus:border-green-600 dark:bg-gray-700 dark:text-white h-20"
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button 
-                    onClick={handleReject}
-                    disabled={!rejectionReason.trim()}
-                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                  >
-                    <X size={16} />
-                    Reject Request
-                  </button>
-                  <button 
-                    onClick={handleApprove}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors"
-                  >
-                    <Check size={16} />
-                    Approve Request
-                  </button>
-                </div>
-              </div>
-            )}
+        {/* Table Pagination */}
+        <div className="p-4 border-t border-slate-100 dark:border-gray-700 flex justify-between items-center text-xs text-slate-500 dark:text-gray-400 bg-slate-50/50 dark:bg-gray-800 flex-wrap gap-2">
+          <span>
+            Showing {filteredApprovals.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredApprovals.length)} of {filteredApprovals.length} entries
+          </span>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-1.5 border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="px-2.5 py-1 border border-emerald-600 bg-emerald-50 text-emerald-700 font-bold rounded">
+              {currentPage}
+            </span>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages || totalPages === 0}
+              className="p-1.5 border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+            >
+              <ChevronRight size={14} />
+            </button>
           </div>
         </div>
-      )}
 
+      </div>
     </div>
   );
 };

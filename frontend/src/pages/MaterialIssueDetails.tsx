@@ -350,7 +350,6 @@ export const MaterialIssueDetails: React.FC = () => {
                   <th className="px-4 py-3 font-semibold">Item Code</th>
                   <th className="px-4 py-3 font-semibold">Type</th>
                   <th className="px-4 py-3 font-semibold">Req Qty</th>
-                  <th className="px-4 py-3 font-semibold">Available Stock</th>
                   <th className="px-4 py-3 font-semibold">Issue Qty</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                 </tr>
@@ -379,14 +378,6 @@ export const MaterialIssueDetails: React.FC = () => {
                       <td className="px-4 py-3 font-mono font-bold text-slate-800 dark:text-gray-200">
                         {mat.reqQty}
                       </td>
-                      <td className="px-4 py-3 font-mono">
-                        <input
-                          type="number"
-                          value={mat.stockQty || ''}
-                          onChange={(e) => handleMaterialChange(mat.id, 'stockQty', e.target.value)}
-                          className={`w-24 px-2 py-1 rounded border text-xs font-bold ${hasShortage ? 'border-red-300 bg-red-50 text-red-700' : 'border-emerald-300 bg-emerald-50 text-emerald-700'} focus:outline-none focus:ring-1 focus:ring-[#00891D]`}
-                        />
-                      </td>
                       <td className="px-4 py-3 font-mono text-slate-800 dark:text-gray-200 font-bold">
                         <input
                           type="number"
@@ -407,7 +398,7 @@ export const MaterialIssueDetails: React.FC = () => {
                 })}
                 {materialsToIssue.length === 0 && (
                    <tr>
-                     <td colSpan={6} className="px-4 py-8 text-center text-slate-500">No materials defined in BOM.</td>
+                     <td colSpan={5} className="px-4 py-8 text-center text-slate-500">No materials defined in BOM.</td>
                    </tr>
                 )}
               </tbody>

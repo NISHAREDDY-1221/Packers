@@ -3,9 +3,13 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-export const RoleRoute: React.FC<{ children: React.ReactNode; allowedRoles: string[] }> = ({ children, allowedRoles }) => {
+export const RoleRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({ children, allowedRoles }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
+
+  if (allowedRoles && allowedRoles.length === 0) {
+    console.debug('No specific roles required');
+  }
 
   if (isLoading) {
     return (
@@ -27,17 +31,6 @@ export const RoleRoute: React.FC<{ children: React.ReactNode; allowedRoles: stri
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles.includes(userRole)) {
-    if (userRole === 'ADMIN' || userRole === 'MANAGER') {
-      return <Navigate to="/" replace />;
-    } else if (userRole === 'OPERATOR') {
-      return <Navigate to="/operator/dashboard" replace />;
-    } else if (userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
-      return <Navigate to="/qc/dashboard" replace />;
-    } else {
-      return <Navigate to="/login" replace />;
-    }
-  }
-
+  // Allow multi-portal access so users can work across all 3 portals at the same time
   return <>{children}</>;
 };

@@ -596,13 +596,15 @@ export const WorkOrders: React.FC = () => {
                     </td>
                     <td className="p-3 text-gray-600 font-mono">{wo.expectedDate ? new Date(wo.expectedDate).toLocaleDateString() : ''}</td>
                     <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setSelectedWO(wo)}
-                        className="text-gray-400 hover:text-[#00891D] transition-colors p-1.5 rounded-lg hover:bg-green-50 cursor-pointer inline-flex items-center justify-center"
-                        title="View Details"
-                      >
-                        <Eye size={16} />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setSelectedWO(wo)}
+                          className="text-gray-400 hover:text-[#00891D] transition-colors p-1.5 rounded-lg hover:bg-green-50 cursor-pointer inline-flex items-center justify-center"
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   ))

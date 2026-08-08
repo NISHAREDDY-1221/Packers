@@ -131,7 +131,24 @@ export class WorkOrderService {
       }
     });
 
-    // Approvals are now generated only when posted to Finished Goods
+    if (status === 'PENDING') {
+      const existingApproval = await prisma.approvalRequest.findFirst({
+        where: { type: 'WORK_ORDER', relatedEntityId: id, status: 'PENDING' }
+      });
+      if (!existingApproval) {
+        await prisma.approvalRequest.create({
+          data: {
+            type: 'WORK_ORDER',
+            relatedEntityId: id,
+            relatedEntityName: workOrder.woNumber,
+            requestedById: userId || workOrder.supervisorId,
+            reason: `Work order authorization and stock check approval for ${workOrder.woNumber}`,
+            priority: workOrder.priority,
+            status: 'PENDING',
+          }
+        });
+      }
+    }
 
     return updatedWO;
   }

@@ -26,15 +26,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else if (path.startsWith('/qc')) {
       return { tokenKey: 'token_qc', userKey: 'user_qc' };
     } else {
-      return { tokenKey: 'token', userKey: 'user' };
+      return { tokenKey: 'token_admin', userKey: 'user_admin' };
     }
   };
 
   // Restore session on mount
   useEffect(() => {
     const { tokenKey, userKey } = getStorageKeys();
-    const storedToken = localStorage.getItem(tokenKey) || localStorage.getItem('token');
-    const storedUser = localStorage.getItem(userKey) || localStorage.getItem('user');
+    const storedToken = localStorage.getItem(tokenKey) || localStorage.getItem('token_admin') || localStorage.getItem('token');
+    const storedUser = localStorage.getItem(userKey) || localStorage.getItem('user_admin') || localStorage.getItem('user');
 
     if (storedToken && storedUser) {
       setToken(storedToken);
@@ -44,8 +44,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('Failed to parse user from local storage', e);
         localStorage.removeItem(userKey);
         localStorage.removeItem(tokenKey);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
       }
     }
     setIsLoading(false);
@@ -58,18 +56,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setToken(token);
     setUser(user);
     
-    // Save to generic keys
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-
-    // Save to role-specific keys to allow concurrent logins
     const userRole = typeof user.role === 'string' ? user.role : (user.role as any)?.name;
-    if (userRole === 'OPERATOR') {
+    const currentPath = window.location.pathname;
+
+    // Save to portal-isolated keys based on role and current portal path
+    if (userRole === 'OPERATOR' || currentPath.startsWith('/operator')) {
       localStorage.setItem('token_operator', token);
       localStorage.setItem('user_operator', JSON.stringify(user));
-    } else if (userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER') {
+    } else if (userRole === 'QC' || userRole === 'QC_INSPECTOR' || userRole === 'QC_CHECKER' || currentPath.startsWith('/qc')) {
       localStorage.setItem('token_qc', token);
       localStorage.setItem('user_qc', JSON.stringify(user));
+    } else {
+      localStorage.setItem('token_admin', token);
+      localStorage.setItem('user_admin', JSON.stringify(user));
+    }
+
+    // Fallback sync for admin/manager users accessing all portals
+    if (userRole === 'ADMIN' || userRole === 'MANAGER') {
+      localStorage.setItem('token_admin', token);
+      localStorage.setItem('user_admin', JSON.stringify(user));
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
     }
   };
 
@@ -80,8 +87,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { tokenKey, userKey } = getStorageKeys();
     localStorage.removeItem(tokenKey);
     localStorage.removeItem(userKey);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     
     window.location.href = '/login';
   };

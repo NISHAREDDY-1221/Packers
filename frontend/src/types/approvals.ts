@@ -10,7 +10,31 @@ export type ApprovalType =
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'URGENT';
+
+export interface InventoryValidationItem {
+  id: string;
+  materialName: string;
+  type: 'RAW_MATERIAL' | 'PACKAGING' | 'FINISHED_GOOD';
+  requiredQty: number;
+  uom: string;
+  availableStock: number;
+  shortage: number;
+  status: 'AVAILABLE' | 'INSUFFICIENT';
+}
+
+export interface WoApprovalDetails {
+  woNumber: string;
+  outputProduct: string;
+  recipeCode: string;
+  targetQty: number;
+  targetYieldQty: number;
+  uomName: string;
+  requestedBy: string;
+  requestedDate: string;
+  priority: Priority;
+  status: string;
+}
 
 export interface ApprovalRequest {
   id: string;
@@ -29,6 +53,11 @@ export interface ApprovalRequest {
   proposedValues?: Record<string, any>;
   remarks?: string;
   attachments?: string[];
+  
+  // Work Order specific enriched properties
+  inventoryStatus?: 'STOCK_AVAILABLE' | 'STOCK_SHORTAGE' | 'NOT_CHECKED';
+  inventoryValidation?: InventoryValidationItem[];
+  woDetails?: WoApprovalDetails;
   
   // History
   history: ApprovalHistory[];

@@ -14,14 +14,16 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const path = window.location.pathname;
-    let tokenKey = 'token';
+    let token = null;
+    
     if (path.startsWith('/operator')) {
-      tokenKey = 'token_operator';
+      token = localStorage.getItem('token_operator') || localStorage.getItem('token_admin') || localStorage.getItem('token');
     } else if (path.startsWith('/qc')) {
-      tokenKey = 'token_qc';
+      token = localStorage.getItem('token_qc') || localStorage.getItem('token_admin') || localStorage.getItem('token');
+    } else {
+      token = localStorage.getItem('token_admin') || localStorage.getItem('token');
     }
 
-    const token = localStorage.getItem(tokenKey) || localStorage.getItem('token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -42,20 +44,16 @@ apiClient.interceptors.response.use(
       console.warn('Unauthorized access - please login again.');
       
       const path = window.location.pathname;
-      let tokenKey = 'token';
-      let userKey = 'user';
       if (path.startsWith('/operator')) {
-        tokenKey = 'token_operator';
-        userKey = 'user_operator';
+        localStorage.removeItem('token_operator');
+        localStorage.removeItem('user_operator');
       } else if (path.startsWith('/qc')) {
-        tokenKey = 'token_qc';
-        userKey = 'user_qc';
+        localStorage.removeItem('token_qc');
+        localStorage.removeItem('user_qc');
+      } else {
+        localStorage.removeItem('token_admin');
+        localStorage.removeItem('user_admin');
       }
-
-      localStorage.removeItem(tokenKey);
-      localStorage.removeItem(userKey);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
       
       // Redirect to login if we are not already there
       if (window.location.pathname !== '/login') {
